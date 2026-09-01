@@ -6,6 +6,7 @@ const SQLITE_PRISMA_SCHEMA_PATH = "src/prisma/schema.sqlite.prisma";
 const POSTGRES_PRISMA_SCHEMA_PATH = "src/prisma/schema.prisma";
 const SQLITE_PRISMA_MIGRATIONS_PATH = "src/prisma/migrations.sqlite";
 const POSTGRES_PRISMA_MIGRATIONS_PATH = "src/prisma/migrations";
+const COMPOSE_PRISMA_MIGRATIONS_PATH = "src/prisma/migrations.compose";
 
 function normalizeDatabaseMode(rawValue: string | undefined): DatabaseProvider | null {
   const normalized = rawValue?.trim().toLowerCase();
@@ -88,12 +89,21 @@ export function resolveDatabaseRuntimeConfig(options?: {
     ? resolveDatabaseProvider(url)
     : resolveDefaultDatabaseProvider(options);
 
+  const useComposeBaseline = process.env.AI_NOVEL_COMPOSE_BASELINE?.trim().toLowerCase() === "true";
+  if (useComposeBaseline && provider !== "postgresql") {
+    throw new Error("AI_NOVEL_COMPOSE_BASELINE requires PostgreSQL.");
+  }
+
   return {
     provider,
     url,
     prismaSchemaPath: provider === "sqlite" ? SQLITE_PRISMA_SCHEMA_PATH : POSTGRES_PRISMA_SCHEMA_PATH,
     prismaMigrationsPath:
-      provider === "sqlite" ? SQLITE_PRISMA_MIGRATIONS_PATH : POSTGRES_PRISMA_MIGRATIONS_PATH,
+      provider === "sqlite"
+        ? SQLITE_PRISMA_MIGRATIONS_PATH
+        : useComposeBaseline
+          ? COMPOSE_PRISMA_MIGRATIONS_PATH
+          : POSTGRES_PRISMA_MIGRATIONS_PATH,
   };
 }
 

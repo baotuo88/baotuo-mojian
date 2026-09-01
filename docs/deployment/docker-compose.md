@@ -1,0 +1,118 @@
+# Docker Compose 部署
+
+## 准备
+
+要求 Docker Engine 与 Docker Compose 插件可用：
+
+```bash
+docker --version
+docker compose version
+```
+
+创建部署环境文件：
+
+```bash
+cp .env.docker.example .env.docker
+```
+
+编辑 `.env.docker`：
+
+1. 将 `POSTGRES_PASSWORD` 换成长随机密码；
+2. 同步修改 `DATABASE_URL` 中的密码；
+3. 配置至少一个模型供应商密钥；
+4. 使用域名时将 `APP_ORIGIN` 改为最终 HTTPS 地址。
+
+数据库密码若含 `@`、`:`、`/`、`#` 等 URL 特殊字符，必须在 `DATABASE_URL` 中进行百分号编码。
+
+## 启动
+
+默认启动 Web、API 和 PostgreSQL，RAG 保持关闭：
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+查看状态：
+
+```bash
+docker compose --env-file .env.docker ps
+docker compose --env-file .env.docker logs -f api
+```
+
+默认访问地址：
+
+```text
+http://localhost:8080
+```
+
+健康检查：
+
+```bash
+curl -fsS http://localhost:8080/api/health/live
+```
+
+## 启用 RAG
+
+先在 `.env.docker` 中设置：
+
+```dotenv
+RAG_ENABLED=true
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_API_KEY=your-key
+```
+
+然后启用 `rag` profile：
+
+```bash
+docker compose --env-file .env.docker --profile rag up -d --build
+```
+
+## 更新
+
+拉取或替换源码后执行：
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+API 容器会在启动前执行 Compose 专用 PostgreSQL baseline。该 baseline 只适用于明确全新的 Compose PostgreSQL 卷；不要把它用于已有库、恢复卷或来源不明的卷。迁移失败时 API 不会启动，应查看日志并停止继续写入：
+
+```bash
+docker compose --env-file .env.docker logs api postgres
+```
+
+## 数据与备份
+
+持久化数据位于 Docker volumes：
+
+- `baotuo-mojian_postgres_data`
+- `baotuo-mojian_image_storage`
+- `baotuo-mojian_qdrant_storage`（启用 RAG 时）
+
+停止服务但保留数据：
+
+```bash
+docker compose --env-file .env.docker down
+```
+
+不要在没有备份和明确数据删除意图时执行：
+
+```bash
+docker compose down -v
+```
+
+PostgreSQL 逻辑备份示例：
+
+```bash
+docker compose --env-file .env.docker exec -T postgres \
+  pg_dump -U baotuo -d baotuo_mojian -Fc > baotuo-mojian.dump
+
+test -s baotuo-mojian.dump
+```
+
+如果修改过默认数据库用户或库名，请同步替换命令参数。
+
+## 公网部署边界
+
+当前 Compose 只发布 Web 端口，API 和数据库不发布端口。对外提供服务时，还应在 Web 前增加 HTTPS 反向代理、防火墙、访问控制和备份监控。当前服务端没有完整多用户认证，不适合直接向不可信公网开放。

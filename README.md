@@ -147,6 +147,12 @@
 
 ## 最新更新
 
+### 2026-09-01
+
+- 新增一键启动的 Web、API 和 PostgreSQL Docker Compose 部署方式，默认通过 Web 同源访问。
+- 作品数据库、生成图片和可选知识库数据使用持久化卷，停止服务或更新镜像不会清空创作内容。
+- 提供环境模板、健康检查、数据库初始化、更新、备份和公网部署边界说明。
+
 ### 2026-08-31
 
 - 自动创作后台意外退出后，会从已保存进度继续当前任务，已有正文、章节状态和恢复位置保持不变。
@@ -490,7 +496,26 @@ pnpm dev
 2. 打开 `http://localhost:5173/settings/model-routes`，检查各任务实际使用的模型路由
 3. 如果要启用知识库，打开 `http://localhost:5173/knowledge?tab=settings`，保存 Embedding / Collection 设置
 
-### 4. 如果你使用 Qdrant Cloud
+### 4. 使用 Docker Compose 部署
+
+项目提供 Web、API 和 PostgreSQL 的完整 Compose 编排：
+
+```bash
+cp .env.docker.example .env.docker
+# 编辑 .env.docker，设置数据库密码和至少一个模型供应商
+
+docker compose --env-file .env.docker up -d --build
+```
+
+默认访问 `http://localhost:8080`，健康检查地址为：
+
+```bash
+curl -fsS http://localhost:8080/api/health/live
+```
+
+RAG 默认关闭；需要本地 Qdrant 时使用 `--profile rag`。完整配置、更新和备份说明见 [Docker Compose 部署文档](./docs/deployment/docker-compose.md)。
+
+### 5. 如果你使用 Qdrant Cloud
 
 如果你只是先体验主流程，其实可以先跳过 Qdrant，直接在 `server/.env` 里设：
 

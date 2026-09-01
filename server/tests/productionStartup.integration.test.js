@@ -34,7 +34,9 @@ test("production server starts on an isolated database and serves liveness", () 
 
 test("production server rejects direct non-loopback exposure without authentication", () => {
   const previousNodeEnv = process.env.NODE_ENV;
+  const previousTrustedProxy = process.env.TRUSTED_REVERSE_PROXY;
   process.env.NODE_ENV = "production";
+  delete process.env.TRUSTED_REVERSE_PROXY;
   try {
     const { assertProductionNetworkBoundary } = require("../dist/config/serverNetwork.js");
     assert.doesNotThrow(() => assertProductionNetworkBoundary("127.0.0.1"));
@@ -43,9 +45,13 @@ test("production server rejects direct non-loopback exposure without authenticat
       () => assertProductionNetworkBoundary("0.0.0.0"),
       /must bind to a loopback host until real authentication is implemented/,
     );
+    process.env.TRUSTED_REVERSE_PROXY = "true";
+    assert.doesNotThrow(() => assertProductionNetworkBoundary("0.0.0.0"));
   } finally {
     if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previousNodeEnv;
+    if (previousTrustedProxy === undefined) delete process.env.TRUSTED_REVERSE_PROXY;
+    else process.env.TRUSTED_REVERSE_PROXY = previousTrustedProxy;
   }
 });
 
