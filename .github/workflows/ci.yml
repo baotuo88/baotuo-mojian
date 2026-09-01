@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [beta, main, master]
+  push:
+    branches: [beta, main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.6.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check Prisma schema parity (sqlite / postgres)
+        run: node scripts/check-prisma-schema-parity.cjs
+
+      - name: Check documentation manifest
+        run: node scripts/check-docs-manifest.cjs
+
+      - name: Build shared
+        run: pnpm --filter @ai-novel/shared build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Server fast tests
+        run: pnpm --filter @ai-novel/server test
+        env:
+          CI: "true"
+
+      - name: Server integration tests
+        run: pnpm --filter @ai-novel/server test:integration
+        env:
+          CI: "true"
+
+      - name: Client tests
+        run: pnpm --filter @ai-novel/client test
+
+      - name: Production builds
+        run: pnpm build

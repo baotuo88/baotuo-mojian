@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#147f91" />
+    <meta name="keywords" content="AI 小说,长篇小说创作,AI Native,自动导演,LangChain,LangGraph,RAG,知识库,Agent Workflow,小说生成,创作工具" />
+    <meta name="author" content="宝拓墨间团队" />
+    <meta
+      name="description"
+      content="宝拓墨间是面向长篇小说的 AI Native 开源生产系统：自动导演、世界观、角色、拆章、章节执行和质量修复串成一条可暂停可恢复的长篇生产链，帮助新手把想法推进到完整成书。"
+    />
+    <link rel="canonical" href="https://batuo88.github.io/baotuo-mojian/" />
+
+    <meta property="og:title" content="宝拓墨间 · 从一句灵感到一整本小说" />
+    <meta
+      property="og:description"
+      content="自动导演、世界观、角色、拆章、章节执行和质量修复串成一条长篇生产链，帮助新手把想法推进到可持续写作。"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://batuo88.github.io/baotuo-mojian/" />
+    <meta property="og:image" content="https://batuo88.github.io/baotuo-mojian/assets/project-social-preview.png" />
+    <meta property="og:site_name" content="宝拓墨间" />
+    <meta property="og:locale" content="zh_CN" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="宝拓墨间 · 从一句灵感到一整本小说" />
+    <meta
+      name="twitter:description"
+      content="AI Native 开源长篇小说生产系统：自动导演 + 世界观 + 角色 + 拆章 + 章节执行 + 质量修复。"
+    />
+    <meta name="twitter:image" content="https://batuo88.github.io/baotuo-mojian/assets/project-social-preview.png" />
+
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
+    <title>宝拓墨间 · 从一句灵感到一整本小说</title>
+    <script>
+      (function () {
+        var base = "/baotuo-mojian";
+        var params = new URLSearchParams(window.location.search);
+        var fallbackPath = params.get("p");
+        if (fallbackPath) {
+          var normalizedFallback = fallbackPath.charAt(0) === "/" ? fallbackPath : "/" + fallbackPath;
+          window.history.replaceState(null, "", base + normalizedFallback);
+          return;
+        }
+        if (window.location.hash.indexOf("#/") === 0) {
+          window.history.replaceState(null, "", base + window.location.hash.slice(1));
+        }
+      })();
+    </script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://batuo88.github.io/baotuo-mojian/#website",
+            "url": "https://batuo88.github.io/baotuo-mojian/",
+            "name": "宝拓墨间",
+            "description": "AI Native 开源长篇小说生产系统",
+            "inLanguage": "zh-CN"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://batuo88.github.io/baotuo-mojian/#software",
+            "name": "宝拓墨间",
+            "applicationCategory": "CreativeWork",
+            "operatingSystem": "Windows",
+            "description": "面向长篇小说的 AI Native 生产系统，把自动导演、世界观、角色、拆章、章节执行和质量修复串成一条生产链。",
+            "url": "https://github.com/batuo88/baotuo-mojian",
+            "downloadUrl": "https://github.com/batuo88/baotuo-mojian/releases/latest",
+            "softwareVersion": "0.4.0",
+            "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://batuo88.github.io/baotuo-mojian/sitemap.xml
