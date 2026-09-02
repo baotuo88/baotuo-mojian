@@ -9,13 +9,17 @@ docker --version
 docker compose version
 ```
 
-Compose 默认直接读取仓库根目录的 `.env.example`，因此可以直接启动：
+Compose 默认读取仓库根目录的 `.env`。首次部署请先复制示例文件：
+
+```bash
+cp .env.example .env
+```
+
+然后编辑 `.env`，设置数据库密码和 AI 服务密钥，再启动：
 
 ```bash
 docker compose up -d --build
 ```
-
-首次部署前编辑 `.env.example`：
 
 1. 将 `POSTGRES_PASSWORD` 换成长随机密码；
 2. 同步修改 `DATABASE_URL` 中的密码；

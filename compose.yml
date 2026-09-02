@@ -5,7 +5,7 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     env_file:
-      - .env.example
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile.api
     restart: unless-stopped
     env_file:
-      - .env.example
+      - .env
     environment:
       NODE_ENV: production
       PORT: 3000

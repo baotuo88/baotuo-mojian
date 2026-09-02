@@ -149,7 +149,7 @@
 
 ### 2026-09-01
 
-- 配置根目录 `.env.example` 后即可直接执行 `docker compose up -d --build` 启动 Web、API 和 PostgreSQL，默认通过 Web 同源访问。
+- 复制根目录 `.env.example` 为 `.env` 并完成配置后，即可执行 `docker compose up -d --build` 启动 Web、API 和 PostgreSQL，默认通过 Web 同源访问。
 - 作品数据库、生成图片和可选知识库数据使用持久化卷，停止服务或更新镜像不会清空创作内容。
 - 提供环境模板、健康检查、数据库初始化、更新、备份和公网部署边界说明。
 
