@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { OutlineTabViewProps } from "../NovelEditView.types";
+import type { OutlineTabViewProps } from "../workspace/NovelEditView.types.ts";
 
 type OutlineCharacterResource = NonNullable<OutlineTabViewProps["characterResources"]>[number];
 

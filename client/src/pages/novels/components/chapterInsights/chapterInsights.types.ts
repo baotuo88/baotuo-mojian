@@ -2,7 +2,7 @@ import type { ChapterRuntimePackage } from "@ai-novel/shared/types/chapterRuntim
 import type { Chapter, StoryPlan, StoryStateSnapshot } from "@ai-novel/shared/types/novel";
 import type { CharacterResourceContext } from "@ai-novel/shared/types/characterResource";
 import type { TimelineCheckReport } from "@ai-novel/shared/types/timeline";
-import type { ChapterTimelineViewData, ChapterTabViewProps } from "../NovelEditView.types";
+import type { ChapterTimelineViewData, ChapterTabViewProps } from "../workspace/NovelEditView.types.ts";
 
 export type TimelineCheckSummary =
   | Pick<TimelineCheckReport, "status" | "score" | "issues">

@@ -6,7 +6,7 @@ import { ArrowRight, Layers3, Route, Sparkles, X } from "lucide-react";
 import type { GenreTreeNode } from "@/api/genre";
 import type { StoryModeTreeNode } from "@/api/storyMode";
 import { Button } from "@/components/ui/button";
-import NovelAutoDirectorIdeaInspirationPanel from "../components/NovelAutoDirectorIdeaInspirationPanel";
+import NovelAutoDirectorIdeaInspirationPanel from "../components/autoDirector/NovelAutoDirectorIdeaInspirationPanel";
 import OnboardingTip from "@/components/onboarding/OnboardingTip";
 import CreationFoundationPickerDialog from "./CreationFoundationPickerDialog";
 

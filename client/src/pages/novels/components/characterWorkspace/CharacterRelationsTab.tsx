@@ -5,7 +5,7 @@ import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { getCharacterRelations } from "@/api/novel";
 import { getCharacterDynamicsOverview } from "@/api/novelCharacterDynamics";
 import { queryKeys } from "@/api/queryKeys";
-import CharacterDiagnosticsSection from "../CharacterDiagnosticsSection";
+import CharacterDiagnosticsSection from "../characterPanel/CharacterDiagnosticsSection";
 import CharacterRelationshipGraphPanel from "./CharacterRelationshipGraphPanel";
 import {
   buildRelationshipGraphModel,

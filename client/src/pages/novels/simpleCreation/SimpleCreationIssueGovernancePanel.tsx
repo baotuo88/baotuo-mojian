@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import NovelDirectorIssuePolicyCard from "../components/NovelDirectorIssuePolicyCard";
+import NovelDirectorIssuePolicyCard from "../components/autoDirector/NovelDirectorIssuePolicyCard";
 
 const ACTION_LABELS: Record<DirectorIssueAction, string> = {
   auto_retry: "自动重试",

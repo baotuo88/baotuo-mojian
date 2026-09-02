@@ -28,7 +28,7 @@ import FullscreenView from "@/components/common/FullscreenView";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getCastRoleLabel, isProtagonistCharacter } from "../characterAssetWorkspace.helpers";
+import { getCastRoleLabel, isProtagonistCharacter } from "../characterAsset/characterAssetWorkspace.helpers.ts";
 import type {
   RelationshipGraphEdge,
   RelationshipGraphMode,

@@ -3,7 +3,7 @@ import type { ChapterRuntimePackage } from "@ai-novel/shared/types/chapterRuntim
 import type { Chapter, StoryPlan } from "@ai-novel/shared/types/novel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { chapterStatusLabel, generationStateLabel, resolveDisplayedChapterStatus } from "../chapterExecution.shared";
+import { chapterStatusLabel, generationStateLabel, resolveDisplayedChapterStatus } from "../chapterExecution/chapterExecution.shared.tsx";
 
 interface ChapterExecutionOverviewPanelProps {
   selectedChapter?: Chapter;

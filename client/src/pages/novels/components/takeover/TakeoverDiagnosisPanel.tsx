@@ -5,7 +5,7 @@ import type {
   TakeoverChapterTargetViewModel,
   TakeoverGuidanceViewModel,
   TakeoverProgressInspectionViewModel,
-} from "../novelExistingProjectTakeoverViewModel";
+} from "./novelExistingProjectTakeoverViewModel";
 import TakeoverChapterTargetSelector from "./TakeoverChapterTargetSelector";
 import TakeoverProgressInspectionPanel from "./TakeoverProgressInspectionPanel";
 

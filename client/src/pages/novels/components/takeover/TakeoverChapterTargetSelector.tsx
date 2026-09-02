@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { TakeoverChapterTargetViewModel } from "../novelExistingProjectTakeoverViewModel";
+import type { TakeoverChapterTargetViewModel } from "./novelExistingProjectTakeoverViewModel";
 import { Input } from "@/components/ui/input";
 import { AUTO_DIRECTOR_MOBILE_CLASSES } from "@/mobile/autoDirector";
 

@@ -4,9 +4,9 @@ import fs from "node:fs";
 
 const read = (path) => fs.readFileSync(new URL(path, import.meta.url), "utf8");
 const listViewModel = read("../src/pages/novels/components/list/novelListViewModel.ts");
-const progressPanel = read("../src/pages/novels/components/NovelAutoDirectorProgressPanel.tsx");
+const progressPanel = read("../src/pages/novels/components/autoDirector/NovelAutoDirectorProgressPanel.tsx");
 const shelfPage = read("../src/pages/novels/simpleCreation/SimpleNovelShelfPage.tsx");
-const journey = read("../src/pages/novels/components/NovelDirectorPreparationJourney.tsx");
+const journey = read("../src/pages/novels/components/autoDirector/NovelDirectorPreparationJourney.tsx");
 const createPage = read("../src/pages/novels/autoDirector/AutoDirectorCreatePage.tsx");
 
 test("workspace routing follows the persisted novel experience without a redirect bounce", () => {

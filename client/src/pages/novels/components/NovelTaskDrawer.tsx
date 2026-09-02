@@ -20,7 +20,7 @@ import {
 import { Link } from "react-router-dom";
 import TaskCenterManualEditImpactCard from "@/pages/tasks/components/TaskCenterManualEditImpactCard";
 import TaskCenterRuntimePolicyCard from "@/pages/tasks/components/TaskCenterRuntimePolicyCard";
-import type { NovelTaskDrawerState } from "./NovelEditView.types";
+import type { NovelTaskDrawerState } from "./workspace/NovelEditView.types.ts";
 
 type DrawerTask = NonNullable<NovelTaskDrawerState["task"]>;
 

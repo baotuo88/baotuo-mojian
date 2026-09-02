@@ -3,8 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import TensionCurvePanel, { type TensionCurveSeries } from "@/components/tensionCurve/TensionCurvePanel";
-import VolumePayoffOverviewCard from "../VolumePayoffOverviewCard";
-import type { OutlineTabViewProps } from "../NovelEditView.types";
+import VolumePayoffOverviewCard from "./VolumePayoffOverviewCard";
+import type { OutlineTabViewProps } from "../workspace/NovelEditView.types.ts";
 
 type OutlineVolume = OutlineTabViewProps["volumes"][number];
 

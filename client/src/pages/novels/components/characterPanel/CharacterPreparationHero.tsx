@@ -1,7 +1,7 @@
 import type { Character } from "@ai-novel/shared/types/novel";
 import AiButton from "@/components/common/AiButton";
 import { Button } from "@/components/ui/button";
-import { StatusRail, StepActionBar, StepHero } from "../workspaceShell";
+import { StatusRail, StepActionBar, StepHero } from "../workspace/workspaceShell";
 
 interface CharacterPreparationHeroProps {
   characters: Character[];

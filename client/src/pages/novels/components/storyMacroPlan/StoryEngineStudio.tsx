@@ -5,13 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { StoryMacroField } from "@ai-novel/shared/types/storyMacro";
-import type { StoryMacroTabProps } from "../NovelEditView.types";
+import type { StoryMacroTabProps } from "../workspace/NovelEditView.types.ts";
 import {
   FieldActions,
   SUMMARY_FIELDS,
   listToText,
   textareaClassName,
-} from "../StoryMacroPlanTab.shared";
+} from "./StoryMacroPlanTab.shared.tsx";
 
 interface StoryEngineStudioProps {
   tab: StoryMacroTabProps;

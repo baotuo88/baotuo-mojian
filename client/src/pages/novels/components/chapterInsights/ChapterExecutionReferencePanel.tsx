@@ -15,13 +15,13 @@ import {
   ChapterRuntimeAuditCard,
   ChapterRuntimeContextCard,
   ChapterRuntimeLengthCard,
-} from "../ChapterRuntimePanels";
+} from "../chapterExecution/ChapterRuntimePanels";
 import {
   hasText,
   parseChapterScenePlanForDisplay,
   type AssetTabKey,
   MetricBadge,
-} from "../chapterExecution.shared";
+} from "../chapterExecution/chapterExecution.shared.tsx";
 
 interface ChapterExecutionReferencePanelProps {
   selectedChapter?: Chapter;

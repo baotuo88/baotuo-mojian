@@ -17,7 +17,7 @@ import {
   updateNovelCharacter,
 } from "@/api/novel";
 import { queryKeys } from "@/api/queryKeys";
-import { buildCharacterProfileFromWizard, type QuickCharacterCreatePayload } from "../components/characterPanel.utils";
+import { buildCharacterProfileFromWizard, type QuickCharacterCreatePayload } from "../components/characterPanel/characterPanel.utils.ts";
 import type {
   SupplementalCharacterCandidate,
   SupplementalCharacterGenerateInput,

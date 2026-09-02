@@ -21,7 +21,7 @@ import { useStructuredOutlineWorkspaceStore } from "../stores/useStructuredOutli
 import { resolveDirectorConsistencyIssue } from "../novelEditRuntime.utils";
 import { tabFromScope } from "../novelWorkspaceNavigation";
 import { resolveAutoExecutionScopeLabel } from "../novelEditTakeover.shared";
-import type { NovelTaskDrawerState } from "../components/NovelEditView.types";
+import type { NovelTaskDrawerState } from "../components/workspace/NovelEditView.types.ts";
 import { resolveChapterTitleWarning } from "@/lib/directorTaskNotice";
 
 interface PendingFlagMutation<TVars> { isPending: boolean; mutate: (variables: TVars) => void; }

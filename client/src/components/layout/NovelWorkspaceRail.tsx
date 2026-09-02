@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import DirectorBookAutomationCard from "@/components/autoDirector/DirectorBookAutomationCard";
-import NovelAutoDirectorProgressPanel from "@/pages/novels/components/NovelAutoDirectorProgressPanel";
+import NovelAutoDirectorProgressPanel from "@/pages/novels/components/autoDirector/NovelAutoDirectorProgressPanel";
 import { shouldShowPinnedBookAutomationProjection } from "@/pages/novels/novelEditAutomationStatus";
 import { cn } from "@/lib/utils";
 import { resolveDirectorContinueMode, resolveWorkflowContinuationFeedback } from "@/lib/novelWorkflowContinuation";

@@ -12,12 +12,12 @@ import { Button } from "@/components/ui/button";
 import { AppDialogContent, Dialog } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { DetailDisclosure } from "../workspaceShell";
+import { DetailDisclosure } from "../workspace/workspaceShell";
 import {
   NovelWorldUsageDetails,
   type NovelWorldUsageCardProps,
   type NovelWorldUsageDraftState,
-} from "../NovelWorldUsageCard";
+} from "./NovelWorldUsageCard";
 import NovelWorldSourcePanel, { type WorldOption } from "./NovelWorldSourcePanel";
 
 export type NovelWorldDialogTab = "overview" | "rules" | "guidance" | "usage" | "sync";

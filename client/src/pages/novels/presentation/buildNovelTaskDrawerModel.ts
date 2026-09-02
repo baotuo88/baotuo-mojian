@@ -1,6 +1,6 @@
 import type { LLMSelectorValue } from "@/components/common/LLMSelector";
 import { canCancelDirectorTask } from "@/lib/novelWorkflowTaskUi";
-import type { NovelTaskDrawerState } from "../components/NovelEditView.types";
+import type { NovelTaskDrawerState } from "../components/workspace/NovelEditView.types.ts";
 import {
   resolveNovelResourceProposalMutationState,
   resolveNovelTaskDrawerCapabilities,

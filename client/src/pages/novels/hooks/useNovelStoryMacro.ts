@@ -19,7 +19,7 @@ import {
   updateNovelStoryMacroState,
 } from "@/api/novelStoryMacro";
 import { queryKeys } from "@/api/queryKeys";
-import type { StoryMacroTabProps } from "../components/NovelEditView.types";
+import type { StoryMacroTabProps } from "../components/workspace/NovelEditView.types.ts";
 import { syncNovelWorkflowStageSilently } from "../novelWorkflow.client";
 
 const EMPTY_CONFLICT_LAYERS: StoryConflictLayers = {

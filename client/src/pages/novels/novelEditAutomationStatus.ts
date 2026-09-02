@@ -3,7 +3,7 @@ import type {
   DirectorBookAutomationStatus,
 } from "@ai-novel/shared/types/directorRuntime";
 import type { TaskStatus, UnifiedTaskDetail } from "@ai-novel/shared/types/task";
-import type { NovelEditTakeoverState } from "./components/NovelEditView.types";
+import type { NovelEditTakeoverState } from "./components/workspace/NovelEditView.types.ts";
 
 function projectionMatchesTask(
   projection: DirectorBookAutomationProjection | null | undefined,

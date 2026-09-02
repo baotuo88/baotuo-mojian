@@ -7,7 +7,7 @@ import {
   POV_OPTIONS,
   READER_CHANNEL_OPTIONS,
 } from "../novelBasicInfo.shared";
-import type { DirectorRunModeOption } from "../components/NovelAutoDirectorDialog.shared";
+import type { DirectorRunModeOption } from "../components/autoDirector/NovelAutoDirectorDialog.shared.ts";
 
 export type AutoDirectorCreateStageKey = "idea" | "basic" | "world_style" | "model_run" | "candidates";
 

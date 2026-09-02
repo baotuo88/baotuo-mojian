@@ -2,7 +2,7 @@ import type {
   BasicTabProps,
   OutlineTabViewProps,
   StructuredTabViewProps,
-} from "./components/NovelEditView.types";
+} from "./components/workspace/NovelEditView.types.ts";
 import type { NovelBasicFormState } from "./novelBasicInfo.shared";
 import type { VolumeSyncOptions } from "./volumePlan.utils";
 import type {

@@ -7,7 +7,7 @@ import {
 } from "d3-force";
 import type { Character, CharacterRelation } from "@ai-novel/shared/types/novel";
 import type { CharacterRelationStage } from "@ai-novel/shared/types/characterDynamics";
-import { isProtagonistCharacter } from "../characterAssetWorkspace.helpers";
+import { isProtagonistCharacter } from "../characterAsset/characterAssetWorkspace.helpers.ts";
 
 export type RelationshipGraphMode = "all" | "current" | "tension" | "dynamic";
 

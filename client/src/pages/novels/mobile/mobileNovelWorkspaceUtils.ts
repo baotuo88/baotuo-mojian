@@ -1,5 +1,5 @@
 import type { NovelWorkspaceTab } from "../novelWorkspaceNavigation";
-import type { NovelEditViewProps } from "../components/NovelEditView.types";
+import type { NovelEditViewProps } from "../components/workspace/NovelEditView.types.ts";
 
 export interface MobileSaveState {
   visible: boolean;

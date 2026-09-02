@@ -27,7 +27,7 @@ test("changing a creation foundation invalidates persisted and local candidates"
 });
 
 test("candidate cards disclose whether foundations came from the user or AI", () => {
-  const source = read("src/pages/novels/components/NovelAutoDirectorCandidateBatches.tsx");
+  const source = read("src/pages/novels/components/autoDirector/NovelAutoDirectorCandidateBatches.tsx");
 
   assert.match(source, /你的选择/);
   assert.match(source, /AI 补充/);

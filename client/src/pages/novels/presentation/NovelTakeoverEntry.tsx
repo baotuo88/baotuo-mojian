@@ -4,7 +4,7 @@ import type { DirectorTakeoverEntryStep } from "@ai-novel/shared/types/novelDire
 import type { UnifiedTaskDetail } from "@ai-novel/shared/types/task";
 import type { NovelBasicFormState } from "../novelBasicInfo.shared";
 import { resolveTakeoverDialogContextTaskId } from "../novelEditAutomationStatus";
-import NovelExistingProjectTakeoverDialog from "../components/NovelExistingProjectTakeoverDialog";
+import NovelExistingProjectTakeoverDialog from "../components/takeover/NovelExistingProjectTakeoverDialog";
 
 export function NovelTakeoverEntry({
   step,

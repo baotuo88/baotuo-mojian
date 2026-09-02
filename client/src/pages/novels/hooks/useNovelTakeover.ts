@@ -6,7 +6,7 @@ import type { UnifiedTaskDetail } from "@ai-novel/shared/types/task";
 import { toast } from "@/components/ui/toast";
 import { canCancelDirectorTask } from "@/lib/novelWorkflowTaskUi";
 import type { useDirectorChapterTitleRepair } from "@/hooks/useDirectorChapterTitleRepair";
-import type { NovelEditTakeoverState } from "../components/NovelEditView.types";
+import type { NovelEditTakeoverState } from "../components/workspace/NovelEditView.types.ts";
 import { tabFromScope } from "../novelWorkspaceNavigation";
 import { resolveDirectorConsistencyIssue, mapDashboardModeToTakeoverMode } from "../novelEditRuntime.utils";
 import {

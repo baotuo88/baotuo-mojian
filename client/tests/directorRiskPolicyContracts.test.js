@@ -23,8 +23,8 @@ test("director risk policy client uses dedicated global and novel endpoints with
 
 test("risk-policy controls are available globally and as a novel-level override", () => {
   const globalCard = read("src/pages/settings/AutoDirectorRiskPolicyCard.tsx");
-  const novelCard = read("src/pages/novels/components/NovelDirectorRiskPolicyCard.tsx");
-  const basicInfo = read("src/pages/novels/components/BasicInfoTab.tsx");
+  const novelCard = read("src/pages/novels/components/autoDirector/NovelDirectorRiskPolicyCard.tsx");
+  const basicInfo = read("src/pages/novels/components/basicInfoForm/BasicInfoTab.tsx");
   const simpleIssuePanel = read("src/pages/novels/simpleCreation/SimpleCreationIssueGovernancePanel.tsx");
 
   assert.match(globalCard, /提醒分数/);
@@ -41,8 +41,8 @@ test("risk-policy controls are available globally and as a novel-level override"
 
 test("new-book and takeover entrypoints disclose the effective risk rule", () => {
   const createPage = read("src/pages/novels/autoDirector/AutoDirectorCreatePage.tsx");
-  const takeoverDialog = read("src/pages/novels/components/NovelExistingProjectTakeoverDialog.tsx");
-  const summary = read("src/pages/novels/components/DirectorRiskPolicySummary.tsx");
+  const takeoverDialog = read("src/pages/novels/components/takeover/NovelExistingProjectTakeoverDialog.tsx");
+  const summary = read("src/pages/novels/components/autoDirector/DirectorRiskPolicySummary.tsx");
 
   assert.match(createPage, /DirectorRiskPolicySummary/);
   assert.match(takeoverDialog, /getNovelDirectorRiskPolicy/);

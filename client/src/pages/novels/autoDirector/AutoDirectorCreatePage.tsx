@@ -33,7 +33,7 @@ import {
 import { useAutoDirectorCreateController } from "./useAutoDirectorCreateController";
 import { extractDirectorTaskSeedPayloadFromMeta } from "@ai-novel/shared/types/novelDirector";
 import { DEFAULT_DIRECTOR_RISK_POLICY } from "@/api/directorRiskPolicy";
-import { DirectorRiskPolicySummary } from "../components/DirectorRiskPolicySummary";
+import { DirectorRiskPolicySummary } from "../components/autoDirector/DirectorRiskPolicySummary";
 
 const STAGE_ORDER: AutoDirectorCreateStageKey[] = ["idea", "basic", "world_style", "model_run", "candidates"];
 

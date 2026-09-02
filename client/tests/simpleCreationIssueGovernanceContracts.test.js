@@ -15,7 +15,7 @@ const globalPolicySource = fs.readFileSync(
   "utf8",
 );
 const novelPolicySource = fs.readFileSync(
-  new URL("../src/pages/novels/components/NovelDirectorIssuePolicyCard.tsx", import.meta.url),
+  new URL("../src/pages/novels/components/autoDirector/NovelDirectorIssuePolicyCard.tsx", import.meta.url),
   "utf8",
 );
 

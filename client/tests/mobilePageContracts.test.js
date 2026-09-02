@@ -10,13 +10,13 @@ const readClientFile = (relativePath) => readFileSync(join(clientRoot, relativeP
 const appLayout = readClientFile("src/components/layout/AppLayout.tsx");
 const css = readClientFile("src/index.css");
 const mobileSiteNavigation = readClientFile("src/components/layout/mobile/mobileSiteNavigation.ts");
-const novelEditView = readClientFile("src/pages/novels/components/NovelEditView.tsx");
+const novelEditView = readClientFile("src/pages/novels/components/workspace/NovelEditView.tsx");
 const homeStatusStrip = readClientFile("src/pages/home/components/HomeStatusStrip.tsx");
 const taskCenterPage = readClientFile("src/pages/tasks/TaskCenterPage.tsx");
 const taskCenterFilterPanel = readClientFile("src/pages/tasks/components/TaskCenterFilterPanel.tsx");
 const taskCenterSummaryCards = readClientFile("src/pages/tasks/components/TaskCenterSummaryCards.tsx");
-const structuredOutlineWorkspace = readClientFile("src/pages/novels/components/StructuredOutlineWorkspace.tsx");
-const structuredChapterListCard = readClientFile("src/pages/novels/components/StructuredChapterListCard.tsx");
+const structuredOutlineWorkspace = readClientFile("src/pages/novels/components/outline/StructuredOutlineWorkspace.tsx");
+const structuredChapterListCard = readClientFile("src/pages/novels/components/outline/StructuredChapterListCard.tsx");
 const mobileNovelEditView = readClientFile("src/pages/novels/mobile/MobileNovelEditView.tsx");
 const mobileNovelStepNav = readClientFile("src/pages/novels/mobile/MobileNovelStepNav.tsx");
 const mobileAutoDirectorStatusCard = readClientFile("src/pages/novels/mobile/MobileAutoDirectorStatusCard.tsx");

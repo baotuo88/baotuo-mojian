@@ -171,8 +171,8 @@ test("auto-director creation page exposes mobile-safe stages and reachable actio
   const basicStage = readSource("pages/novels/autoDirector/StageBasicSetup.tsx");
   const worldStage = readSource("pages/novels/autoDirector/StageWorldStyle.tsx");
   const modelStage = readSource("pages/novels/autoDirector/StageModelRun.tsx");
-  const candidateBatches = readSource("pages/novels/components/NovelAutoDirectorCandidateBatches.tsx");
-  const takeoverDialog = readSource("pages/novels/components/NovelExistingProjectTakeoverDialog.tsx");
+  const candidateBatches = readSource("pages/novels/components/autoDirector/NovelAutoDirectorCandidateBatches.tsx");
+  const takeoverDialog = readSource("pages/novels/components/takeover/NovelExistingProjectTakeoverDialog.tsx");
 
   assertContains(
     createPage,

@@ -13,7 +13,7 @@ import type {
   VolumeRebalanceDecision,
   VolumeStrategyPlan,
 } from "@ai-novel/shared/types/novel";
-import NovelEditView from "./components/NovelEditView";
+import NovelEditView from "./components/workspace/NovelEditView";
 import NovelProductionExperienceHandoff from "./components/NovelProductionExperienceHandoff";
 import type { LLMSelectorValue } from "@/components/common/LLMSelector";
 
@@ -28,7 +28,7 @@ import { queryKeys } from "@/api/queryKeys";
 import { toast } from "@/components/ui/toast";
 import { useLLMStore } from "@/store/llmStore";
 import { buildWorldInjectionSummary } from "./novelEdit.utils";
-import type { QuickCharacterCreatePayload } from "./components/characterPanel.utils";
+import type { QuickCharacterCreatePayload } from "./components/characterPanel/characterPanel.utils.ts";
 import type { ChapterExecutionStrategy } from "./chapterExecution.utils";
 import { useNovelCharacterMutations } from "./hooks/useNovelCharacterMutations";
 import { useChapterExecutionActions } from "./hooks/useChapterExecutionActions";
@@ -55,7 +55,7 @@ import { NovelTakeoverEntry } from "./presentation/NovelTakeoverEntry";
 import { buildNovelTaskDrawerModel } from "./presentation/buildNovelTaskDrawerModel";
 import { buildNovelEditPlanningTabs } from "./novelEditPlanningTabs";
 import type { ChapterReviewResult } from "./chapterPlanning.shared";
-import NovelExistingProjectTakeoverDialog from "./components/NovelExistingProjectTakeoverDialog";
+import NovelExistingProjectTakeoverDialog from "./components/takeover/NovelExistingProjectTakeoverDialog";
 import { isNovelWorkspaceFlowTab, tabFromScope } from "./novelWorkspaceNavigation";
 import {
   DEFAULT_ESTIMATED_CHAPTER_COUNT,

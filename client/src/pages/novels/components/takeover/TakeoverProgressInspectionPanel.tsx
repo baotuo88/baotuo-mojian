@@ -1,4 +1,4 @@
-import type { TakeoverProgressInspectionViewModel } from "../novelExistingProjectTakeoverViewModel";
+import type { TakeoverProgressInspectionViewModel } from "./novelExistingProjectTakeoverViewModel";
 import { AUTO_DIRECTOR_MOBILE_CLASSES } from "@/mobile/autoDirector";
 
 interface TakeoverProgressInspectionPanelProps {

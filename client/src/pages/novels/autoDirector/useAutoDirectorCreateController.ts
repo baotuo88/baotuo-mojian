@@ -31,24 +31,24 @@ import {
   buildDirectorAutoExecutionPlanFromDraft,
   createDefaultDirectorAutoExecutionDraftState,
   normalizeDirectorAutoExecutionDraftState,
-} from "../components/directorAutoExecutionPlan.shared";
+} from "../components/autoDirector/directorAutoExecutionPlan.shared.tsx";
 import {
   buildAutoDirectorRequestPayload,
   buildInitialIdea,
   DEFAULT_VISIBLE_RUN_MODE,
   RUN_MODE_OPTIONS,
-} from "../components/NovelAutoDirectorDialog.shared";
-import { useDirectorAutoApprovalDraft } from "../components/useDirectorAutoApprovalDraft";
+} from "../components/autoDirector/NovelAutoDirectorDialog.shared.ts";
+import { useDirectorAutoApprovalDraft } from "../components/autoDirector/useDirectorAutoApprovalDraft";
 import {
   ACTIVE_DIRECTOR_TASK_STATUSES,
   DIRECTOR_CANDIDATE_SETUP_STEP_KEYS,
-} from "../components/NovelAutoDirectorDialog.constants";
-import type { DirectorExecutionViewMode } from "../components/NovelAutoDirector.types";
+} from "../components/autoDirector/NovelAutoDirectorDialog.constants.ts";
+import type { DirectorExecutionViewMode } from "../components/autoDirector/NovelAutoDirector.types.ts";
 import {
   applyDirectorCandidateTitleOption,
   toggleDirectorCorrectionPreset,
-} from "../components/directorCandidateSelectionHandlers";
-import { useNovelAutoDirectorCandidateMutations } from "../components/useNovelAutoDirectorCandidateMutations";
+} from "../components/autoDirector/directorCandidateSelectionHandlers";
+import { useNovelAutoDirectorCandidateMutations } from "../components/autoDirector/useNovelAutoDirectorCandidateMutations";
 import { hasCreationFoundationChanged } from "./creationFoundationPickerState";
 
 interface UseAutoDirectorCreateControllerInput {

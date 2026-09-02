@@ -1,8 +1,8 @@
 import type { DirectorDashboardMode, DirectorTaskSnapshot } from "@ai-novel/shared/types/directorRuntime";
 import type { DirectorSessionState } from "@ai-novel/shared/types/novelDirector";
 import type { NovelExportDownloadFormat, NovelExportScope } from "@ai-novel/shared/types/novelExport";
-import type { ChapterExecutionBackgroundActivity } from "./components/chapterExecution.shared";
-import type { NovelEditTakeoverState } from "./components/NovelEditView.types";
+import type { ChapterExecutionBackgroundActivity } from "./components/chapterExecution/chapterExecution.shared.tsx";
+import type { NovelEditTakeoverState } from "./components/workspace/NovelEditView.types.ts";
 import type { LLMSelectorValue } from "@/components/common/LLMSelector";
 
 export type NovelEditTakeoverTab =

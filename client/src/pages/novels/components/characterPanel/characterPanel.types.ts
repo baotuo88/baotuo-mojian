@@ -5,7 +5,7 @@ import type {
   SupplementalCharacterGenerationResult,
   SupplementalCharacterCandidate,
 } from "@ai-novel/shared/types/novel";
-import type { QuickCharacterCreatePayload } from "../characterPanel.utils";
+import type { QuickCharacterCreatePayload } from "./characterPanel.utils.ts";
 
 export interface QuickCharacterFormState {
   name: string;

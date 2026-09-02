@@ -5,7 +5,7 @@ import WorkflowProgressBar, {
   type WorkflowProgressTone,
 } from "@/components/workflow/WorkflowProgressBar";
 import { cn } from "@/lib/utils";
-import type { NovelEditTakeoverState } from "../components/NovelEditView.types";
+import type { NovelEditTakeoverState } from "../components/workspace/NovelEditView.types.ts";
 
 interface MobileAutoDirectorStatusCardProps {
   takeover: NovelEditTakeoverState;
