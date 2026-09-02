@@ -8,7 +8,7 @@ const items = [
   { to: "/settings/models", label: "模型与厂商", icon: Bot },
   { to: "/settings/director", label: "自动导演", icon: BookOpenCheck },
   { to: "/settings/knowledge", label: "知识库与写法", icon: Database },
-  { to: "/settings/maintenance", label: "桌面与维护", icon: MonitorCog },
+  { to: "/settings/maintenance", label: "系统维护", icon: MonitorCog },
   { to: "/settings/appearance", label: "外观与主题", icon: Palette },
 ];
 

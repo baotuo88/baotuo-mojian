@@ -19,7 +19,7 @@ const lanDevLocation = {
 test("production web without configured API base uses same-origin API path", () => {
   assert.equal(
     resolveApiBaseUrlForEnvironment({
-      runtimeConfig: { mode: "web" },
+      runtimeConfig: { },
       viteEnv: productionEnv,
       windowLocation: webLocation,
     }),
@@ -30,7 +30,7 @@ test("production web without configured API base uses same-origin API path", () 
 test("configured runtime API base wins in production web", () => {
   assert.equal(
     resolveApiBaseUrlForEnvironment({
-      runtimeConfig: { mode: "web", apiBaseUrl: "https://api.example.com/api" },
+      runtimeConfig: { apiBaseUrl: "https://api.example.com/api" },
       viteEnv: productionEnv,
       windowLocation: webLocation,
     }),
@@ -41,7 +41,7 @@ test("configured runtime API base wins in production web", () => {
 test("configured Vite API base wins when runtime config is absent", () => {
   assert.equal(
     resolveApiBaseUrlForEnvironment({
-      runtimeConfig: { mode: "web" },
+      runtimeConfig: { },
       viteEnv: { ...productionEnv, VITE_API_BASE_URL: "https://env.example.com/api" },
       windowLocation: webLocation,
     }),
@@ -49,21 +49,10 @@ test("configured Vite API base wins when runtime config is absent", () => {
   );
 });
 
-test("configured desktop runtime API base is preserved", () => {
-  assert.equal(
-    resolveApiBaseUrlForEnvironment({
-      runtimeConfig: { mode: "desktop", apiBaseUrl: "http://127.0.0.1:43123/api" },
-      viteEnv: productionEnv,
-      windowLocation: webLocation,
-    }),
-    "http://127.0.0.1:43123/api",
-  );
-});
-
 test("development web without configured API base uses the Vite proxy path", () => {
   assert.equal(
     resolveApiBaseUrlForEnvironment({
-      runtimeConfig: { mode: "web" },
+      runtimeConfig: { },
       viteEnv: developmentEnv,
       windowLocation: lanDevLocation,
     }),
@@ -74,7 +63,7 @@ test("development web without configured API base uses the Vite proxy path", () 
 test("development loopback API base adapts to the page host for LAN testing", () => {
   assert.equal(
     resolveApiBaseUrlForEnvironment({
-      runtimeConfig: { mode: "web" },
+      runtimeConfig: { },
       viteEnv: { ...developmentEnv, VITE_API_BASE_URL: "http://localhost:3000/api" },
       windowLocation: lanDevLocation,
     }),

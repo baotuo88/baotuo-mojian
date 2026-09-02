@@ -31,8 +31,6 @@ server/src/prisma/dev.db-journal
 .codegraph/
 .trae/
 server/.tmp/
-desktop/build/
-desktop/runtime-migration-smoke/
 server/prisma-diff-migrations-to-schema.sql
 
 # AI tool artifacts

@@ -21,7 +21,6 @@ ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 COPY shared ./shared
 COPY client/package.json client/tsconfig.json client/vite.config.ts client/tailwind.config.ts client/postcss.config.js client/components.json client/index.html ./client/
-COPY desktop/package.json ./desktop/package.json
 COPY client/public ./client/public
 COPY client/src ./client/src
 RUN pnpm --filter @ai-novel/shared build \

@@ -1,5 +1,4 @@
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-type AppRuntimeMode = "web" | "desktop";
 type ViteRuntimeEnv = Partial<ImportMetaEnv> & {
   DEV?: boolean;
   VITE_API_BASE_URL?: string;
@@ -9,13 +8,9 @@ type ViteRuntimeEnv = Partial<ImportMetaEnv> & {
 type BrowserLocation = Pick<Location, "protocol" | "hostname" | "origin">;
 
 interface ClientRuntimeConfig {
-  mode?: AppRuntimeMode;
   apiBaseUrl?: string;
   apiTimeoutMs?: number | string;
-  isPackaged?: boolean;
   appVersion?: string;
-  isPortable?: boolean;
-  updateChannel?: string;
 }
 
 function isLoopbackHost(hostname: string | null | undefined): boolean {
@@ -38,19 +33,11 @@ function resolveViteEnv(): ViteRuntimeEnv {
   return (import.meta as ImportMeta & { env?: ViteRuntimeEnv }).env ?? {};
 }
 
-function resolveAppRuntime(config: ClientRuntimeConfig): AppRuntimeMode {
-  return config.mode === "desktop" ? "desktop" : "web";
-}
-
 const runtimeConfig = resolveRuntimeConfig();
 const viteEnv = resolveViteEnv();
 const viteAppVersion = viteEnv.VITE_APP_VERSION;
 
-export const APP_RUNTIME: AppRuntimeMode = resolveAppRuntime(runtimeConfig);
-export const APP_RUNTIME_IS_PACKAGED = runtimeConfig.isPackaged === true;
 export const APP_VERSION = runtimeConfig.appVersion?.trim() || viteAppVersion?.trim() || "0.0.0";
-export const APP_RUNTIME_IS_PORTABLE = runtimeConfig.isPortable === true;
-export const APP_UPDATE_CHANNEL = runtimeConfig.updateChannel?.trim() || "beta";
 
 interface ResolveApiBaseUrlInput {
   runtimeConfig?: ClientRuntimeConfig;
@@ -64,7 +51,6 @@ export function resolveApiBaseUrlForEnvironment({
   windowLocation = null,
 }: ResolveApiBaseUrlInput): string {
   const configuredBaseUrl = config.apiBaseUrl?.trim() || env.VITE_API_BASE_URL?.trim();
-  const appRuntime = resolveAppRuntime(config);
   if (!windowLocation) {
     return configuredBaseUrl || "http://localhost:3000/api";
   }
@@ -73,10 +59,10 @@ export function resolveApiBaseUrlForEnvironment({
     if (configuredBaseUrl) {
       return configuredBaseUrl;
     }
-    return appRuntime === "desktop" ? "http://localhost:3000/api" : "/api";
+    return "/api";
   }
 
-  if (appRuntime === "web" && !configuredBaseUrl) {
+  if (!configuredBaseUrl) {
     return "/api";
   }
 

@@ -28,13 +28,9 @@
 
 适合**完全不懂写作的新手**走完一本长篇，也适合研究 AI Native 应用、Agent Workflow、LangGraph 编排和长链路任务的开发者参考。
 
-## Windows 桌面版
+## 快速开始
 
-如果你只是想直接下载安装并开始使用，优先从桌面版入口进入：
-
-- 下载入口：[GitHub Releases](https://github.com/batuo88/baotuo-mojian/releases)
-- 最新版本页：[Latest Release](https://github.com/batuo88/baotuo-mojian/releases/latest)
-- 建议优先下载 `Setup.exe` 安装版；如果你不想安装，或者想放在 U 盘 / 临时目录里直接运行，再选择 `portable` 版本
+- Web 端：`cp .env.example .env` 并设置数据库密码后，执行 `docker compose up -d --build`，访问 `http://localhost:8080`
 - 公开介绍站：[GitHub Pages 介绍站](https://batuo88.github.io/baotuo-mojian/) 提供功能预览、模块文档和使用指南
 
 ## 用 Codex 持续创作长篇：Ani Book Skill
@@ -123,7 +119,7 @@
 - 支持 OpenAI、DeepSeek、SiliconFlow、xAI 等多提供商；规划、正文、审阅、拆书等链路可按任务拆开路由
 - 默认 SQLite 即可跑通主链；需要 RAG 检索时再接入 Qdrant
 - RAG 并发数、限速等运行时参数从 .env 迁到设置面板，改完即生效无需重启
-- Monorepo 拆分（pnpm workspace），桌面版 / 介绍站 / 服务端 / 客户端独立可构建
+- Monorepo 拆分（pnpm workspace），介绍站 / 服务端 / 客户端独立可构建
 
 
 ## 典型使用路径
@@ -332,17 +328,9 @@
 pnpm install
 ```
 
-默认的 `pnpm install` 现在只准备 Web / Server 开发所需依赖，不会在首次安装时强制下载 Electron 桌面运行时。
+默认的 `pnpm install` 只准备 Web / Server 开发所需依赖。
 
 - 如果你只是运行现有 Web / Server 开发流，到这里就够了
-- 如果你要启动桌面端开发壳，首次运行 `pnpm dev:desktop` 时会自动补拉 Electron 运行时
-- 如果你想提前完成这一步，也可以手动执行：
-
-```bash
-pnpm run prepare:desktop-runtime
-```
-
-桌面端运行时首次下载需要可访问 Electron 分发源的网络环境；如果你所在网络无法访问 GitHub Releases，建议先配置代理或镜像后再执行桌面端命令。
 
 如果你在 Windows 上执行 `pnpm install` 时卡在 `prisma preinstall`，通常先检查这两类问题：
 

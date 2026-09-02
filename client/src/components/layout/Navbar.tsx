@@ -7,7 +7,6 @@ import DesktopBrandMark from "@/components/layout/DesktopBrandMark";
 import LiveExecutionDialog from "@/components/liveExecution/LiveExecutionDialog";
 import ProjectGithubLink from "@/components/layout/ProjectGithubLink";
 import ThemeToggle from "@/components/theme/ThemeToggle";
-import DesktopReleaseNotesDialog from "@/components/layout/DesktopReleaseNotesDialog";
 import { Button } from "@/components/ui/button";
 import {
   AUTO_DIRECTOR_MOBILE_CLASSES,
@@ -35,7 +34,6 @@ export default function Navbar(props: NavbarProps) {
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="min-w-0 truncate text-sm font-semibold">宝拓墨间</span>
             <AppVersionBadge />
-            <DesktopReleaseNotesDialog />
             <ProjectGithubLink />
           </div>
           <span className="hidden truncate text-[11px] text-muted-foreground sm:block">AI Novel Production Engine</span>

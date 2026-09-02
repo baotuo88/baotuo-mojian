@@ -21,7 +21,6 @@ import creativeHubImage from "./assets/creative-hub.png";
 import directorChoiceImage from "./assets/director-choice.png";
 
 const repoUrl = "https://github.com/batuo88/baotuo-mojian";
-const releaseUrl = `${repoUrl}/releases/latest`;
 const docsIntroBannerImage = `${import.meta.env.BASE_URL}assets/docs-intro-banner.png`;
 
 const proofItems = [
@@ -174,7 +173,7 @@ function SiteNav({ page }: { page: "home" | "docs" }) {
             <a href="#audience">适合谁</a>
           </>
         ) : (
-          <a href={releaseUrl}>下载桌面版</a>
+          <a href={docsPath()}>部署指南</a>
         )}
         <a className="nav-github" href={repoUrl} aria-label={stars !== null ? `GitHub · ${stars} stars` : "GitHub"}>
           <Github size={15} />
@@ -210,9 +209,9 @@ function HomePage() {
             自动导演、世界观、角色、拆章、章节执行和质量修复串成一条长篇生产链，帮助新手把想法推进到可持续写作。
           </p>
           <div className="hero-actions">
-            <a className="button primary" href={releaseUrl}>
+            <a className="button primary" href={docsPath()}>
               <Download size={18} />
-              下载桌面版
+              部署指南
             </a>
             <a className="button ghost" href={repoUrl}>
               <Github size={18} />
@@ -328,15 +327,15 @@ function HomePage() {
           </div>
         </div>
         <aside className="download-panel">
-          <p className="panel-label">Windows desktop</p>
-          <h3>先下载桌面版，跑通一条完整创作链</h3>
+          <p className="panel-label">Docker Compose</p>
+          <h3>从源码部署，跑通一条完整创作链</h3>
           <p>
-            默认 SQLite 可以本地运行；需要知识库检索时再接入 Qdrant。开发者可以从源码继续研究前后端和 Agent 工作流。
+            一条 `docker compose up -d --build` 启动 Web、API 和数据库；需要知识库检索时再接入 Qdrant。开发者可以从源码继续研究前后端和 Agent 工作流。
           </p>
           <div className="panel-actions">
-            <a className="button primary dark" href={releaseUrl}>
+            <a className="button primary dark" href={docsPath()}>
               <Download size={18} />
-              最新版本
+              部署指南
             </a>
             <a className="text-link" href={repoUrl}>
               打开仓库
@@ -362,9 +361,9 @@ function HomePage() {
         <p className="eyebrow">Open source</p>
         <h2>把长篇小说创作做成可以运行、可以恢复、可以继续改进的生产系统。</h2>
         <div className="cta-actions">
-          <a className="button primary" href={releaseUrl}>
+          <a className="button primary" href={docsPath()}>
             <Download size={18} />
-            下载桌面版
+            部署指南
           </a>
           <a className="button ghost" href={repoUrl}>
             <Github size={18} />

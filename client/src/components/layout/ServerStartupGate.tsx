@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { LoaderCircle, RefreshCw } from "lucide-react";
-import { API_BASE_URL, APP_RUNTIME } from "@/lib/constants";
+import { API_BASE_URL } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 
 interface ServerStartupGateProps {
@@ -13,7 +13,7 @@ const STARTUP_CHECK_INTERVAL_MS = 1000;
 const STARTUP_WAIT_THRESHOLD_MS = 1200;
 
 function shouldUseStartupGate(): boolean {
-  return import.meta.env.DEV && APP_RUNTIME !== "desktop";
+  return import.meta.env.DEV;
 }
 
 async function checkServerReady(signal: AbortSignal): Promise<boolean> {

@@ -18,5 +18,3 @@ client/.env.local
 .env
 .env.local
 .env.docker
-desktop/build
-desktop/runtime-migration-smoke
