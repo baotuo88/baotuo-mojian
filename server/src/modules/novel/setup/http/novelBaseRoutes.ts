@@ -16,7 +16,7 @@ import { prisma } from "../../../../db/prisma";
 import { llmProviderSchema } from "../../../../llm/providerSchema";
 import { validate } from "../../../../middleware/validate";
 import { KnowledgeService } from "../../../../services/knowledge/KnowledgeService";
-import { novelCreateResourceRecommendationService } from "../../../../services/novel/NovelCreateResourceRecommendationService";
+import { novelCreateResourceRecommendationService } from "../../../../services/novel";
 import type { NovelApplicationServices } from "../../../../services/novel/application/NovelApplicationContracts";
 
 const paginationSchema = z.object({

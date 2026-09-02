@@ -49,7 +49,7 @@ import { bookAnalysisService } from "./services/bookAnalysis/BookAnalysisService
 import { ragServices } from "./services/rag";
 import { getSharedNovelServices } from "./services/novel/application/sharedNovelServices";
 import { novelSideEffectWorker } from "./events/sideEffects";
-import { NovelPipelineRuntimeService } from "./services/novel/NovelPipelineRuntimeService";
+import { NovelPipelineRuntimeService } from "./services/novel";
 import { recoveryTaskService } from "./services/task/RecoveryTaskService";
 import {
   ensureSystemResourceStarterData,

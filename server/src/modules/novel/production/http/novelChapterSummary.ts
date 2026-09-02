@@ -4,7 +4,7 @@ import { z } from "zod";
 import { llmProviderSchema } from "../../../../llm/providerSchema";
 import { authMiddleware } from "../../../../middleware/auth";
 import { validate } from "../../../../middleware/validate";
-import { NovelChapterSummaryService } from "../../../../services/novel/NovelChapterSummaryService";
+import { NovelChapterSummaryService } from "../../../../services/novel";
 
 const router = Router();
 const novelChapterSummaryService = new NovelChapterSummaryService();

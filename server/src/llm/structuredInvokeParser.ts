@@ -15,7 +15,7 @@ import {
   type StructuredOutputProfile,
   type StructuredOutputStrategy,
 } from "./structuredOutput";
-import { extractJSONValue } from "../services/novel/novelP0Utils";
+import { extractJSONValue } from "@ai-novel/shared/utils/jsonText";
 import type { PromptInvocationMeta } from "../prompting/core/promptTypes";
 import type { LlmTokenUsageSnapshot } from "./usageTracking";
 

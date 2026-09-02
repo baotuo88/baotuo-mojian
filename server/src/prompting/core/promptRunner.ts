@@ -17,7 +17,7 @@ import {
   type LlmTokenUsageSnapshot,
 } from "../../llm/usageTracking";
 import { logMemoryUsage } from "../../runtime/memoryTelemetry";
-import { toText } from "../../services/novel/novelP0Utils";
+import { toText } from "@ai-novel/shared/utils/jsonText";
 import { beginLlmLiveSession } from "../../platform/llm/live/llmLiveSession";
 import { hasRegisteredPromptAsset } from "../registry";
 import { CUSTOM_SLOT_CONTEXT_GROUP } from "../slots/slotResolution";

@@ -4,7 +4,7 @@ import type { BookFramingSuggestionInput } from "@ai-novel/shared/types/novelFra
 import { z } from "zod";
 import { llmProviderSchema } from "../../../../llm/providerSchema";
 import { validate } from "../../../../middleware/validate";
-import { novelFramingSuggestionService } from "../../../../services/novel/NovelFramingSuggestionService";
+import { novelFramingSuggestionService } from "../../../../services/novel";
 
 const llmGenerateSchema = z.object({
   provider: llmProviderSchema.optional(),

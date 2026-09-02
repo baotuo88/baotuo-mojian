@@ -7,7 +7,7 @@ import { runWithEnforcedTimeout } from "./invokeTimeout";
 import { logStructuredRepairSession } from "./repairLogging";
 import type { TaskType } from "./modelRouter";
 import type { StructuredOutputStrategy } from "./structuredOutput";
-import { toText } from "../services/novel/novelP0Utils";
+import { toText } from "@ai-novel/shared/utils/jsonText";
 import type { PromptInvocationMeta } from "../prompting/core/promptTypes";
 
 export interface StructuredRepairInput<T> {

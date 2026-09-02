@@ -33,7 +33,7 @@ import {
   wrapStructuredInvokeError,
   type StructuredInvokeResult,
 } from "./structuredInvokeParser";
-import { toText } from "../services/novel/novelP0Utils";
+import { toText } from "@ai-novel/shared/utils/jsonText";
 import type { PromptInvocationMeta } from "../prompting/core/promptTypes";
 
 export {

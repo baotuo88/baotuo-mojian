@@ -1,6 +1,6 @@
 import { asObject, summarizeOutput } from "../agents/runtime/runtimeHelpers";
 import type { AgentRuntimeResult, PlannerResult, StructuredIntent } from "../agents/types";
-import type { ProductionStatusResult } from "../services/novel/NovelProductionStatusService";
+import type { ProductionStatusResult } from "../services/novel";
 import type { AgentStep } from "@ai-novel/shared/types/agent";
 import type {
   CreativeHubInterrupt,

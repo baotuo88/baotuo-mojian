@@ -6,7 +6,7 @@ import type { TaskType } from "../llm/modelRouter";
 import { invokeStructuredLlmDetailed } from "../llm/structuredInvoke";
 import type { LlmTokenUsageSnapshot } from "../llm/usageTracking";
 import { extractLlmTokenUsage } from "../llm/usageTracking";
-import { toText } from "../services/novel/novelP0Utils";
+import { toText } from "@ai-novel/shared/utils/jsonText";
 import {
   buildPromptAssetKey,
   type PromptAsset,

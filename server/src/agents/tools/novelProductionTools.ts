@@ -18,7 +18,7 @@ import {
   syncChaptersFromStructuredOutlineInput,
   syncChaptersFromStructuredOutlineOutput,
 } from "./novelToolShared";
-import { novelProductionService } from "../../services/novel/NovelProductionService";
+import { novelProductionService } from "../../services/novel";
 
 function resolveNovelId(contextNovelId: string | undefined, rawNovelId: string | undefined): string {
   const novelId = rawNovelId?.trim() || contextNovelId?.trim();

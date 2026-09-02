@@ -10,7 +10,7 @@ import type {
 } from "@ai-novel/shared/types/creativeHub";
 import type { FailureDiagnostic } from "@ai-novel/shared/types/agent";
 import { prisma } from "../db/prisma";
-import { novelSetupStatusService } from "../services/novel/NovelSetupStatusService";
+import { novelSetupStatusService } from "../services/novel";
 
 interface CreateThreadInput {
   title?: string;

@@ -3,7 +3,7 @@ import type { ApiResponse } from "@ai-novel/shared/types/api";
 import { z } from "zod";
 import { streamToSSE } from "../../../../llm/streaming";
 import { validate } from "../../../../middleware/validate";
-import type { NovelDraftOptimizeService } from "../../../../services/novel/NovelDraftOptimizeService";
+import type { NovelDraftOptimizeService } from "../../../../services/novel";
 import type { NovelApplicationServices } from "../../../../services/novel/application/NovelApplicationContracts";
 import { timelineContextService, timelineRepository } from "../../../../modules/timeline";
 import { prisma } from "../../../../db/prisma";

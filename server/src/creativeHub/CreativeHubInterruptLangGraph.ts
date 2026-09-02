@@ -4,7 +4,7 @@ import { AgentTraceStore } from "../agents/traceStore";
 import { ApprovalContinuationService } from "../agents/runtime/ApprovalContinuationService";
 import { RunExecutionService } from "../agents/runtime/RunExecutionService";
 import type { AgentRuntimeCallbacks } from "../agents/types";
-import { novelProductionService } from "../services/novel/NovelProductionService";
+import { novelProductionService } from "../services/novel";
 import { sanitizeCreativeHubToolOutput } from "./toolEventPayloads";
 import { filterCreativeHubActions } from "./creativeHubToolPolicy";
 import { creativeHubService } from "./CreativeHubService";

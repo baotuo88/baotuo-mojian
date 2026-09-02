@@ -1,5 +1,5 @@
 import { prisma } from "../../db/prisma";
-import { novelSetupStatusService } from "../../services/novel/NovelSetupStatusService";
+import { novelSetupStatusService } from "../../services/novel";
 import { AgentToolError, type AgentToolName } from "../types";
 import type { AgentToolDefinition } from "./toolTypes";
 import {

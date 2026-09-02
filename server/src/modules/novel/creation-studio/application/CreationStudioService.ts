@@ -15,7 +15,7 @@ import { AppError } from "../../../../middleware/errorHandler";
 import { runStructuredPrompt } from "../../../../prompting/core/promptRunner";
 import { creationIntentInterpretPrompt } from "../../../../prompting/prompts/creation/creationIntent.prompts";
 import { NovelDirectorService } from "../../../../services/novel/director/NovelDirectorService";
-import { novelCreateResourceRecommendationService } from "../../../../services/novel/NovelCreateResourceRecommendationService";
+import { novelCreateResourceRecommendationService } from "../../../../services/novel";
 import { NovelWorkflowService } from "../../../../services/novel/workflow/NovelWorkflowService";
 import { parseSeedPayload, resumeTargetToRoute } from "../../../../services/novel/workflow/novelWorkflow.shared";
 import { shortStoryProductionService } from "../../short-story/application/ShortStoryProductionService";
