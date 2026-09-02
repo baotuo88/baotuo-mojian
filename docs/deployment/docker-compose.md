@@ -18,7 +18,7 @@ cp .env.example .env
 然后编辑 `.env`，设置数据库密码和 AI 服务密钥，再启动：
 
 ```bash
-docker compose up -d --build
+./scripts/docker-compose-up.sh up -d --build
 ```
 
 1. 将 `POSTGRES_PASSWORD` 换成长随机密码；
@@ -33,7 +33,7 @@ docker compose up -d --build
 默认启动 Web、API 和 PostgreSQL，RAG 保持关闭：
 
 ```bash
-docker compose up -d --build
+./scripts/docker-compose-up.sh up -d --build
 ```
 
 查看状态：
@@ -77,7 +77,7 @@ docker compose --profile rag up -d --build
 拉取或替换源码后执行：
 
 ```bash
-docker compose up -d --build
+./scripts/docker-compose-up.sh up -d --build
 ```
 
 API 容器会在启动前执行 Compose 专用 PostgreSQL baseline。该 baseline 只适用于明确全新的 Compose PostgreSQL 卷；不要把它用于已有库、恢复卷或来源不明的卷。迁移失败时 API 不会启动，应查看日志并停止继续写入：
