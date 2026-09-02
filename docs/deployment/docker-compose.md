@@ -22,7 +22,7 @@ cp .env.example .env
 ```
 
 1. 将 `POSTGRES_PASSWORD` 换成长随机密码；
-2. 同步修改 `DATABASE_URL` 中的密码；
+2. `DATABASE_URL` 无需手动填写，Compose 会根据 `POSTGRES_*` 自动生成；
 3. 配置至少一个模型供应商密钥；
 4. 使用域名时将 `CORS_ORIGIN` 与 `APP_BASE_URL` 改为最终 HTTPS 地址。
 

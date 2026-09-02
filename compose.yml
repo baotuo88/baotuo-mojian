@@ -32,6 +32,7 @@ services:
       TRUSTED_REVERSE_PROXY: "true"
       AI_NOVEL_DATABASE_MODE: postgresql
       AI_NOVEL_COMPOSE_BASELINE: "true"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-baotuo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-baotuo_mojian}
       IMAGE_STORAGE_DRIVER: local
       IMAGE_STORAGE_ROOT: /app/storage/generated-images
       QDRANT_URL: http://qdrant:6333
