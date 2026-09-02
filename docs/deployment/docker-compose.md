@@ -35,8 +35,8 @@ docker compose up -d --build
 查看状态：
 
 ```bash
-docker compose --env-file .env.example ps
-docker compose --env-file .env.example logs -f api
+docker compose ps
+docker compose logs -f api
 ```
 
 默认访问地址：
@@ -65,7 +65,7 @@ OPENAI_API_KEY=your-key
 然后启用 `rag` profile：
 
 ```bash
-docker compose --env-file .env.example --profile rag up -d --build
+docker compose --profile rag up -d --build
 ```
 
 ## 更新
@@ -79,7 +79,7 @@ docker compose up -d --build
 API 容器会在启动前执行 Compose 专用 PostgreSQL baseline。该 baseline 只适用于明确全新的 Compose PostgreSQL 卷；不要把它用于已有库、恢复卷或来源不明的卷。迁移失败时 API 不会启动，应查看日志并停止继续写入：
 
 ```bash
-docker compose --env-file .env.example logs api postgres
+docker compose logs api postgres
 ```
 
 ## 数据与备份
@@ -93,7 +93,7 @@ docker compose --env-file .env.example logs api postgres
 停止服务但保留数据：
 
 ```bash
-docker compose --env-file .env.example down
+docker compose down
 ```
 
 不要在没有备份和明确数据删除意图时执行：
@@ -105,7 +105,7 @@ docker compose down -v
 PostgreSQL 逻辑备份示例：
 
 ```bash
-docker compose --env-file .env.example exec -T postgres \
+docker compose exec -T postgres \
   pg_dump -U baotuo -d baotuo_mojian -Fc > baotuo-mojian.dump
 
 test -s baotuo-mojian.dump
