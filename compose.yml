@@ -4,10 +4,8 @@ services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-baotuo_mojian}
-      POSTGRES_USER: ${POSTGRES_USER:-baotuo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker}
+    env_file:
+      - .env.example
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,6 +22,8 @@ services:
       context: .
       dockerfile: Dockerfile.api
     restart: unless-stopped
+    env_file:
+      - .env.example
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -33,9 +33,9 @@ services:
       CORS_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
       APP_BASE_URL: ${APP_ORIGIN:-http://localhost:8080}
       API_JSON_LIMIT: ${API_JSON_LIMIT:-20mb}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-baotuo}:${POSTGRES_PASSWORD:-change-this-password}@postgres:5432/${POSTGRES_DB:-baotuo_mojian}
       AI_NOVEL_DATABASE_MODE: postgresql
       AI_NOVEL_COMPOSE_BASELINE: "true"
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.docker}
       IMAGE_STORAGE_DRIVER: local
       IMAGE_STORAGE_ROOT: /app/storage/generated-images
       RAG_ENABLED: ${RAG_ENABLED:-false}

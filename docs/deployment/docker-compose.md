@@ -9,13 +9,13 @@ docker --version
 docker compose version
 ```
 
-创建部署环境文件：
+Compose 默认直接读取仓库根目录的 `.env.example`，因此可以直接启动：
 
 ```bash
-cp .env.docker.example .env.docker
+docker compose up -d --build
 ```
 
-编辑 `.env.docker`：
+首次部署前编辑 `.env.example`：
 
 1. 将 `POSTGRES_PASSWORD` 换成长随机密码；
 2. 同步修改 `DATABASE_URL` 中的密码；
@@ -29,14 +29,14 @@ cp .env.docker.example .env.docker
 默认启动 Web、API 和 PostgreSQL，RAG 保持关闭：
 
 ```bash
-docker compose --env-file .env.docker up -d --build
+docker compose up -d --build
 ```
 
 查看状态：
 
 ```bash
-docker compose --env-file .env.docker ps
-docker compose --env-file .env.docker logs -f api
+docker compose --env-file .env.example ps
+docker compose --env-file .env.example logs -f api
 ```
 
 默认访问地址：
@@ -53,7 +53,7 @@ curl -fsS http://localhost:8080/api/health/live
 
 ## 启用 RAG
 
-先在 `.env.docker` 中设置：
+先在 `.env.example` 中设置：
 
 ```dotenv
 RAG_ENABLED=true
@@ -65,7 +65,7 @@ OPENAI_API_KEY=your-key
 然后启用 `rag` profile：
 
 ```bash
-docker compose --env-file .env.docker --profile rag up -d --build
+docker compose --env-file .env.example --profile rag up -d --build
 ```
 
 ## 更新
@@ -73,13 +73,13 @@ docker compose --env-file .env.docker --profile rag up -d --build
 拉取或替换源码后执行：
 
 ```bash
-docker compose --env-file .env.docker up -d --build
+docker compose up -d --build
 ```
 
 API 容器会在启动前执行 Compose 专用 PostgreSQL baseline。该 baseline 只适用于明确全新的 Compose PostgreSQL 卷；不要把它用于已有库、恢复卷或来源不明的卷。迁移失败时 API 不会启动，应查看日志并停止继续写入：
 
 ```bash
-docker compose --env-file .env.docker logs api postgres
+docker compose --env-file .env.example logs api postgres
 ```
 
 ## 数据与备份
@@ -93,7 +93,7 @@ docker compose --env-file .env.docker logs api postgres
 停止服务但保留数据：
 
 ```bash
-docker compose --env-file .env.docker down
+docker compose --env-file .env.example down
 ```
 
 不要在没有备份和明确数据删除意图时执行：
@@ -105,7 +105,7 @@ docker compose down -v
 PostgreSQL 逻辑备份示例：
 
 ```bash
-docker compose --env-file .env.docker exec -T postgres \
+docker compose --env-file .env.example exec -T postgres \
   pg_dump -U baotuo -d baotuo_mojian -Fc > baotuo-mojian.dump
 
 test -s baotuo-mojian.dump

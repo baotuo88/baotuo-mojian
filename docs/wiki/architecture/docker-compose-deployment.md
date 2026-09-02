@@ -22,7 +22,7 @@ API 容器启动时先执行 Compose 专用 `migrations.compose` baseline。迁�
 - 浏览器只访问 Web 同源 `/api`，不依赖容器名或宿主机 API 端口。
 - `postgres_data`、`image_storage` 和 `qdrant_storage` 是持久化卷。`docker compose down` 不删除数据；执行 `down -v` 会删除卷，属于破坏性操作，必须先备份并取得明确批准。
 - `AI_NOVEL_COMPOSE_BASELINE=true` 是 Compose 的显式新库标记，不是旧库升级开关。Compose 项目应使用独立的新卷名；已有 PostgreSQL 库不得复用该标记。
-- `.env.docker` 保存密码和供应商密钥，必须保持未跟踪。仓库只提供 `.env.docker.example`。
+- `.env.example` 同时作为 Compose 默认环境文件，保存密码和供应商密钥。部署时必须替换占位密码；真实环境建议通过部署系统注入等效变量，避免把真实密钥提交到仓库。
 - RAG 默认关闭。只有 Embedding 配置完整时才使用 `--profile rag` 并设置 `RAG_ENABLED=true`。
 - Compose 适用于单实例或受控内网 Beta。面向不可信公网用户前，仍需增加真实登录鉴权、HTTPS 入口、限流和备份监控。
 
