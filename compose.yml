@@ -1,4 +1,4 @@
-name: baotuo-mojian
+name: baotuo-mojian-app
 
 services:
   postgres:

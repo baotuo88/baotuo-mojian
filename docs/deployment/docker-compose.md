@@ -90,9 +90,9 @@ docker compose logs api postgres
 
 持久化数据位于 Docker volumes：
 
-- `baotuo-mojian_postgres_data`
-- `baotuo-mojian_image_storage`
-- `baotuo-mojian_qdrant_storage`（启用 RAG 时）
+- `baotuo-mojian-app_postgres_data`
+- `baotuo-mojian-app_image_storage`
+- `baotuo-mojian-app_qdrant_storage`（启用 RAG 时）
 
 停止服务但保留数据：
 
