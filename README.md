@@ -496,7 +496,7 @@ pnpm dev
 ```bash
 # 复制 .env.example 为 .env，设置数据库密码和至少一个模型供应商
 cp .env.example .env
-./scripts/docker-compose-up.sh up -d --build
+docker compose up -d --build
 ```
 
 默认访问 `http://localhost:8080`，健康检查地址为：

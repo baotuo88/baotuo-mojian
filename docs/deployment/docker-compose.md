@@ -18,7 +18,7 @@ cp .env.example .env
 然后编辑 `.env`，设置数据库密码和 AI 服务密钥，再启动：
 
 ```bash
-./scripts/docker-compose-up.sh up -d --build
+docker compose up -d --build
 ```
 
 1. 将 `POSTGRES_PASSWORD` 换成长随机密码；
@@ -30,12 +30,14 @@ cp .env.example .env
 
 项目所在目录路径必须只包含英文和数字（例如 `/srv/baotuo-mojian`）。在包含中文的路径下执行 Compose 构建时，Docker Buildx 会话会报 `x-docker-expose-session-sharedkey ... non-printable ASCII characters` 并中断构建；将项目放在纯英文路径后即可正常构建。
 
+如宿主机 Compose 版本过旧导致构建异常，可临时使用 `./scripts/docker-compose-up.sh up -d --build`（内部会自动 unset `SSH_AUTH_SOCK`），根治方案仍是升级 Compose 插件。
+
 ## 启动
 
 默认启动 Web、API 和 PostgreSQL，RAG 保持关闭：
 
 ```bash
-./scripts/docker-compose-up.sh up -d --build
+docker compose up -d --build
 ```
 
 查看状态：
@@ -79,7 +81,7 @@ docker compose --profile rag up -d --build
 拉取或替换源码后执行：
 
 ```bash
-./scripts/docker-compose-up.sh up -d --build
+docker compose up -d --build
 ```
 
 API 容器会在启动前执行 Compose 专用 PostgreSQL baseline。该 baseline 只适用于明确全新的 Compose PostgreSQL 卷；不要把它用于已有库、恢复卷或来源不明的卷。迁移失败时 API 不会启动，应查看日志并停止继续写入：
