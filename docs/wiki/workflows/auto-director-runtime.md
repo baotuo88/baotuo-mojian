@@ -83,7 +83,7 @@ Web API 只接收命令和返回轻量投影；Worker 负责执行重型生产�
 - 自动导演 UI 主状态必须由 `DirectorDashboardView` 统一裁决。`DirectorRuntimeProjection`、事实体检、章节进度和工作区摘要都是材料层；它们可以提供诊断、风险和最近事件，但不能在前端各自决定主 badge、主进度、主按钮或是否等待确认。
 - `DirectorDashboardView` 必须携带 `sourceTrace` 和 `progressSource`，让调试者能看到主状态和主进度来自 task、worker、checkpoint、chapter facts 还是 runtime projection。当前端需要显示驾驶舱、进度弹窗、任务中心、任务抽屉或小说页接管提示时，应优先读取这个最终展示模型。书级自动化投影可以继续暴露旧字段做兼容，但这些字段应由 `DirectorDashboardView` 派生，而不是重新裁决主状态。
 - 工作流提醒、章节标题提醒、缺资源风险和 stale artifact 只能作为诊断或辅助操作展示；当 `DirectorDashboardView.mode` 是 `running` 或 `queued` 时，这些提醒不得把主容器、主 badge 或主按钮改成等待确认。
-- 浏览器桌面提醒只消费“导演跟进”投影中的可处理分组：`needs_validation`、`exception`、`pending`。`auto_progress` 和 `replaced` 仍可显示在跟进中心，但不触发系统级通知。提醒开关属于当前浏览器本地偏好，并且必须受浏览器通知权限约束；前端不得为了弹窗重新推断 task status 或绕过跟进投影。
+- 浏览器通知提醒只消费“导演跟进”投影中的可处理分组：`needs_validation`、`exception`、`pending`。`auto_progress` 和 `replaced` 仍可显示在跟进中心，但不触发系统级通知。提醒开关属于当前浏览器本地偏好，并且必须受浏览器通知权限约束；前端不得为了弹窗重新推断 task status 或绕过跟进投影。
 - 服务重启后不静默续跑长任务，应从真实产物断点判断可恢复范围，再由用户或策略确认继续。
 - Worker 进程级恢复回归必须在命令真实进入 `running` 后终止进程，并等待 lease 过期后由新的 `DirectorWorker.tick()` 触发恢复与重新 claim。测试不得用正常 `stop()` 代替崩溃，因为正常停止会执行收尾逻辑；恢复后必须验证 `attempt` 增加、checkpoint 保留、执行器只运行一次，并继续通过统一章节 runtime 将可用正文和章节状态持久化后才算成功终结。
 - 自动导演驱动章节生产时，只能通过 `novelService.startPipelineJob(...)` 或 `resumePipelineJob(...)` 进入统一章节执行主链；导演侧不得直接调用 writer、patch repair、heavy repair 或旧手动修文 service。
@@ -102,7 +102,7 @@ Web API 只接收命令和返回轻量投影；Worker 负责执行重型生产�
 - 重规划调用失败时不得静默降级为跳过修复，也不得提前清除 `replan_required`。任务应保留原检查点并展示真实错误，已有正文、章节事实和人工内容均保持不变，供用户再次重规划或转入专业模式处理。
 - `auto_execute_range` 是用户对当前章节执行范围的显式继续授权。恢复链路即使先回到结构化大纲或执行合同同步，也必须把该授权传入后续 Pipeline 的 `approveAutoExecutionScope`，并在结构化同步后主动进入章节执行节点；不能只依赖自动审批偏好，否则命令会成功结束但章节执行节点仍停在审批门。
 - 用户确认新书方向后，自动导演先投影为“准备开篇”。项目建立后可提前选择简易创作进入书架，但正文必须等待开篇路线和执行合同可用；未提前选择时，准备完成后投影为“等待选择生产方式”。选择专业创作则进入完整工作台且不自动生成正文。用户从简易自动创作切换到专业工作台时必须在章节边界生效：当前章允许安全落库，后续自动章节停止，已有正文和人工内容保持不变。
-- 新书自动导演创建的恢复入口是独立页面 `/novels/auto-director?taskId=<workflowTaskId>`。`taskId` 是前端 URL 的主参数；旧的 `/novels/create?mode=director&workflowTaskId=<id>` 只作为兼容输入，进入后应规范化到新页面。任务中心、恢复入口、候选确认链接和服务端 `sourceRoute` 都应指向新页面，保证刷新、桌面重启或崩溃恢复后回到同一个候选/进度现场。
+- 新书自动导演创建的恢复入口是独立页面 `/novels/auto-director?taskId=<workflowTaskId>`。`taskId` 是前端 URL 的主参数；旧的 `/novels/create?mode=director&workflowTaskId=<id>` 只作为兼容输入，进入后应规范化到新页面。任务中心、恢复入口、候选确认链接和服务端 `sourceRoute` 都应指向新页面，保证刷新、浏览器重启或崩溃恢复后回到同一个候选/进度现场。
 - `/novels/create` 只承担手动创建表单和旧链接跳转，不再挂载自动导演弹窗。自动导演候选批次、定向修订、标题重做、候选确认和执行进度都属于独立创建页主区，不能再通过候选弹窗套在创建弹窗里展示。
 - 现有项目接管的默认范围是“全书前置规划接管”，不是章节范围。接管可以选择资产起点，但导演必须先补齐 Story Macro / Book Contract / 角色 / 卷战略 / 拆章，随后停在 `production_experience_required`；接管入口携带的旧章节范围或全书自动参数不得提前启动正文。
 - 现有项目接管的用户入口应优先呈现“系统推荐接续位置 + 资产保护说明 + 一键继续”。阶段选择、重跑当前步、范围执行、自动审批等属于高级控制，默认折叠。只有会覆盖或重建已有资产的动作才需要显式确认；普通 `continue_existing` 不应让用户先理解内部阶段卡片才能启动。

@@ -83,13 +83,13 @@ AI 小说创作工作台是一套帮助你把灵感推进成长篇小说的创�
 
 写法引擎适合保存“这本书应该怎么写”的语言和叙事偏好。你可以从样本文本中提取写法特征，也可以手动调整规则，再把它用于试写、章节生成和后续修正。
 
-## 下载入口
+## 获取入口
 
-普通用户优先使用 Windows 桌面版：
+使用 Docker Compose 部署 Web 端：
 
-- 最新版本页：[GitHub Releases](https://github.com/batuo88/baotuo-mojian/releases/latest)
-- 建议优先下载安装版。
-- 不想安装时，可以选择 portable 版本直接运行。
+- 部署步骤见《安装与准备》文档，或仓库内的《Docker Compose 部署》文档（`docs/deployment/docker-compose.md`）。
+- 启动后访问 `http://localhost:8080` 进入工作台。
+- 不想自行部署时，可以访问[公开介绍站](https://batuo88.github.io/baotuo-mojian/)了解项目。
 
 源码和项目仓库：
 

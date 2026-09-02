@@ -1,18 +1,20 @@
 # 安装与准备
 
-这篇文档帮助你在 Windows 上准备 AI 小说创作工作台，并确认模型、存储和知识库能力是否可用。
+这篇文档帮助你部署 AI 小说创作工作台，并确认模型、存储和知识库能力是否可用。
 
 ## 推荐安装方式
 
-普通用户优先使用 GitHub Releases 页面提供的桌面版：
+使用 Docker Compose 部署 Web 端：
 
-1. 打开 [GitHub Releases](https://github.com/batuo88/baotuo-mojian/releases/latest)。
-2. 下载 Windows 安装包或 portable 包。
-3. 运行应用，进入系统设置。
-4. 配置至少一个可用模型供应商。
-5. 创建一本测试小说，跑通新手上路。
+1. 克隆仓库并进入项目目录。项目目录路径需要只包含英文和数字（例如 `/srv/baotuo-mojian`），包含中文的路径会导致镜像构建失败。
+2. 复制环境配置文件：`cp .env.example .env`。
+3. 编辑 `.env`，把 `POSTGRES_PASSWORD` 设置为长随机密码，并配置至少一个模型供应商密钥。
+4. 启动服务：`docker compose up -d --build`。
+5. 打开 `http://localhost:8080`，进入系统设置。
+6. 配置至少一个可用模型供应商。
+7. 创建一本测试小说，跑通新手上路。
 
-安装版适合长期使用；portable 版适合临时试用或放在独立目录中运行。
+完整的部署、更新和数据卷说明见仓库内的《Docker Compose 部署》文档（`docs/deployment/docker-compose.md`）。
 
 ## 首次启动前准备
 
@@ -41,16 +43,16 @@
 
 ## 数据保存位置
 
-桌面版默认把小说、任务状态、配置和本地数据库保存在应用数据目录中。你可以在故障排查文档中查看日志和数据备份建议。
+Web 部署把小说、任务状态、配置和数据库保存在服务端。使用 Docker Compose 部署时，PostgreSQL 数据存放在数据卷 `baotuo-mojian-app_postgres_data`，生成图片存放在数据卷 `baotuo-mojian-app_image_storage`。数据库备份使用 `docker compose` 导出，步骤见《Docker Compose 部署》文档；日志和数据排查建议见故障排查文档。
 
 重要项目建议定期备份。备份时优先保留：
 
-- 应用数据库文件。
+- PostgreSQL 数据库备份（`pg_dump` 导出文件）。
 - 小说导出文件。
 - 角色、世界、知识库和写法资产。
 - 任务日志或错误截图。
 
-不要在没有备份的情况下删除数据库文件或重置数据。
+不要在没有备份的情况下删除数据卷或重置数据。
 
 ## Qdrant 是否必须
 
@@ -82,7 +84,7 @@ pnpm build
 pnpm --filter @ai-novel/site dev
 ```
 
-源码运行适合开发和调试；普通写作使用优先选择桌面版。
+源码运行适合开发和调试；普通写作使用 Docker Compose 部署的 Web 端。
 
 ## 安装后建议
 
