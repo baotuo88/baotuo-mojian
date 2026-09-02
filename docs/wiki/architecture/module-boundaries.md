@@ -33,6 +33,9 @@ Wiki 记录稳定规则，计划和检查点保留历史语境。模块治理以
 - 小说业务应用入口应通过 `server/src/services/novel/application/` 的 capability 层组合。`NovelService` 只作为兼容 facade，路由和后台服务不得重新依赖完整 God Object。
 - `ChapterRuntimeCoordinator` 是章节 runtime 的外部稳定门面；流编排、质量门禁、终稿定稿、pipeline 适配和 runtime package 构建只能在 `server/src/services/novel/runtime/` 内部模块中协作，外部不得深链到这些内部服务。
 - 新增业务能力优先通过模块门面或 `index.ts` 暴露，不从外部深链到其他模块内部文件。
+- `server/src/services/novel/index.ts` 是 novel 根目录服务的模块门面：`app.ts`、`prompting`、`events`、`routes` 等外部模块需要根目录服务、schema 或工具函数时，统一从 `services/novel`（门面）导入，不深链 `services/novel/<RootFile>`。子目录模块（`application/`、`volume/`、`workflow/`、`runtime/`、`director/`、`storyMacro/`、`dynamics/` 等）保持自有边界，门面只收敛根目录平铺文件。
+- 依赖分层硬规则：`prompting/`、`llm/` 属于被服务层消费的更底层，禁止 import `services/novel` 门面或任何 `services/*` 模块。原因：novel 根服务在模块加载期就实例化单例（如 `novelProductionService`），底层一旦回流门面会形成 require 加载环，导致类声明在初始化前被读取（表现为 `X is not a constructor`）。底层需要的纯文本/JSON 提取函数放 `shared/utils/jsonText.ts`（`@ai-novel/shared/utils/jsonText`），底层需要的 prompt 输出 schema 直接引用所属源文件（如 `services/novel/novelCoreSchemas`）——schema 文件本身无运行时单例，直接引用不构成环。
+- 域内多模块共用的纯函数（>3 个消费方）优先上移 `shared/utils/` 独立模块而不是继续堆在域内 utils；novelP0Utils 中的评分、审阅解析等领域函数保留原位，仅作为兼容 re-export 的稳定出口。
 - 涉及自动导演、章节执行、Prompt、RAG、任务状态或前端投影的边界变化，应同步更新 Wiki 或模块 README。
 - 创作中枢是查询、诊断、执行记录和导航边界，不是小说生产器：服务端使用显式只读工具 allowlist，并按整个 action 拦截越界调用；`preview_pipeline_run`、`diff_chapter_patch` 等可能产生执行前置副作用的工具也不得放行。诊断分析使用空 `workflowTaskId`，不把查询写入导演任务分析记录。小说创建、资产生成、正文写入、补丁、整本流水线、恢复、重试、取消和自动导演命令必须从正式工作流进入。
 - 完整 Agent 驱动小说应用保留在独立仓库 `https://github.com/ExplosiveCoderflome/ani-book-agent`。它拥有自己的 Agent Runtime、Markdown/YAML 创作工件和运行记录，不与主项目共享运行权威；创作中枢页面只提供跨设备可用的克隆与启动提示，不展示开发者机器路径。
