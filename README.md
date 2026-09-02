@@ -501,7 +501,8 @@ pnpm dev
 项目提供 Web、API 和 PostgreSQL 的完整 Compose 编排：
 
 ```bash
-# 编辑 .env.example，设置数据库密码和至少一个模型供应商
+# 复制 .env.example 为 .env，设置数据库密码和至少一个模型供应商
+cp .env.example .env
 ./scripts/docker-compose-up.sh up -d --build
 ```
 

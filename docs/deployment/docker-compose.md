@@ -24,7 +24,7 @@ cp .env.example .env
 1. 将 `POSTGRES_PASSWORD` 换成长随机密码；
 2. 同步修改 `DATABASE_URL` 中的密码；
 3. 配置至少一个模型供应商密钥；
-4. 使用域名时将 `APP_ORIGIN` 改为最终 HTTPS 地址。
+4. 使用域名时将 `CORS_ORIGIN` 与 `APP_BASE_URL` 改为最终 HTTPS 地址。
 
 数据库密码若含 `@`、`:`、`/`、`#` 等 URL 特殊字符，必须在 `DATABASE_URL` 中进行百分号编码。
 
@@ -57,7 +57,7 @@ curl -fsS http://localhost:8080/api/health/live
 
 ## 启用 RAG
 
-先在 `.env.example` 中设置：
+先在 `.env` 中设置：
 
 ```dotenv
 RAG_ENABLED=true
