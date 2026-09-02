@@ -29,7 +29,7 @@ function isTargetProcess(processInfo) {
   }
 
   return (
-    commandLine.includes("ts-node-dev")
+    (commandLine.includes("ts-node-dev") || commandLine.includes("tsx"))
     && commandLine.includes("src/app.ts")
   );
 }
