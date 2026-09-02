@@ -28,6 +28,8 @@ cp .env.example .env
 
 数据库密码若含 `@`、`:`、`/`、`#` 等 URL 特殊字符，必须在 `DATABASE_URL` 中进行百分号编码。
 
+项目所在目录路径必须只包含英文和数字（例如 `/srv/baotuo-mojian`）。在包含中文的路径下执行 Compose 构建时，Docker Buildx 会话会报 `x-docker-expose-session-sharedkey ... non-printable ASCII characters` 并中断构建；将项目放在纯英文路径后即可正常构建。
+
 ## 启动
 
 默认启动 Web、API 和 PostgreSQL，RAG 保持关闭：
