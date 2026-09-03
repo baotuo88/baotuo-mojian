@@ -76,6 +76,62 @@ function deriveHookDeadline(
   return null;
 }
 
+// 钩子上下文窗口边界：先扫描最新的一批钩子，再按优先级/最近处理分窗截取，
+// 避免超长篇下按"最旧优先"截断会静默丢弃最新连续性线索。
+const HOOK_WINDOW_SCAN_LIMIT = 200;
+const OPEN_HOOK_CONTEXT_LIMIT = 8;
+const ADDRESSED_HOOK_CONTEXT_LIMIT = 5;
+
+function compareOpenHooks(left: TimelineHook, right: TimelineHook): number {
+  const blockingDiff = Number(right.blocking) - Number(left.blocking);
+  if (blockingDiff !== 0) {
+    return blockingDiff;
+  }
+  const resolveDiff = hookResolveModeRank(left.resolveMode) - hookResolveModeRank(right.resolveMode);
+  if (resolveDiff !== 0) {
+    return resolveDiff;
+  }
+  const priorityDiff = hookPriorityRank(left.priority) - hookPriorityRank(right.priority);
+  if (priorityDiff !== 0) {
+    return priorityDiff;
+  }
+  if (left.createdInChapterIndex !== right.createdInChapterIndex) {
+    // 同等优先级下保留最新，避免丢弃当前连续性线索
+    return right.createdInChapterIndex - left.createdInChapterIndex;
+  }
+  return right.updatedAt.localeCompare(left.updatedAt);
+}
+
+function compareAddressedHooks(left: TimelineHook, right: TimelineHook): number {
+  const leftIndex = left.resolvedInChapterIndex ?? left.createdInChapterIndex;
+  const rightIndex = right.resolvedInChapterIndex ?? right.createdInChapterIndex;
+  if (leftIndex !== rightIndex) {
+    // 最近处理的优先
+    return rightIndex - leftIndex;
+  }
+  return right.updatedAt.localeCompare(left.updatedAt);
+}
+
+/**
+ * 从"最新一批"钩子中选取本章上下文窗口。open 与 addressed 分窗：
+ * - open：blocking > resolveMode > priority，最新优先兜底，默认上限 8；
+ * - addressed：最近处理优先，默认上限 5。
+ * 输出顺序保证 open 在前、addressed 在后，且各自已按优先级排序。
+ */
+export function selectHookContextWindow(
+  hooks: TimelineHook[],
+  limits: { open?: number; addressed?: number } = {},
+): TimelineHook[] {
+  const openLimit = limits.open ?? OPEN_HOOK_CONTEXT_LIMIT;
+  const addressedLimit = limits.addressed ?? ADDRESSED_HOOK_CONTEXT_LIMIT;
+  const open = hooks.filter((hook) => hook.status === "open");
+  const addressed = hooks.filter((hook) => hook.status === "addressed");
+  return [
+    ...[...open].sort(compareOpenHooks).slice(0, openLimit),
+    ...[...addressed].sort(compareAddressedHooks).slice(0, addressedLimit),
+  ];
+}
+
 type EventRow = Awaited<ReturnType<typeof prisma.storyTimelineEvent.findMany>>[number];
 type AnchorRow = Awaited<ReturnType<typeof prisma.chapterTimeAnchor.findFirst>>;
 type HookRow = Awaited<ReturnType<typeof prisma.timelineHook.findMany>>[number];
@@ -259,36 +315,18 @@ export class PrismaTimelineRepository implements TimelineRepository {
   }
 
   async listOpenHooks(input: { novelId: string; chapterIndex: number }): Promise<TimelineHook[]> {
+    // 超长篇窗口策略：不再按 createdInChapterIndex asc + take 12（那会保留最旧钩子、
+    // 静默丢弃最新连续性线索）。改为先取最新一批，再在内存按优先级分窗选取。
     const rows = await prisma.timelineHook.findMany({
       where: {
         novelId: input.novelId,
         status: { in: ["open", "addressed"] },
         createdInChapterIndex: { lt: input.chapterIndex },
       },
-      orderBy: [{ createdInChapterIndex: "asc" }, { updatedAt: "desc" }],
-      take: 12,
+      orderBy: [{ createdInChapterIndex: "desc" }, { updatedAt: "desc" }],
+      take: HOOK_WINDOW_SCAN_LIMIT,
     });
-    return rows
-      .map(mapTimelineHook)
-      .sort((left, right) => {
-        const blockingDiff = Number(right.blocking) - Number(left.blocking);
-        if (blockingDiff !== 0) {
-          return blockingDiff;
-        }
-        const resolveDiff = hookResolveModeRank(left.resolveMode) - hookResolveModeRank(right.resolveMode);
-        if (resolveDiff !== 0) {
-          return resolveDiff;
-        }
-        const priorityDiff = hookPriorityRank(left.priority) - hookPriorityRank(right.priority);
-        if (priorityDiff !== 0) {
-          return priorityDiff;
-        }
-        if (left.createdInChapterIndex !== right.createdInChapterIndex) {
-          return left.createdInChapterIndex - right.createdInChapterIndex;
-        }
-        return right.updatedAt.localeCompare(left.updatedAt);
-      })
-      .slice(0, 8);
+    return selectHookContextWindow(rows.map(mapTimelineHook));
   }
 
   async listActiveConstraints(input: { novelId: string; chapterId?: string; chapterIndex: number }): Promise<TimelineConstraint[]> {
