@@ -62,21 +62,32 @@ export class NovelFactService {
   }
 
   /**
-   * 读取当前章节之前的所有事实，用于填充写章上下文。
+   * 读取当前章节之前的事实，用于填充写章上下文。
    *
-   * - completed/revealed：全量返回（里程碑性事实，不限距离）
+   * - completed/revealed：只返回最近 milestoneChaptersWindow 章内的条目。超长篇下
+   *   全量返回会让"已完成事项"随章数线性膨胀并挤爆章节上下文；更早的里程碑改由
+   *   时间线事件与角色/世界状态承接，事实账本只兜底最近的重复风险。
    * - state_changed：只返回最近 recentChaptersWindow 章内的条目
    */
   async listForChapter(input: {
     novelId: string;
     beforeChapterOrder: number;
     recentChaptersWindow?: number;
+    milestoneChaptersWindow?: number;
   }): Promise<NovelFactEntry[]> {
-    const { novelId, beforeChapterOrder, recentChaptersWindow = 15 } = input;
+    const {
+      novelId,
+      beforeChapterOrder,
+      recentChaptersWindow = 15,
+      milestoneChaptersWindow = 30,
+    } = input;
     const milestoneRows = await prisma.novelFactEntry.findMany({
       where: {
         novelId,
-        chapterOrder: { lt: beforeChapterOrder },
+        chapterOrder: {
+          lt: beforeChapterOrder,
+          gte: beforeChapterOrder - milestoneChaptersWindow,
+        },
         category: { in: ["completed", "revealed"] },
       },
       orderBy: { chapterOrder: "asc" },
