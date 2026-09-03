@@ -1,6 +1,8 @@
 import type { BaseMessageChunk } from "@langchain/core/messages";
 import type { QualityScore, ReviewIssue } from "@ai-novel/shared/types/novel";
 import type { StreamDoneHelpers } from "../../../../llm/streaming";
+import { deriveWriterOutputTokens } from "../../../../llm/outputBudget";
+import { guardStreamStall } from "../../../../llm/streamStallGuard";
 import { prisma } from "../../../../db/prisma";
 import { streamTextPrompt } from "../../../../prompting/core/promptRunner";
 import { withChapterRepairContext } from "../../../../prompting/prompts/novel/chapterLayeredContext";
@@ -115,7 +117,9 @@ export class ChapterRepairStreamRuntime {
 
     const streamed = await streamTextPrompt(createHeavyRepairPromptExecution(prepared));
     return {
-      stream: streamed.stream as AsyncIterable<BaseMessageChunk>,
+      stream: guardStreamStall(streamed.stream as AsyncIterable<BaseMessageChunk>, {
+        label: "chapter heavy repair",
+      }),
       onDone: async (fullContent: string, helpers: StreamDoneHelpers) => {
         const completed = await streamed.complete;
         await this.finalizeRepairResult({

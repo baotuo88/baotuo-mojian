@@ -5,6 +5,8 @@ import type {
 } from "@ai-novel/shared/types/chapterRuntime";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import type { TaskType } from "../../llm/modelRouter";
+import { deriveWriterOutputTokens } from "../../llm/outputBudget";
+import { guardStreamStall } from "../../llm/streamStallGuard";
 import { createContextBlock } from "../../prompting/core/contextBudget";
 import { runTextPrompt, streamTextPrompt } from "../../prompting/core/promptRunner";
 import { resolvePromptContextBlocksForAsset } from "../../prompting/context/promptContextResolution";
@@ -330,7 +332,12 @@ export class ChapterWritingGraph {
         provider: input.options.provider,
         model: input.options.model,
         temperature: input.options.temperature ?? 0.8,
-        maxTokens: undefined,
+        maxTokens: deriveWriterOutputTokens(
+          chapterWriteContext.chapterMission?.targetWordCount
+          ?? input.contextPackage.chapter?.targetWordCount
+          ?? input.chapter.targetWordCount
+          ?? null,
+        ),
         novelId: input.novelId,
         chapterId: input.chapter.id,
         stage: "writer_draft",
@@ -339,7 +346,9 @@ export class ChapterWritingGraph {
     });
 
     return {
-      stream: streamed.stream as AsyncIterable<BaseMessageChunk>,
+      stream: guardStreamStall(streamed.stream as AsyncIterable<BaseMessageChunk>, {
+        label: "chapter writer draft",
+      }),
       onDone: async (fullContent: string) => {
         const completed = await streamed.complete.catch(() => null);
         const rawContent = completed?.output ?? fullContent;

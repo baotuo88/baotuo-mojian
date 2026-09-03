@@ -1,3 +1,4 @@
+import { deriveWriterOutputTokens } from "../../../../llm/outputBudget";
 import type { ChapterRepairContext, ChapterRuntimePackage } from "@ai-novel/shared/types/chapterRuntime";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import type { ReviewIssue } from "@ai-novel/shared/types/novel";
@@ -9,6 +10,13 @@ import {
   ChapterPatchRepairService,
   type PatchRepairMode,
 } from "../../chapterPatchRepairService";
+
+// 从修复上下文解析章节目标字数，供输出 token 预算联动。
+function resolveRepairTargetWordCount(input: PrepareChapterRepairExecutionInput): number | null {
+  return input.runtimePackage?.context?.chapterWriteContext?.chapterMission?.targetWordCount
+    ?? input.runtimePackage?.context?.chapter?.targetWordCount
+    ?? null;
+}
 
 export interface ChapterRepairExecutionOptions {
   provider?: LLMProvider;
@@ -46,6 +54,7 @@ export interface ChapterHeavyRepairPromptRequest {
     provider?: LLMProvider;
     model?: string;
     temperature: number;
+    maxTokens?: number;
     novelId: string;
     chapterId: string;
     stage: "chapter_repair";
@@ -302,6 +311,7 @@ export async function prepareChapterRepairExecution(
             provider: input.options.provider,
             model: input.options.model,
             temperature: Math.min(input.options.temperature ?? 0.55, 0.65),
+            maxTokens: deriveWriterOutputTokens(resolveRepairTargetWordCount(input)),
             novelId: input.novelId,
             chapterId: input.chapterId,
             stage: "chapter_repair",
@@ -337,6 +347,7 @@ export async function prepareChapterRepairExecution(
         provider: input.options.provider,
         model: input.options.model,
         temperature: Math.min(input.options.temperature ?? 0.55, 0.65),
+        maxTokens: deriveWriterOutputTokens(resolveRepairTargetWordCount(input)),
         novelId: input.novelId,
         chapterId: input.chapterId,
         stage: "chapter_repair",

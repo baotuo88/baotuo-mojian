@@ -271,7 +271,10 @@ export async function resolveLLMClientOptions(
   }
 
   const temperature = resolveModelTemperature(resolvedProvider, model, resolvedTemperature);
-  const timeoutMs = normalizeOptionalTimeoutMs(options.timeoutMs);
+  // 缺省强制超时：调用方未配置时兜底 10 分钟，防止 provider 半开连接让
+  // worker slot 与 lease 被无限占用（stale 恢复与心跳都会因此失效）。
+  const DEFAULT_LLM_TIMEOUT_MS = 10 * 60_000;
+  const timeoutMs = normalizeOptionalTimeoutMs(options.timeoutMs) ?? DEFAULT_LLM_TIMEOUT_MS;
   const concurrencyLimit = normalizeLimitValue(dbSecret?.concurrencyLimit);
   const requestIntervalMs = normalizeLimitValue(dbSecret?.requestIntervalMs);
   const requestProtocol = options.requestProtocol === "anthropic" ? "anthropic" : "openai_compatible";
@@ -295,6 +298,14 @@ export async function resolveLLMClientOptions(
   );
   const reasoningEnabled = shouldForceDisableReasoning ? false : requestedReasoningEnabled;
   let effectiveMaxTokens = resolvedMaxTokens;
+  // 内置 provider 有各自输出上限，超出会导致 4xx；未设上限的流式正文调用
+  // （maxTokens 为 undefined）按 provider 上限兜底，避免客户端缺省 4096 截断正文。
+  if (effectiveMaxTokens != null && isBuiltInProvider(resolvedProvider)) {
+    const providerLimit = PROVIDERS[resolvedProvider].maxTokens;
+    if (typeof providerLimit === "number") {
+      effectiveMaxTokens = Math.min(effectiveMaxTokens, providerLimit);
+    }
+  }
   if (structuredProfile && usesNativeStructured && structuredProfile.omitMaxTokensForNativeStructured) {
     effectiveMaxTokens = undefined;
   } else if (
