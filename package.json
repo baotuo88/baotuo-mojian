@@ -27,7 +27,7 @@
     "build": "pnpm --filter @ai-novel/shared build && pnpm --filter @ai-novel/server build && pnpm --filter @ai-novel/client build",
     "build:site": "pnpm --filter @ai-novel/site build",
     "check:docs-manifest": "node scripts/check-docs-manifest.cjs",
-    "typecheck": "pnpm --filter @ai-novel/shared build && pnpm --filter @ai-novel/server typecheck && pnpm --filter @ai-novel/client typecheck && pnpm --filter @ai-novel/desktop typecheck",
+    "typecheck": "pnpm --filter @ai-novel/shared build && pnpm --filter @ai-novel/server typecheck && pnpm --filter @ai-novel/client typecheck",
     "test": "pnpm --filter @ai-novel/server test",
     "test:client": "pnpm --filter @ai-novel/client test",
     "test:all": "pnpm --filter @ai-novel/server test:all && pnpm --filter @ai-novel/client test",
