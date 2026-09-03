@@ -36,6 +36,7 @@ import {
   getRuntimePromptBudgetProfiles,
 } from "../../../prompting/prompts/novel/chapterLayeredContext";
 import { novelFactService } from "../fact/NovelFactService";
+import { volumeOutcomeSummaryService } from "../volume/VolumeOutcomeSummaryService";
 import { batchContextCache } from "./BatchContextCache";
 import { timelineContextService } from "../../../modules/timeline";
 import {
@@ -323,11 +324,30 @@ export class GenerationContextAssembler {
         summary: volume.summary,
         mainPromise: volume.mainPromise,
         openPayoffsJson: volume.openPayoffsJson,
+        completedSummaryJson: volume.completedSummaryJson,
         sourceVersion: volume.sourceVersion,
         chapters: volume.chapters,
       })),
       chapter.order,
     ));
+    // 惰性触发上一卷的结果滚动摘要：若上一卷尚未生成，则 fire-and-forget 生成，
+    // 使后续章节（或下一批次）能承接"上一卷实际发生了什么"。服务内幂等 + 在途去重，
+    // 已生成后此处只会做一次轻量读取，不会重复调用 LLM。
+    const currentVolumeIndex = novel.volumePlans.findIndex((volume) =>
+      volume.chapters.some((chapterPlan) => chapterPlan.chapterOrder === chapter.order),
+    );
+    if (currentVolumeIndex > 0) {
+      const previousVolume = novel.volumePlans[currentVolumeIndex - 1];
+      if (previousVolume && !previousVolume.completedSummaryJson) {
+        void volumeOutcomeSummaryService.summarizeVolume(novelId, previousVolume.id).catch((error) => {
+          console.warn("[context-assembler] volume outcome summary generation failed", {
+            novelId,
+            volumeId: previousVolume.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      }
+    }
     const activeStyleProfileId = styleContext.matchedBindings[0]?.styleProfileId?.trim()
       || styleContext.matchedBindings[0]?.styleProfile?.id?.trim()
       || request.taskStyleProfileId?.trim()

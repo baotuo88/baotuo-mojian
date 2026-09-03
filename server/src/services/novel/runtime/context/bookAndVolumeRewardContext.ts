@@ -7,6 +7,7 @@ export interface RuntimeVolumeRewardRow {
   summary: string | null;
   mainPromise: string | null;
   openPayoffsJson: string | null;
+  completedSummaryJson: string | null;
   sourceVersion: { contentJson: string } | null;
   chapters: Array<{ chapterOrder: number }>;
 }
@@ -37,6 +38,55 @@ function readVolumeRewardContext(
     };
   } catch {
     return { readerRewardLadder: "", coreReward: "" };
+  }
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+/**
+ * 将卷末结果摘要 JSON 渲染为写章上下文可承接的紧凑文本。
+ * JSON 形状见 volumeOutcomeSummary.prompts.ts 的 outputSchema。
+ */
+export function renderVolumeOutcomeSummary(json: string | null | undefined): string {
+  if (!json?.trim()) {
+    return "";
+  }
+  try {
+    const parsed = JSON.parse(json) as {
+      narrativeProgress?: unknown;
+      characterStateChanges?: unknown;
+      unresolvedThreads?: unknown;
+      irreversibleFacts?: unknown;
+      continuityMusts?: unknown;
+    };
+    const lines: string[] = [];
+    if (typeof parsed.narrativeProgress === "string" && parsed.narrativeProgress.trim()) {
+      lines.push(parsed.narrativeProgress.trim());
+    }
+    const characterChanges = stringArray(parsed.characterStateChanges);
+    if (characterChanges.length > 0) {
+      lines.push("角色变化：\n" + characterChanges.map((item) => `- ${item}`).join("\n"));
+    }
+    const unresolved = stringArray(parsed.unresolvedThreads);
+    if (unresolved.length > 0) {
+      lines.push("未解线索：\n" + unresolved.map((item) => `- ${item}`).join("\n"));
+    }
+    const irreversible = stringArray(parsed.irreversibleFacts);
+    if (irreversible.length > 0) {
+      lines.push("不可逆事实：\n" + irreversible.map((item) => `- ${item}`).join("\n"));
+    }
+    const continuity = stringArray(parsed.continuityMusts);
+    if (continuity.length > 0) {
+      lines.push("续写要点：\n" + continuity.map((item) => `- ${item}`).join("\n"));
+    }
+    return lines.join("\n");
+  } catch {
+    return "";
   }
 }
 
@@ -92,7 +142,11 @@ export function buildRuntimeVolumeWindowSeed(
       coreReward: rewardContext.coreReward,
     },
     previousVolume: previousVolume
-      ? { title: previousVolume.title, summary: previousVolume.summary }
+      ? {
+        title: previousVolume.title,
+        summary: previousVolume.summary,
+        completedSummary: renderVolumeOutcomeSummary(previousVolume.completedSummaryJson),
+      }
       : null,
     nextVolume: nextVolume
       ? { title: nextVolume.title, summary: nextVolume.summary }

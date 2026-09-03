@@ -14,6 +14,7 @@ export const NOVEL_PROMPT_BUDGETS = {
   volumeChapterList: 1600,
   volumeChapterDetail: 1600,
   volumeRebalance: 1600,
+  volumeOutcomeSummary: 1200,
   chapterWriter: 2600,
   chapterAcceptance: 1200,
   chapterArtifactDelta: 1400,

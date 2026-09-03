@@ -350,6 +350,10 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/novel/volume/chapterTaskSheetQuality.prompts").chapterTaskSheetQualityPrompt as UnknownPromptAsset,
   },
   {
+    key: "novel.volume.outcome_summary@v1",
+    load: () => require("../prompts/novel/volume/volumeOutcomeSummary.prompts").volumeOutcomeSummaryPrompt as UnknownPromptAsset,
+  },
+  {
     key: "novel.volume.rebalance.adjacent@v1",
     load: () => require("../prompts/novel/volume/rebalance.prompts").volumeRebalancePrompt as UnknownPromptAsset,
   },

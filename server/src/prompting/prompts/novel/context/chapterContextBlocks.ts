@@ -394,6 +394,9 @@ export function buildChapterWriterContextBlocks(
               writeContext.volumeWindow.readerRewardLadder
                 ? `Book reader reward ladder: ${writeContext.volumeWindow.readerRewardLadder}`
                 : "",
+              writeContext.volumeWindow.previousVolumeOutcome
+                ? `Previous volume outcome (must stay consistent — what actually happened):\n${writeContext.volumeWindow.previousVolumeOutcome}`
+                : "",
               toListBlock("Current volume pending payoffs", writeContext.volumeWindow.pendingPayoffs.slice(0, 3)),
               writeContext.volumeWindow.keyMilestoneGuards.length > 0
                 ? toListBlock(

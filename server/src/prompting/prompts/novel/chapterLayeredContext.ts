@@ -76,6 +76,7 @@ type RuntimeVolumeSeed = {
   previousVolume?: {
     title?: string | null;
     summary?: string | null;
+    completedSummary?: string | null;
   } | null;
   nextVolume?: {
     title?: string | null;
@@ -174,6 +175,7 @@ export function buildVolumeWindowContext(seed: RuntimeVolumeSeed): VolumeWindowC
     keyMilestoneGuards: [],
     readerRewardLadder: compactText(current.readerRewardLadder),
     coreReward: compactText(current.coreReward),
+    previousVolumeOutcome: (seed.previousVolume?.completedSummary ?? "").trim(),
   };
 }
 

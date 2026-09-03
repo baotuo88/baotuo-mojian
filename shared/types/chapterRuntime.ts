@@ -325,6 +325,7 @@ export const volumeWindowContextSchema = z.object({
   keyMilestoneGuards: z.array(volumeKeyMilestoneGuardSchema).default([]),
   readerRewardLadder: z.string().default(""),
   coreReward: z.string().default(""),
+  previousVolumeOutcome: z.string().default(""),
 });
 
 export const chapterMissionContextSchema = z.object({

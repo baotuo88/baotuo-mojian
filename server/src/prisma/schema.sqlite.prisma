@@ -2089,6 +2089,7 @@ model VolumePlan {
   nextVolumeHook    String?
   resetPoint        String?
   openPayoffsJson   String?
+  completedSummaryJson String?
   status            String             @default("active")
   sourceVersionId   String?
   novel             Novel              @relation(fields: [novelId], references: [id], onDelete: Cascade)
