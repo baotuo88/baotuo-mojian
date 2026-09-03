@@ -65,6 +65,34 @@ function toSelectionFromRange(
   };
 }
 
+
+const chapterDraftStorageKey = (novelId: string, chapterId: string) =>
+  `dsh:chapter-draft:${novelId}:${chapterId}`;
+
+function readChapterDraftCache(novelId: string, chapterId: string): string | null {
+  try {
+    return window.localStorage.getItem(chapterDraftStorageKey(novelId, chapterId));
+  } catch {
+    return null;
+  }
+}
+
+function writeChapterDraftCache(novelId: string, chapterId: string, content: string): void {
+  try {
+    window.localStorage.setItem(chapterDraftStorageKey(novelId, chapterId), content);
+  } catch {
+    // 隐私模式/配额满时静默降级：本地缓存只是兜底，不是唯一保存路径。
+  }
+}
+
+function clearChapterDraftCache(novelId: string, chapterId: string): void {
+  try {
+    window.localStorage.removeItem(chapterDraftStorageKey(novelId, chapterId));
+  } catch {
+    // 忽略清理失败。
+  }
+}
+
 export default function ChapterEditorShell(props: ChapterEditorShellProps) {
   const {
     novelId,
@@ -88,18 +116,33 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
   const [revisionScope, setRevisionScope] = useState<ChapterEditorRevisionScope>("selection");
   const [revisionInstruction, setRevisionInstruction] = useState("");
   const [selectedDiagnosticId, setSelectedDiagnosticId] = useState<string | null>(null);
+  const contentDraftRef = useRef(normalizedChapterContent);
 
+  // 章节切换或服务端内容更新时切换草稿底稿；
+  // 有未保存修改的草稿先落入本地缓存，切换后若本地缓存更新则恢复，避免手稿静默丢失。
   useEffect(() => {
-    const nextContent = normalizedChapterContent;
+    const chapterId = chapter?.id;
+    if (!chapterId || !novelId) {
+      return;
+    }
+    const previousDraft = contentDraftRef.current;
+    if (previousDraft !== normalizedChapterContent && previousDraft.trim().length > 0) {
+      writeChapterDraftCache(novelId, chapterId, previousDraft);
+    }
+    const cachedDraft = readChapterDraftCache(novelId, chapterId);
+    const hasCachedDraft = cachedDraft != null && cachedDraft !== normalizedChapterContent;
+    const nextContent = hasCachedDraft ? cachedDraft : normalizedChapterContent;
+    contentDraftRef.current = nextContent;
     setContentDraft(nextContent);
-    setSavedContent(nextContent);
-    setSaveStatus("idle");
+    setSavedContent(normalizedChapterContent);
+    setSaveStatus(hasCachedDraft ? "error" : "idle");
     setSelection(null);
     setSelectionToolbarPosition(null);
     setSession(EMPTY_SESSION);
     setRevisionInstruction("");
     setRevisionScope("selection");
     lastPreviewRequestRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapter?.id, normalizedChapterContent]);
 
   useEffect(() => {
@@ -159,14 +202,65 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
     onSuccess: async (_response, nextContent) => {
       setSavedContent(nextContent);
       setSaveStatus("saved");
+      if (novelId && chapter?.id) {
+        clearChapterDraftCache(novelId, chapter.id);
+      }
       await invalidateChapterQueries();
-      toast.success("章节正文已保存。");
     },
     onError: (error) => {
       setSaveStatus("error");
       toast.error(error instanceof Error ? error.message : "章节保存失败。");
     },
   });
+
+  // 自动保存：修改停顿 2.5s 后静默保存；本地草稿缓存同步兜底。
+  // 自动保存只更新该章数据，手动保存才做整组失效与完整快照联动。
+  const AUTO_SAVE_DELAY_MS = 2500;
+  useEffect(() => {
+    if (!novelId || !chapter?.id) {
+      return;
+    }
+    if (!isDirty) {
+      return;
+    }
+    writeChapterDraftCache(novelId, chapter.id, contentDraft);
+    const nextContent = contentDraft;
+    const handle = window.setTimeout(() => {
+      if (!chapter) {
+        return;
+      }
+      void (async () => {
+        try {
+          setSaveStatus("saving");
+          await updateNovelChapter(novelId, chapter.id, { content: nextContent });
+          if (contentDraftRef.current === nextContent) {
+            setSavedContent(nextContent);
+            setSaveStatus("saved");
+            clearChapterDraftCache(novelId, chapter.id);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapterEditorWorkspace(novelId, chapter.id) });
+          }
+        } catch (error) {
+          setSaveStatus("error");
+          console.warn("[章节编辑器] 自动保存失败，已保留本地草稿", error);
+        }
+      })();
+    }, AUTO_SAVE_DELAY_MS);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentDraft, isDirty, novelId, chapter?.id]);
+
+  // 有未保存修改时拦截页面关闭/刷新。
+  useEffect(() => {
+    if (!isDirty) {
+      return;
+    }
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   const previewMutation = useMutation({
     mutationFn: async (request: ReturnType<typeof buildAiRevisionRequest>) => {
@@ -417,7 +511,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
           selectedDiagnosticId={selectedDiagnosticId}
           onBack={onBack}
           onOpenVersionHistory={onOpenVersionHistory}
-          onSave={() => saveMutation.mutate(contentDraft)}
+          onSave={() => saveMutation.mutate(contentDraftRef.current)}
           onFocusDiagnostic={handleFocusDiagnostic}
           onRunDiagnostic={handleRunDiagnostic}
         />
@@ -427,6 +521,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
             value={contentDraft}
             readOnly={session.status !== "idle"}
             onChange={(next) => {
+              contentDraftRef.current = next;
               setContentDraft(next);
               setSaveStatus("idle");
             }}
