@@ -11,6 +11,7 @@ const integrationTests = new Set([
   "directorLeaseRecoveryRealPrisma.test.js",
   "directorWorkerClaimRaceRealPrisma.test.js",
   "directorWorkerProcessRecoveryRealPrisma.test.js",
+  "longFormProductionAcceptance.integration.test.js",
   "directorWorkflowStepModules.test.js",
   "novelDirectorPipelineRuntime.test.js",
   "novelDirectorRetry.test.js",

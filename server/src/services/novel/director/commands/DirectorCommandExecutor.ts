@@ -222,6 +222,7 @@ export class DirectorCommandExecutor {
           ...pipelineCommand.payload,
           continuationMode: pipelineCommand.intent === "approve_gate" ? "resume" : pipelineCommand.payload.continuationMode,
           forceResume: true,
+          awaitBackgroundRun: true,
         });
         return this.resolveCommandOutcome(pipelineCommand.taskId);
       }

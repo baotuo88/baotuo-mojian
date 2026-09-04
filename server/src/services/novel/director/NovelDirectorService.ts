@@ -222,6 +222,7 @@ export class NovelDirectorService {
     getDirectorAssetSnapshot: (novelId) => this.getDirectorAssetSnapshot(novelId),
     assertHighMemoryStartAllowed: (payload) => this.assertHighMemoryDirectorStartAllowed(payload),
     scheduleBackgroundRun: (taskId, runner) => this.scheduleBackgroundRun(taskId, runner),
+    runBackgroundRun: (taskId, runner) => this.runBackgroundRun(taskId, runner),
   });
 
   constructor(_options?: Record<string, never>) {}
@@ -265,7 +266,15 @@ export class NovelDirectorService {
     });
   }
 
-  private async runScheduledBackgroundRun(taskId: string, runner: () => Promise<void>): Promise<void> {
+  private runBackgroundRun(taskId: string, runner: () => Promise<void>): Promise<void> {
+    return this.runScheduledBackgroundRun(taskId, runner, true);
+  }
+
+  private async runScheduledBackgroundRun(
+    taskId: string,
+    runner: () => Promise<void>,
+    rethrowFailure = false,
+  ): Promise<void> {
     try {
       await runWithLlmUsageTracking(
         await this.buildDirectorUsageContext(taskId),
@@ -278,6 +287,9 @@ export class NovelDirectorService {
       const message = error instanceof Error ? error.message : "自动导演后台任务执行失败。";
       await this.workflowService.markTaskFailed(taskId, message);
       console.error(`[director.background] task failed taskId=${taskId}`, error);
+      if (rethrowFailure) {
+        throw error;
+      }
     } finally {
       await releaseHighMemoryDirectorReservations(taskId);
     }
@@ -430,6 +442,7 @@ export class NovelDirectorService {
     batchAlreadyStartedCount?: number;
     forceResume?: boolean;
     acceptManualChanges?: boolean;
+    awaitBackgroundRun?: boolean;
   }): Promise<void> {
     return this.continueRuntime.continueTask(taskId, input);
   }

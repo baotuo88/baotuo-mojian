@@ -53,6 +53,9 @@ export class DirectorCommandLeaseService {
         commandType: true,
         attempt: true,
         payloadJson: true,
+        status: true,
+        leaseOwner: true,
+        leaseExpiresAt: true,
       },
     });
     for (const command of staleCommands) {
@@ -63,8 +66,13 @@ export class DirectorCommandLeaseService {
       let actionApplied = false;
       const applyAction = async (action: "auto_retry" | "continue_with_warning" | "pause_for_manual" | "fail_task") => {
         if (action === "auto_retry" || action === "continue_with_warning") {
-          await prisma.directorRunCommand.updateMany({
-            where: { id: command.id },
+          const recovered = await prisma.directorRunCommand.updateMany({
+            where: {
+              id: command.id,
+              status: command.status,
+              leaseOwner: command.leaseOwner,
+              leaseExpiresAt: command.leaseExpiresAt,
+            },
             data: {
               status: "queued",
               leaseOwner: null,
@@ -75,6 +83,9 @@ export class DirectorCommandLeaseService {
               errorMessage: STALE_COMMAND_AUTO_RECOVERY_MESSAGE,
             },
           });
+          if (recovered.count !== 1) {
+            return;
+          }
           await prisma.novelWorkflowTask.updateMany({
             where: { id: command.taskId },
             data: {
@@ -89,14 +100,22 @@ export class DirectorCommandLeaseService {
           actionApplied = true;
           return;
         }
-        await prisma.directorRunCommand.updateMany({
-          where: { id: command.id },
+        const recovered = await prisma.directorRunCommand.updateMany({
+          where: {
+            id: command.id,
+            status: command.status,
+            leaseOwner: command.leaseOwner,
+            leaseExpiresAt: command.leaseExpiresAt,
+          },
           data: {
             status: action === "fail_task" ? "failed" : "stale",
             finishedAt: now,
             errorMessage: STALE_COMMAND_INTERNAL_MESSAGE,
           },
         });
+        if (recovered.count !== 1) {
+          return;
+        }
         await prisma.directorStepRun.updateMany({
           where: { taskId: command.taskId, status: "running" },
           data: { status: "failed", finishedAt: now, error: STALE_COMMAND_INTERNAL_MESSAGE },

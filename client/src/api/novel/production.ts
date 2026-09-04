@@ -38,6 +38,11 @@ export async function getNovelPipelineJob(id: string, jobId: string) {
   return data;
 }
 
+export async function getActiveNovelPipelineJob(id: string) {
+  const { data } = await apiClient.get<ApiResponse<PipelineJob | null>>(`/novels/${id}/pipeline/jobs/active`);
+  return data;
+}
+
 export async function listNovelSnapshots(id: string) {
   const { data } = await apiClient.get<ApiResponse<NovelSnapshotListItem[]>>(`/novels/${id}/snapshots`);
   return data;

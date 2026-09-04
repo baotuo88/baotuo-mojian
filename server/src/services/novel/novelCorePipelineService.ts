@@ -415,6 +415,23 @@ export class NovelCorePipelineService {
     return job ? this.decoratePipelineJob(job) : null;
   }
 
+  async getActivePipelineJob(novelId: string) {
+    const job = await prisma.generationJob.findFirst({
+      where: {
+        novelId,
+        status: { in: ["queued", "running"] },
+        finishedAt: null,
+        cancelRequestedAt: null,
+      },
+      orderBy: [
+        { completedCount: "desc" },
+        { progress: "desc" },
+        { updatedAt: "desc" },
+      ],
+    });
+    return job ? this.decoratePipelineJob(job) : null;
+  }
+
   async getPipelineJobById(jobId: string) {
     const job = await prisma.generationJob.findUnique({ where: { id: jobId } });
     return job ? this.decoratePipelineJob(job) : null;

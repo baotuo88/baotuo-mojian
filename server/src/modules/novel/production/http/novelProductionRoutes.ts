@@ -18,6 +18,7 @@ interface RegisterNovelProductionRoutesInput {
     | "generateChapterHook"
     | "startPipelineJob"
     | "getPipelineJob"
+    | "getActivePipelineJob"
   >;
   novelDraftOptimizeService: NovelDraftOptimizeService;
   idParamsSchema: z.ZodType<{ id: string }>;
@@ -126,6 +127,24 @@ export function registerNovelProductionRoutes(input: RegisterNovelProductionRout
         if (forwardBusinessError(error, next)) {
           return;
         }
+        next(error);
+      }
+    },
+  );
+
+  router.get(
+    "/:id/pipeline/jobs/active",
+    validate({ params: idParamsSchema }),
+    async (req, res, next) => {
+      try {
+        const { id } = req.params as z.infer<typeof idParamsSchema>;
+        const data = await novelService.getActivePipelineJob(id);
+        res.status(200).json({
+          success: true,
+          data,
+          message: data ? "Active pipeline job loaded." : "No active pipeline job.",
+        } satisfies ApiResponse<typeof data>);
+      } catch (error) {
         next(error);
       }
     },
