@@ -19,6 +19,19 @@ const {
   recordDirectorQualityLoopBudgetAttempt,
 } = require("../dist/services/novel/director/runtime/DirectorQualityLoopBudgetLedgerService.js");
 
+const riskAssessmentService = {
+  async assessQualityRepair() {
+    return null;
+  },
+};
+
+function buildRuntime(deps) {
+  return new NovelDirectorAutoExecutionRuntime({
+    riskAssessmentService,
+    ...deps,
+  });
+}
+
 function buildRequest(overrides = {}) {
   return {
     idea: "一个普通人被卷入命运迷局",
@@ -255,7 +268,7 @@ function buildPreparedWorkspace() {
 
 test("runFromReady completes immediately when repaired chapters leave no remaining auto-execution work", async () => {
   const calls = [];
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -331,7 +344,7 @@ test("runFromReady completes immediately when repaired chapters leave no remaini
 
 test("runFromReady keeps partial structured outline windows resumable after the current beat completes", async () => {
   const calls = [];
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -405,7 +418,7 @@ test("runFromReady keeps partial structured outline windows resumable after the 
 test("runFromReady reuses an existing active range job before starting a new pipeline", async () => {
   const calls = [];
   let pipelineCompleted = false;
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -492,7 +505,7 @@ test("runFromReady reuses an existing active range job before starting a new pip
 
 test("runFromReady treats explicit range continuation as approval for quality-alerted completed jobs", async () => {
   const calls = [];
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -596,7 +609,7 @@ test("runFromReady resumes a pending manual-recovery pipeline job before waiting
   const calls = [];
   let pipelineCompleted = false;
   let jobReadCount = 0;
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -707,12 +720,13 @@ test("runFromReady resumes a pending manual-recovery pipeline job before waiting
 
 test("runFromReady records a normal checkpoint when pipeline completes with quality notices", async () => {
   const calls = [];
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  let pipelineCompleted = false;
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
-          withExecutionDetail({ id: "chapter-1", order: 1, generationState: "planned" }),
-          withExecutionDetail({ id: "chapter-2", order: 2, generationState: "planned" }),
+          withExecutionDetail({ id: "chapter-1", order: 1, generationState: pipelineCompleted ? "approved" : "planned" }),
+          withExecutionDetail({ id: "chapter-2", order: 2, generationState: pipelineCompleted ? "published" : "planned" }),
         ];
       },
     },
@@ -726,6 +740,7 @@ test("runFromReady records a normal checkpoint when pipeline completes with qual
       },
       async getPipelineJobById(jobId) {
         calls.push(["getPipelineJobById", jobId]);
+        pipelineCompleted = true;
         return {
           id: "job-quality",
           status: "succeeded",
@@ -802,7 +817,7 @@ test("runFromReady records a normal checkpoint when pipeline completes with qual
 test("runFromReady notifies and continues low-risk quality repair in AI-driver execution", async () => {
   const calls = [];
   let phase = "quality_notice";
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         if (phase === "completed") {
@@ -925,7 +940,7 @@ test("runFromReady notifies and continues low-risk quality repair in AI-driver e
 
 test("runFromReady notifies final low-risk quality repair without pausing AI-driver execution", async () => {
   const calls = [];
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -1012,7 +1027,7 @@ test("runFromReady notifies final low-risk quality repair without pausing AI-dri
 test("runFromReady honors approval selection for low-risk quality repair outside AI-driver execution", async () => {
   const calls = [];
   let phase = "initial";
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         if (phase === "initial") {
@@ -1141,7 +1156,7 @@ test("runFromReady honors approval selection for low-risk quality repair outside
 test("runFromReady pauses replan notices in AI-driver execution", async () => {
   const calls = [];
   let phase = "initial";
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         if (phase === "initial") {
@@ -1258,7 +1273,7 @@ test("runFromReady pauses replan notices in AI-driver execution", async () => {
 test("runFromReady can skip a replan notice and continue the remaining auto-execution range", async () => {
   const calls = [];
   const completedOrders = new Set();
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [1, 2, 3].map((order) => (
@@ -1413,7 +1428,7 @@ test("auto-execution state drops blank chapters from skipped quality debt", () =
 test("runFromReady keeps full-book replan notices blocking instead of auto-completing the range", async () => {
   const calls = [];
   let phase = "initial";
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         if (phase === "initial") {
@@ -1534,7 +1549,7 @@ test("runFromReady keeps repeated full-book replan loops as replan checkpoints",
   const calls = [];
   const completedOrders = new Set();
   const jobOrderById = new Map();
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -1688,7 +1703,7 @@ test("runFromReady keeps repeated full-book replan loops as replan checkpoints",
 
 test("runFromReady records replan_required outside AI-driver execution when pipeline completes with replan notice", async () => {
   const calls = [];
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -1774,7 +1789,7 @@ test("runFromReady records replan_required outside AI-driver execution when pipe
 test("runFromReady uses the latest auto-execution review toggles instead of stale saved state when starting a new batch", async () => {
   const calls = [];
   let pipelineCompleted = false;
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return Array.from({ length: 10 }, (_, index) => withExecutionDetail({
@@ -1875,7 +1890,7 @@ test("runFromReady skips the current review-blocked chapter when continuing expl
   const calls = [];
   const completedOrders = new Set();
   const jobOrderById = new Map();
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -1984,7 +1999,7 @@ test("runFromReady skips the current review-blocked chapter when continuing expl
 });
 
 test("prepareRequestedAutoExecution resolves the selected volume range instead of falling back to chapter_range", async () => {
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -2070,7 +2085,7 @@ test("prepareRequestedAutoExecution resolves the selected volume range instead o
 });
 
 test("prepareRequestedAutoExecution refreshes a stale volume range after chapter planning grows", async () => {
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -2164,7 +2179,7 @@ test("prepareRequestedAutoExecution refreshes a stale volume range after chapter
 });
 
 test("prepareRequestedAutoExecution reruns the earliest ungenerated chapter instead of preserving stale skips", async () => {
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -2241,7 +2256,7 @@ test("prepareRequestedAutoExecution reruns the earliest ungenerated chapter inst
 });
 
 test("prepareRequestedAutoExecution does not let stale skips bypass execution detail checks", async () => {
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -2312,7 +2327,7 @@ test("prepareRequestedAutoExecution does not let stale skips bypass execution de
 });
 
 test("prepareRequestedAutoExecution rejects skipping to a later volume while earlier volumes are unfinished", async () => {
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -2383,7 +2398,7 @@ test("prepareRequestedAutoExecution rejects skipping to a later volume while ear
 });
 
 test("prepareRequestedAutoExecution rejects chapter ranges with incomplete execution detail", async () => {
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -2517,7 +2532,7 @@ test("prepareRequestedAutoExecution rejects chapter ranges with incomplete execu
 });
 
 test("prepareRequestedAutoExecution allows full-book autopilot JIT chapters with outline seeds", async () => {
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -2642,7 +2657,7 @@ test("runFromReady keeps persisted replan budget failures blocking after worker 
     chapterOrder: 6,
     occurredAt: "2026-05-02T00:00:00.000Z",
   }).state;
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [
@@ -2774,7 +2789,7 @@ test("runFromReady keeps persisted replan budget failures blocking after worker 
 test("runFromReady resolves pending state proposals before retrying full-book autopilot chapter execution", async () => {
   const calls = [];
   let proposalsResolved = false;
-  const runtime = new NovelDirectorAutoExecutionRuntime({
+  const runtime = buildRuntime({
     novelContextService: {
       async listChapters() {
         return [

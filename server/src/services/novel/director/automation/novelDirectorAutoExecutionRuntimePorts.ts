@@ -7,6 +7,7 @@ import type {
 } from "@ai-novel/shared/types/novelDirector";
 import type { NovelWorkflowCheckpoint } from "@ai-novel/shared/types/novelWorkflow";
 import type { DirectorStateProposalResolutionRunResult } from "../runtime/DirectorStateProposalResolutionService";
+import type { DirectorRiskAssessmentService } from "../risk/DirectorRiskAssessmentService";
 import { directorAutomationLedgerEventService } from "../runtime/DirectorAutomationLedgerEventService";
 import type { DirectorAutoExecutionChapterRef } from "./novelDirectorAutoExecution";
 
@@ -146,6 +147,7 @@ export interface NovelDirectorAutoExecutionRuntimeDeps {
     temperature?: number;
   }) => Promise<DirectorStateProposalResolutionRunResult>;
   automationLedgerEventService?: AutomationLedgerEventPort;
+  riskAssessmentService?: Pick<DirectorRiskAssessmentService, "assessQualityRepair">;
   autoConfirmPendingCandidates?: (novelId: string) => Promise<void>;
   isPendingReviewAutoPromotionEnabled?: () => Promise<boolean> | boolean;
   autoPromotePendingReviewProposals?: (input: {

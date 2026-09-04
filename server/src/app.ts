@@ -8,7 +8,6 @@ import morgan from "morgan";
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import { errorHandler } from "./middleware/errorHandler";
 import { loadProviderApiKeys } from "./llm/factory";
-import astrologyRouter from "./routes/astrology";
 import agentCatalogRouter from "./routes/agentCatalog";
 import agentRunsRouter from "./routes/agentRuns";
 import autoDirectorChannelCallbacksRouter from "./routes/autoDirectorChannelCallbacks";
@@ -158,7 +157,6 @@ export function createApp() {
   app.use("/api/auto-director/channel-callbacks", autoDirectorChannelCallbacksRouter);
   app.use("/api/settings", settingsRouter);
   app.use("/api", onboardingRoutes);
-  app.use("/api/astrology", astrologyRouter);
 
   app.use((_req, res) => {
     const response: ApiResponse<null> = {

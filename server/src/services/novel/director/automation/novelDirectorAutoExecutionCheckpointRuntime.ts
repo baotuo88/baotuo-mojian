@@ -21,7 +21,10 @@ import {
 import { buildDirectorSessionState } from "../runtime/novelDirectorHelpers";
 import { PIPELINE_REPLAN_NOTICE_CODE, parsePipelinePayload } from "../../pipelineJobState";
 import { buildDirectorQualityRepairRisk } from "../phases/novelDirectorQualityRepairRisk";
-import { directorRiskAssessmentService } from "../risk/DirectorRiskAssessmentService";
+import {
+  directorRiskAssessmentService,
+  type DirectorRiskAssessmentService,
+} from "../risk/DirectorRiskAssessmentService";
 
 export type AutoExecutionResumeStage = "chapter" | "pipeline";
 
@@ -62,6 +65,7 @@ export interface AutoExecutionCheckpointRuntimeDeps {
     qualityRepairRisk: DirectorQualityRepairRisk;
     checkpointSummary?: string | null;
   }) => Promise<unknown>;
+  riskAssessmentService?: Pick<DirectorRiskAssessmentService, "assessQualityRepair">;
 }
 
 export interface AutoExecutionCheckpointBaseInput {
@@ -247,7 +251,7 @@ export async function resolveQualityRepairNoticeAction(
     remainingChapterCount: input.autoExecution.remainingChapterCount ?? 0,
     totalChapterCount: input.range.totalChapterCount,
   });
-  const riskDecision = await directorRiskAssessmentService.assessQualityRepair({
+  const riskDecision = await (deps.riskAssessmentService ?? directorRiskAssessmentService).assessQualityRepair({
     taskId: input.taskId,
     novelId: input.novelId,
     policy: input.request.riskPolicy ?? input.autoExecution.riskPolicy ?? DEFAULT_DIRECTOR_RISK_POLICY,
