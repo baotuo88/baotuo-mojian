@@ -38,6 +38,7 @@ test("100-chapter recorded production survives replay and preserves book evidenc
     assert.equal(inspection.payoff.payoffChapterId, "long-form-chapter-100");
 
     assert.equal(inspection.task.status, "succeeded");
+    assert.deepEqual(inspection.job, { status: "succeeded", progress: 1, completedCount: 100, totalCount: 100 });
     assert.equal(inspection.task.progress, 1);
     assert.equal(inspection.task.checkpointType, "chapter_committed");
     assert.equal(inspection.task.checkpointSummary, "已安全写入第100章");

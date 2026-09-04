@@ -137,6 +137,18 @@ async function seed(prisma) {
       });
     }
   }
+  await prisma.generationJob.create({
+    data: {
+      id: "long-form-generation-job",
+      novelId: NOVEL_ID,
+      startOrder: 1,
+      endOrder: 100,
+      status: "queued",
+      totalCount: 100,
+      maxRetries: 1,
+      payload: JSON.stringify({ runMode: "fast", acceptance: "recorded_replay" }),
+    },
+  });
   await prisma.novelWorkflowTask.create({
     data: {
       id: TASK_ID,
@@ -243,6 +255,18 @@ async function runRange(prisma, startOrder, endOrder) {
       let content = "";
       for await (const chunk of handle.stream) content += String(chunk.content ?? "");
       await handle.onDone(content, { writeFrame: () => undefined });
+      await prisma.generationJob.update({
+        where: { id: "long-form-generation-job" },
+        data: {
+          status: "running",
+          completedCount: order,
+          totalCount: 100,
+          progress: order / 100,
+          currentStage: "chapter_execution",
+          currentItemLabel: `第${order}章`,
+          startedAt: new Date(0),
+        },
+      });
       if (CHECKPOINT_ORDERS.has(order)) {
         await prisma.novelWorkflowTask.update({
           where: { id: TASK_ID },
@@ -281,6 +305,18 @@ async function finalize(prisma) {
       ]),
     },
   });
+  await prisma.generationJob.update({
+    where: { id: "long-form-generation-job" },
+    data: {
+      status: "succeeded",
+      completedCount: 100,
+      totalCount: 100,
+      progress: 1,
+      currentStage: null,
+      currentItemLabel: null,
+      finishedAt: new Date(),
+    },
+  });
   await prisma.novelWorkflowTask.update({
     where: { id: TASK_ID },
     data: { status: "succeeded", progress: 1, currentStage: "completed", finishedAt: new Date() },
@@ -288,7 +324,7 @@ async function finalize(prisma) {
 }
 
 async function inspect(prisma) {
-  const [chapters, volumes, summaries, snapshots, facts, contextEvidence, payoff, task] = await Promise.all([
+  const [chapters, volumes, summaries, snapshots, facts, contextEvidence, payoff, task, job] = await Promise.all([
     prisma.chapter.findMany({ where: { novelId: NOVEL_ID }, orderBy: { order: "asc" } }),
     prisma.volumePlan.findMany({ where: { novelId: NOVEL_ID }, include: { chapters: true }, orderBy: { sortOrder: "asc" } }),
     prisma.chapterSummary.count({ where: { novelId: NOVEL_ID } }),
@@ -297,6 +333,7 @@ async function inspect(prisma) {
     prisma.chapterArtifactSyncCheckpoint.findMany({ where: { novelId: NOVEL_ID, artifactType: "long_form_acceptance" } }),
     prisma.payoffLedgerItem.findUnique({ where: { novelId_ledgerKey: { novelId: NOVEL_ID, ledgerKey: "anonymous-letter" } } }),
     prisma.novelWorkflowTask.findUnique({ where: { id: TASK_ID } }),
+    prisma.generationJob.findUnique({ where: { id: "long-form-generation-job" } }),
   ]);
   return {
     chapterCount: chapters.length,
@@ -311,6 +348,7 @@ async function inspect(prisma) {
     compressedEvidenceCount: contextEvidence.filter((item) => JSON.parse(item.metadataJson).dropped.includes("full_chapter_history")).length,
     payoff: payoff && { status: payoff.currentStatus, setupChapterId: payoff.setupChapterId, payoffChapterId: payoff.payoffChapterId, evidence: JSON.parse(payoff.evidenceJson || "[]") },
     task: task && { status: task.status, progress: task.progress, checkpointType: task.checkpointType, checkpointSummary: task.checkpointSummary, totalTokens: task.totalTokens, llmCallCount: task.llmCallCount },
+    job: job && { status: job.status, progress: job.progress, completedCount: job.completedCount, totalCount: job.totalCount },
   };
 }
 
