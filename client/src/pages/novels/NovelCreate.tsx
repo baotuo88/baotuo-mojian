@@ -163,6 +163,14 @@ export default function NovelCreate() {
         navigate(`/novels/${response.data.id}/edit?${search.toString()}`);
       }
     },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "项目创建未完成。请检查网络后重试，已填写内容会保留在当前页面。";
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("creationError", message);
+        return next;
+      }, { replace: true });
+    },
   });
 
   return (
@@ -178,6 +186,12 @@ export default function NovelCreate() {
           <Link to="/novels/auto-director">AI 自动导演开书</Link>
         </Button>
       </section>
+
+      {searchParams.get("creationError") ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">
+          {searchParams.get("creationError")}
+        </div>
+      ) : null}
 
       <section className="space-y-4">
         <div>
