@@ -24,6 +24,7 @@ async function main() {
     "services",
     "novel",
     "director",
+    "recovery",
     "directorRecoverySampleAudit.js",
   ));
 

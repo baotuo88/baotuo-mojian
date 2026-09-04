@@ -56,3 +56,7 @@
 - `server/src/services/novel/director/runtime/`
 - `server/tests/`
 - `docs/wiki/workflows/auto-director-runtime.md`
+
+## 失败模式与诊断
+
+恢复样本审计通过 `server/scripts/director-recovery-sample-audit.cjs` 读取已构建的导演恢复审计模块。该脚本必须跟随 `server/src/services/novel/director/recovery/` 的模块边界；如果构建后仍引用旧的平铺路径，审计会在任何样本分析前失败。审计输出中的 `untrackedDraftChapters` 是历史数据完整性信号，不应通过删除正文或重置数据库消除，应先保留报告并补齐对应的 artifact baseline。
