@@ -34,6 +34,15 @@ Web API 只接收命令和返回轻量投影；Worker 负责执行重型生产�
 
 恢复测试应至少验证三件事：过期租约能够回队、checkpoint 未被清空、两个 Worker 竞争时只有一个获得命令。真实 SQLite/Prisma 集成测试应使用临时数据库和独立进程，不能只用 Prisma 方法替身，因为只有真实条件更新才能验证跨进程 claim 的互斥语义。双 Worker 竞争回归应先用 READY/START 屏障同步进入 `tick()`，再断言一个 `didWork=true`、一个 `didWork=false`，并核对执行日志只有一条。
 
+### 服务重启恢复边界（手动恢复，不静默续跑）
+
+进程 / API 整体重启时，恢复入口只做「标记为待恢复」，绝不静默续跑长任务：
+
+- `RecoveryTaskService.initializePendingRecoveries()` 在启动时把中断的整本流水线（`generationJob`）与自动导演工作流任务（`novelWorkflowTask`）标记为 `pendingManualRecovery`，由用户或结构化策略从恢复入口确认后继续。
+- 唯一的自动恢复是运行期的心跳看门狗：`NovelPipelineRuntimeService.startWatchdog()` 只回收「心跳超时」的 stale 任务，不在启动瞬间把重启前的 `queued`/`running` 任务直接续跑。这与「不静默续跑」的规则一致，也避免重启（例如重新部署）后悄悄消耗模型费用。
+- 手动恢复统一走 `resumePipelineJob` / `enqueueRecoveryCommand`，并用 `buildNovelEditResumeTarget` 从最近安全检查点重建目标范围，因此「手动恢复」不会重复生成已完成章节；checkpoint 是幂等断点而非重复执行点。
+- 曾存在的「重启后自动恢复」入口 `resumePendingPipelineJobs`（流水线）与 `resumePendingAutoDirectorTasks`（自动导演工作流）因绕过用户确认、在重启后悄悄续跑长任务，已作为死代码删除。后续不得重新引入「重启即续跑」的行为，除非同时补上明确的成本预算与用户确认门。
+
 ### 统一问题治理与停止边界
 
 自动导演的新任务使用一条统一问题链路：生产阶段报告稳定问题码，治理服务结合任务启动时冻结的全局/本书策略与结构化 AI 风险评估，写入 `issue_detected`、执行既有处理入口，再写入 `issue_action_applied`。完整问题记录保存在 `DirectorEvent.metadata`，不另建问题表；相同 fingerprint 必须幂等。旧任务没有 `issueGovernanceVersion: 1` 时继续使用原运行逻辑。

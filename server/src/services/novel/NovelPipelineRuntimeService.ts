@@ -30,13 +30,6 @@ export class NovelPipelineRuntimeService {
     private readonly pipelineService: PipelineRecoveryPort & PipelineResumePort = createPipelineService(),
   ) {}
 
-  async resumePendingPipelineJobs(): Promise<void> {
-    const pendingCancellationRows = await this.pipelineService.listPendingCancellationPipelineJobs();
-    await this.finalizeCancelledJobs(pendingCancellationRows);
-    const rows = await this.pipelineService.listRecoverablePipelineJobs();
-    await this.recoverJobs(rows, SERVER_RESTART_RECOVERY_MESSAGE);
-  }
-
   async markPendingPipelineJobsForManualRecovery(): Promise<void> {
     const pendingCancellationRows = await this.pipelineService.listPendingCancellationPipelineJobs();
     await this.finalizeCancelledJobs(pendingCancellationRows);
