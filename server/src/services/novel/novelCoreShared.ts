@@ -15,6 +15,7 @@ export interface PaginationInput {
 }
 
 export interface CreateNovelInput {
+  id?: string;
   title: string;
   description?: string;
   targetAudience?: string;

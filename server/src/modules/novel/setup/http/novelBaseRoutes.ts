@@ -18,6 +18,7 @@ import { validate } from "../../../../middleware/validate";
 import { KnowledgeService } from "../../../../services/knowledge/KnowledgeService";
 import { novelCreateResourceRecommendationService } from "../../../../services/novel";
 import type { NovelApplicationServices } from "../../../../services/novel/application/NovelApplicationContracts";
+import type { NovelWorkflowService } from "../../../../services/novel/workflow/NovelWorkflowService";
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -60,6 +61,7 @@ function parseJsonRecord(value: string | null | undefined): Record<string, unkno
 }
 
 const createNovelSchema = z.object({
+  id: z.string().trim().min(8).max(80).optional(),
   title: z.string().trim().min(1, "标题不能为空。"),
   description: z.string().trim().optional(),
   targetAudience: z.string().trim().optional(),
@@ -90,6 +92,10 @@ const createNovelSchema = z.object({
   storylineStatus: z.enum(["not_started", "in_progress", "completed", "rework", "blocked"]).optional(),
   outlineStatus: z.enum(["not_started", "in_progress", "completed", "rework", "blocked"]).optional(),
   resourceReadyScore: z.number().int().min(0).max(100).optional(),
+});
+
+const createNovelProjectSchema = createNovelSchema.extend({
+  creationRequestId: z.string().trim().min(8).max(120),
 });
 
 const updateNovelSchema = z.object({
@@ -175,10 +181,11 @@ interface RegisterNovelBaseRoutesInput {
     | "updateNovel"
     | "deleteNovel"
   >;
+  workflowService: Pick<NovelWorkflowService, "createNovelProject">;
 }
 
 export function registerNovelBaseRoutes(input: RegisterNovelBaseRoutesInput): void {
-  const { router, novelService } = input;
+  const { router, novelService, workflowService } = input;
   const knowledgeService = new KnowledgeService();
 
   router.get("/", validate({ query: paginationSchema }), async (req, res, next) => {
@@ -191,6 +198,28 @@ export function registerNovelBaseRoutes(input: RegisterNovelBaseRoutesInput): vo
         message: "获取小说列表成功。",
       };
       res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/create-project", validate({ body: createNovelProjectSchema }), async (req, res, next) => {
+    try {
+      const { creationRequestId, ...createInput } = req.body as z.infer<typeof createNovelProjectSchema>;
+      const foundation = await novelCreateResourceRecommendationService.resolveRequired(createInput);
+      const result = await workflowService.createNovelProject({
+        requestId: creationRequestId,
+        title: createInput.title,
+        seedPayload: { basicForm: createInput },
+        createNovel: async (id) => novelService.createNovel({
+          ...createInput,
+          id,
+          genreId: foundation.genreId,
+          primaryStoryModeId: foundation.primaryStoryModeId,
+          secondaryStoryModeId: foundation.secondaryStoryModeId,
+        }),
+      });
+      res.status(200).json({ success: true, data: result, message: "小说项目已准备好。" } satisfies ApiResponse<typeof result>);
     } catch (error) {
       next(error);
     }

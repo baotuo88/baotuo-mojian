@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BOOK_ANALYSIS_SECTIONS } from "@ai-novel/shared/types/bookAnalysis";
 import { flattenGenreTreeOptions, getGenreTree } from "@/api/genre";
 import { bootstrapNovelWorkflow } from "@/api/novelWorkflow";
-import { createNovel } from "@/api/novel";
+import { createNovelProject } from "@/api/novel";
 import { queryKeys } from "@/api/queryKeys";
 import { flattenStoryModeTreeOptions, getStoryModeTree } from "@/api/storyMode";
 import { getWorldList } from "@/api/world";
@@ -28,6 +28,7 @@ export default function NovelCreate() {
 
   const workflowTaskIdFromQuery = searchParams.get("workflowTaskId") ?? "";
   const workflowMode = searchParams.get("mode");
+  const creationRequestId = searchParams.get("creationRequestId") ?? "";
 
   const worldListQuery = useQuery({
     queryKey: queryKeys.worlds.all,
@@ -123,33 +124,21 @@ export default function NovelCreate() {
 
   const createNovelMutation = useMutation({
     mutationFn: async () => {
-      const task = await bootstrapNovelWorkflow({
-        lane: "manual_create",
-        title: basicForm.title,
-        seedPayload: {
-          basicForm,
-        },
-      });
-      const created = await createNovel(buildNovelCreatePayload(basicForm));
-      const novelId = created.data?.id;
-      if (!novelId) {
-        return {
-          response: created,
-          workflowTaskId: task.data?.id ?? "",
-        };
+      const requestId = creationRequestId || globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
+      if (!creationRequestId) {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("creationRequestId", requestId);
+          return next;
+        }, { replace: true });
       }
-      const attached = await bootstrapNovelWorkflow({
-        workflowTaskId: task.data?.id,
-        novelId,
-        lane: "manual_create",
-        title: created.data?.title,
-        seedPayload: {
-          basicForm,
-        },
+      const created = await createNovelProject({
+        ...buildNovelCreatePayload(basicForm),
+        creationRequestId: requestId,
       });
       return {
-        response: created,
-        workflowTaskId: attached.data?.id ?? task.data?.id ?? "",
+        response: { data: created.data?.novel ?? null },
+        workflowTaskId: created.data?.task?.id ?? "",
       };
     },
     onSuccess: async ({ response, workflowTaskId }) => {

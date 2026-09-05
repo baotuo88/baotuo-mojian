@@ -89,6 +89,31 @@ export class NovelWorkflowApplicationService {
     });
   }
 
+  async createNovelProject(input: {
+    requestId: string;
+    title: string;
+    createNovel: (id: string) => Promise<{ id: string; title: string }>;
+    seedPayload?: Record<string, unknown>;
+  }) {
+    const normalizedRequestId = input.requestId.trim();
+    if (!normalizedRequestId) throw new AppError("Creation request id is required.", 400);
+    const stableNovelId = `novel-create-${normalizedRequestId}`;
+    const stableTaskId = `workflow-create-${normalizedRequestId}`;
+    const existingTask = await this.workflow.getTaskById(stableTaskId);
+    if (existingTask?.novelId) {
+      return { task: existingTask, novel: await this.workflow.getNovelById(existingTask.novelId) };
+    }
+    const task = existingTask ?? await this.workflow.createWorkflow({
+      workflowTaskId: stableTaskId,
+      lane: "manual_create",
+      title: input.title,
+      seedPayload: input.seedPayload,
+    });
+    const novel = await this.workflow.getNovelById(stableNovelId) ?? await input.createNovel(stableNovelId);
+    const attached = await this.attachNovelToTask(task.id, novel.id);
+    return { task: attached, novel };
+  }
+
   async attachNovelToTask(taskId: string, novelId: string, stage: NovelWorkflowStage = "project_setup") {
     const existing = await this.workflow.getTaskById(taskId);
     if (!existing) {

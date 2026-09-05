@@ -294,6 +294,10 @@ export class NovelWorkflowStoreService {
     return novel?.title ?? null;
   }
 
+  public async getNovelById(novelId: string) {
+    return prisma.novel.findUnique({ where: { id: novelId } });
+  }
+
   public buildResumeTarget(input: {
     taskId: string;
     novelId?: string | null;
@@ -349,6 +353,7 @@ export class NovelWorkflowStoreService {
       ?? (input.novelId ? defaultProgressForStage(initialStage) : 0);
     const created = await prisma.novelWorkflowTask.create({
       data: {
+        ...(input.workflowTaskId ? { id: input.workflowTaskId } : {}),
         novelId: input.novelId ?? null,
         lane: input.lane,
         title: defaultWorkflowTitle({
