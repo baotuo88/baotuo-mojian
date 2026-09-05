@@ -8,7 +8,13 @@ import { assertChapterContentNotEmpty } from "./chapterEmptyContentError";
 import type { ArtifactSyncMode } from "../novelCoreShared";
 import type { ContentProvenance } from "@ai-novel/shared/types/canonicalState";
 
+export interface ChapterExecutionFence {
+  executionId: string;
+  checkpointVersion: number;
+}
+
 export interface ChapterArtifactSyncOptions {
+  executionFence?: ChapterExecutionFence;
   scheduleBackgroundSync?: boolean;
   artifactSyncMode?: ArtifactSyncMode;
   syncArtifacts?: boolean;
@@ -21,6 +27,18 @@ export interface ChapterArtifactSyncOptions {
 }
 
 export class ChapterArtifactSyncService {
+  private async assertExecutionFence(fence?: ChapterExecutionFence): Promise<void> {
+    if (!fence) return;
+    const execution = await prisma.directorRuntimeExecution.findUnique({
+      where: { id: fence.executionId },
+      select: { status: true, checkpointVersion: true, leaseExpiresAt: true },
+    });
+    const leaseActive = !execution?.leaseExpiresAt || execution.leaseExpiresAt.getTime() > Date.now();
+    if (!execution || execution.status !== "running" || execution.checkpointVersion !== fence.checkpointVersion || !leaseActive) {
+      throw new Error("Execution fence rejected chapter write.");
+    }
+  }
+
   async saveDraftAndArtifacts(
     novelId: string,
     chapterId: string,
@@ -28,6 +46,7 @@ export class ChapterArtifactSyncService {
     generationState: "drafted" | "repaired",
     options: ChapterArtifactSyncOptions = {},
   ): Promise<void> {
+    await this.assertExecutionFence(options.executionFence);
     const safeContent = assertChapterContentNotEmpty(content, {
       novelId,
       chapterId,
@@ -44,6 +63,7 @@ export class ChapterArtifactSyncService {
       }),
       { label: "chapterArtifactSync.chapter.update" },
     );
+    await this.assertExecutionFence(options.executionFence);
     if (options.syncArtifacts === false) {
       return;
     }

@@ -61,6 +61,8 @@
 
 新手创建项目由稳定的 `creationRequestId` 驱动。服务端先恢复同一请求对应的 workflow task，再复用稳定小说 ID 或创建小说，最后完成 task 绑定。网络中断后的重试必须返回同一小说和 task；不能依赖前端同时成功完成多个独立请求，也不能通过删除孤立记录来恢复。
 
+章节正文落盘支持 execution fence：调用方携带 `executionId` 与 `checkpointVersion` 时，保存前后都必须确认 execution 仍为 running、租约未过期且版本未变化；旧执行失去租约后不得覆盖新执行的正文或产物。未携带 execution context 的兼容入口保持原有行为，新的导演执行链应优先传递 fence，逐步收紧到所有可重试写入。
+
 ## 失败模式与诊断
 
 恢复样本审计通过 `server/scripts/director-recovery-sample-audit.cjs` 读取已构建的导演恢复审计模块。该脚本必须跟随 `server/src/services/novel/director/recovery/` 的模块边界；如果构建后仍引用旧的平铺路径，审计会在任何样本分析前失败。审计输出中的 `untrackedDraftChapters` 是历史数据完整性信号，不应通过删除正文或重置数据库消除，应先保留报告并补齐对应的 artifact baseline。
