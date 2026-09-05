@@ -9,5 +9,6 @@ test("chapter artifact writes expose and enforce execution fencing", () => {
   assert.match(source, /executionFence\?: ChapterExecutionFence/);
   assert.match(source, /directorRuntimeExecution\.findUnique/);
   assert.match(source, /execution\.checkpointVersion !== fence\.checkpointVersion/);
-  assert.match(source, /await this\.assertExecutionFence\(options\.executionFence\)/);
+  assert.match(source, /prisma\.\$transaction\(async \(tx\) =>/);
+  assert.match(source, /await this\.assertExecutionFence\(options\.executionFence, tx\)/);
 });

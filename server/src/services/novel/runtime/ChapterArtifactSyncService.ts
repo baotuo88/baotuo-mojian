@@ -27,9 +27,12 @@ export interface ChapterArtifactSyncOptions {
 }
 
 export class ChapterArtifactSyncService {
-  private async assertExecutionFence(fence?: ChapterExecutionFence): Promise<void> {
+  private async assertExecutionFence(
+    fence?: ChapterExecutionFence,
+    client: Pick<typeof prisma, "directorRuntimeExecution"> = prisma,
+  ): Promise<void> {
     if (!fence) return;
-    const execution = await prisma.directorRuntimeExecution.findUnique({
+    const execution = await client.directorRuntimeExecution.findUnique({
       where: { id: fence.executionId },
       select: { status: true, checkpointVersion: true, leaseExpiresAt: true },
     });
@@ -46,24 +49,25 @@ export class ChapterArtifactSyncService {
     generationState: "drafted" | "repaired",
     options: ChapterArtifactSyncOptions = {},
   ): Promise<void> {
-    await this.assertExecutionFence(options.executionFence);
     const safeContent = assertChapterContentNotEmpty(content, {
       novelId,
       chapterId,
       source: "chapter_artifact_save",
     });
     await withSqliteRetry(
-      () => prisma.chapter.update({
-        where: { id: chapterId },
-        data: {
-          content: safeContent,
-          generationState,
-          chapterStatus: "generating",
-        },
+      () => prisma.$transaction(async (tx) => {
+        await this.assertExecutionFence(options.executionFence, tx);
+        await tx.chapter.update({
+          where: { id: chapterId },
+          data: {
+            content: safeContent,
+            generationState,
+            chapterStatus: "generating",
+          },
+        });
       }),
       { label: "chapterArtifactSync.chapter.update" },
     );
-    await this.assertExecutionFence(options.executionFence);
     if (options.syncArtifacts === false) {
       return;
     }
@@ -76,6 +80,7 @@ export class ChapterArtifactSyncService {
     content: string,
     options: ChapterArtifactSyncOptions = {},
   ): Promise<void> {
+    await this.assertExecutionFence(options.executionFence);
     if (!options.skipLegacySummaryAndFacts) {
       const facts = extractFacts(content);
       const summary = briefSummary(content, facts);
