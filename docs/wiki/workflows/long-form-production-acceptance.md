@@ -64,3 +64,5 @@
 ## 失败模式与诊断
 
 恢复样本审计通过 `server/scripts/director-recovery-sample-audit.cjs` 读取已构建的导演恢复审计模块。该脚本必须跟随 `server/src/services/novel/director/recovery/` 的模块边界；如果构建后仍引用旧的平铺路径，审计会在任何样本分析前失败。审计输出中的 `untrackedDraftChapters` 是历史数据完整性信号，不应通过删除正文或重置数据库消除，应先保留报告并补齐对应的 artifact baseline。
+
+历史正文 baseline 使用 `server/scripts/director-chapter-draft-baseline-backfill.cjs`。命令默认只读预检，可通过 `DIRECTOR_BASELINE_NOVEL_ID` 和 `DIRECTOR_BASELINE_TAKE` 限定范围；只有明确设置 `DIRECTOR_BASELINE_WRITE=1` 才写入。写入操作只为正文非空且缺少 baseline 的章节创建 `backfilled` artifact，遇到唯一冲突则跳过，不覆盖章节正文，不删除任何数据。执行写入前仍需完成数据库备份和备份可读性检查。
