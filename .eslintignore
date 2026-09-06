@@ -1,0 +1,36 @@
+# ESLint ignore file
+
+# Build outputs
+dist/
+build/
+*.min.js
+
+# Dependencies
+node_modules/
+
+# Generated files
+.next/
+.nuxt/
+.cache/
+
+# Prisma
+prisma/migrations/
+server/src/prisma/migrations/
+server/src/prisma/migrations.compose/
+server/src/prisma/migrations.sqlite/
+
+# Coverage
+coverage/
+
+# Database
+*.db
+*.sqlite
+
+# Config files
+*.config.js
+*.config.ts
+vite.config.ts
+prisma.config.ts
+
+# Scripts
+scripts/

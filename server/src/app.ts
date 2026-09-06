@@ -1,10 +1,14 @@
 import "dotenv/config";
+import { validateEnvironmentOrExit, printConfigSummary } from "./config/validateEnv";
 import type { Server } from "node:http";
 import os from "node:os";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+
+validateEnvironmentOrExit();
+printConfigSummary();
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import { errorHandler } from "./middleware/errorHandler";
 import { loadProviderApiKeys } from "./llm/factory";

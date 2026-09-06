@@ -1,0 +1,41 @@
+# Prettier ignore file
+
+# Build outputs
+dist/
+build/
+*.min.js
+*.min.css
+
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Generated files
+.next/
+.nuxt/
+.cache/
+
+# Prisma
+prisma/migrations/
+*.prisma
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
