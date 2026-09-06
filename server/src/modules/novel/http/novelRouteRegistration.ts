@@ -1,6 +1,7 @@
 import type { Router } from "express";
 import { AppError } from "../../../middleware/errorHandler";
 import { registerNovelBaseRoutes } from "../setup/http/novelBaseRoutes";
+import { NovelWorkflowService } from "../../../services/novel/workflow/NovelWorkflowService";
 import { registerNovelChapterEditorRoutes } from "../production/http/novelChapterEditorRoutes";
 import { registerNovelChapterRoutes } from "../production/http/novelChapterRoutes";
 import { registerNovelChapterGenerationRoutes } from "../production/http/novelChapterGeneration";
@@ -82,12 +83,14 @@ function forwardBusinessError(error: unknown, next: (err?: unknown) => void): bo
 
 export function registerNovelHttpRoutes(router: Router, services: NovelHttpServices): void {
   const { novelService, novelDraftOptimizeService } = services;
+  const workflowService = new NovelWorkflowService();
 
   router.use("/:id", guardSimpleCreationUserWrites);
 
   registerNovelBaseRoutes({
     router,
     novelService,
+    workflowService,
   });
 
   registerShortStoryRoutes(router);

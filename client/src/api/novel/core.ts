@@ -1,4 +1,5 @@
 import type { ApiResponse } from "@ai-novel/shared/types/api";
+import type { UnifiedTaskDetail } from "@ai-novel/shared/types/task";
 import type { BookAnalysisSectionKey } from "@ai-novel/shared/types/bookAnalysis";
 import type { KnowledgeDocumentDetail } from "@ai-novel/shared/types/knowledge";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
@@ -53,6 +54,43 @@ export async function getNovelList(params?: {
 
 export async function getNovelDetail(id: string) {
   const { data } = await apiClient.get<ApiResponse<NovelDetailResponse>>(`/novels/${id}`);
+  return data;
+}
+
+export async function createNovelProject(payload: {
+  creationRequestId: string;
+  title: string;
+  description?: string;
+  targetAudience?: string;
+  bookSellingPoint?: string;
+  competingFeel?: string;
+  first30ChapterPromise?: string;
+  commercialTags?: string[];
+  genreId?: string;
+  primaryStoryModeId?: string;
+  secondaryStoryModeId?: string;
+  worldId?: string;
+  writingMode?: "original" | "continuation";
+  projectMode?: ProjectMode;
+  creationExperience?: CreationExperience;
+  narrativePov?: NarrativePov;
+  pacePreference?: PacePreference;
+  styleTone?: string;
+  emotionIntensity?: EmotionIntensity;
+  aiFreedom?: AIFreedom;
+  postGenerationStyleReviewEnabled?: boolean;
+  defaultChapterLength?: number;
+  estimatedChapterCount?: number;
+  projectStatus?: ProjectProgressStatus;
+  storylineStatus?: ProjectProgressStatus;
+  outlineStatus?: ProjectProgressStatus;
+  resourceReadyScore?: number;
+  sourceNovelId?: string;
+  sourceKnowledgeDocumentId?: string;
+  continuationBookAnalysisId?: string;
+  continuationBookAnalysisSections?: BookAnalysisSectionKey[];
+}) {
+  const { data } = await apiClient.post<ApiResponse<{ novel: Novel; task: UnifiedTaskDetail | null }>>("/novels/create-project", payload);
   return data;
 }
 

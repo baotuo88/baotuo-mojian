@@ -180,6 +180,7 @@ export class NovelDirectorContinueRuntime {
       batchAlreadyStartedCount?: number;
     }) => Promise<void>;
     scheduleBackgroundRun: (taskId: string, runner: () => Promise<void>) => void;
+    runBackgroundRun?: (taskId: string, runner: () => Promise<void>) => Promise<void>;
   }) {}
 
   private async resumeApprovedChapterExecutionNode(input: {
@@ -244,6 +245,7 @@ export class NovelDirectorContinueRuntime {
     batchAlreadyStartedCount?: number;
     forceResume?: boolean;
     acceptManualChanges?: boolean;
+    awaitBackgroundRun?: boolean;
   }): Promise<void> {
     const row = await this.deps.workflowService.getTaskById(taskId);
     if (!row) {
@@ -372,7 +374,10 @@ export class NovelDirectorContinueRuntime {
           autoExecution: seedPayload.autoExecution ?? null,
         }),
       });
-      this.deps.scheduleBackgroundRun(taskId, async () => {
+      const runInBackground = (runner: () => Promise<void>) => input?.awaitBackgroundRun && this.deps.runBackgroundRun
+        ? this.deps.runBackgroundRun(taskId, runner)
+        : (this.deps.scheduleBackgroundRun(taskId, runner), Promise.resolve());
+      await runInBackground(async () => {
         if (requestedReplanRecovery) {
           const existingRun = await prisma.replanRun.findFirst({
             where: { novelId, chapterId: checkpointChapterId ?? undefined },
@@ -477,7 +482,10 @@ export class NovelDirectorContinueRuntime {
       volumeId: recoveryResumeTarget?.volumeId,
       chapterId: recoveryResumeTarget?.chapterId,
     });
-    this.deps.scheduleBackgroundRun(taskId, async () => {
+    const runInBackground = (runner: () => Promise<void>) => input?.awaitBackgroundRun && this.deps.runBackgroundRun
+      ? this.deps.runBackgroundRun(taskId, runner)
+      : (this.deps.scheduleBackgroundRun(taskId, runner), Promise.resolve());
+    await runInBackground(async () => {
       await this.runDirectorPipeline({
         taskId,
         novelId,

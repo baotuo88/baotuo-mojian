@@ -8,6 +8,7 @@ import AppRouter from "./router";
 import { Toaster } from "./components/ui/toast";
 import "./index.css";
 import { ThemeProvider } from "./components/theme/ThemeProvider";
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,15 +21,17 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <ServerStartupGate>
-            <AppRouter />
-          </ServerStartupGate>
-          <Toaster />
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <ServerStartupGate>
+              <AppRouter />
+            </ServerStartupGate>
+            <Toaster />
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

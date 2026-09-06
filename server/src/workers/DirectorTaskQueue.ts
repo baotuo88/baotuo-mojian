@@ -141,19 +141,33 @@ export class DirectorTaskQueue {
     this.gates.get(key)?.release();
   }
 
-  startLeaseRenewal(commandId: string, slotId: string): () => void {
+  startLeaseRenewal(commandId: string, slotId: string): (() => void) & { isLost: () => boolean } {
+    let leaseLost = false;
     const renew = () => {
-      void this.commandService.renewLease(commandId, `${this.workerId}:${slotId}`, this.leaseMs).catch((error) => {
-        console.warn(`[task-queue] failed to renew command lease commandId=${commandId}`, error);
-      });
+      void this.commandService.renewLease(commandId, `${this.workerId}:${slotId}`, this.leaseMs)
+        .then((renewed) => {
+          if (!renewed) leaseLost = true;
+        })
+        .catch((error) => {
+          leaseLost = true;
+          console.warn(`[task-queue] failed to renew command lease commandId=${commandId}`, error);
+        });
     };
     renew();
     const timer = setInterval(renew, Math.max(100, Math.floor(this.leaseMs / 3)));
-    return () => clearInterval(timer);
+    const stop = (() => clearInterval(timer)) as (() => void) & { isLost: () => boolean };
+    stop.isLost = () => leaseLost;
+    return stop;
   }
 
   async markRunning(commandId: string, slotId: string): Promise<void> {
     await this.commandService.markCommandRunning(commandId, `${this.workerId}:${slotId}`, this.leaseMs);
+  }
+
+  assertLeaseActive(stopRenewal: { isLost?: () => boolean }): void {
+    if (stopRenewal.isLost?.()) {
+      throw new Error("Director command lease was lost before execution started.");
+    }
   }
 
   async completeTask(commandId: string, slotId: string): Promise<void> {

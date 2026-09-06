@@ -167,6 +167,10 @@ export class NovelCoreService {
     return this.pipelineService.getPipelineJob(novelId, jobId);
   }
 
+  async getActivePipelineJob(novelId: string) {
+    return this.pipelineService.getActivePipelineJob(novelId);
+  }
+
   async getPipelineJobById(jobId: string) {
     return this.pipelineService.getPipelineJobById(jobId);
   }

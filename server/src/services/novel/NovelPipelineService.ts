@@ -43,6 +43,10 @@ export class NovelPipelineService {
     return this.core.getPipelineJob(...args);
   }
 
+  getActivePipelineJob(...args: Parameters<NovelCoreService["getActivePipelineJob"]>) {
+    return this.core.getActivePipelineJob(...args);
+  }
+
   getPipelineJobById(...args: Parameters<NovelCoreService["getPipelineJobById"]>) {
     return this.core.getPipelineJobById(...args);
   }

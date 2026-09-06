@@ -22,6 +22,7 @@ import {
   getNovelDetail,
   setNovelCreationExperience,
   downloadNovelExport,
+  getActiveNovelPipelineJob,
   getNovelPipelineJob,
 } from "@/api/novel";
 import { queryKeys } from "@/api/queryKeys";
@@ -279,6 +280,18 @@ export default function NovelEdit() {
     queryClient,
     onNovelWorldImported: (worldId) => setBasicForm((prev) => ({ ...prev, worldId })),
   });
+  const activePipelineJobQuery = useQuery({
+    queryKey: queryKeys.novels.activePipelineJob(id),
+    queryFn: () => getActiveNovelPipelineJob(id),
+    enabled: Boolean(id),
+    staleTime: 0,
+  });
+  useEffect(() => {
+    const activeJobId = activePipelineJobQuery.data?.data?.id;
+    if (activeJobId && !currentJobId) {
+      setCurrentJobId(activeJobId);
+    }
+  }, [activePipelineJobQuery.data?.data?.id, currentJobId]);
   const pipelineJobQuery = useQuery({
     queryKey: queryKeys.novels.pipelineJob(id, currentJobId || "none"),
     queryFn: () => getNovelPipelineJob(id, currentJobId),
@@ -804,6 +817,9 @@ export default function NovelEdit() {
     setSelectedChapterId,
     setCurrentJobId,
     setPipelineMessage,
+    invalidateActivePipelineJob: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.novels.activePipelineJob(id) });
+    },
     setStructuredMessage,
     setReviewResult,
     queryClient,

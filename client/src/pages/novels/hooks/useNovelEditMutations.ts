@@ -63,6 +63,7 @@ interface UseNovelEditMutationsArgs {
   setSelectedChapterId: (value: string) => void;
   setCurrentJobId: (value: string) => void;
   setPipelineMessage: (value: string) => void;
+  invalidateActivePipelineJob: () => Promise<void>;
   setStructuredMessage: (value: string) => void;
   setReviewResult: (value: ChapterReviewResult | null) => void;
   queryClient: QueryClient;
@@ -93,6 +94,7 @@ export function useNovelEditMutations({
   setSelectedChapterId,
   setCurrentJobId,
   setPipelineMessage,
+  invalidateActivePipelineJob,
   setStructuredMessage,
   setReviewResult,
   queryClient,
@@ -283,6 +285,10 @@ export function useNovelEditMutations({
         status: "running",
       });
       await queryClient.invalidateQueries({ queryKey: queryKeys.novels.pipelineJob(id, response.data?.id ?? "none") });
+      await invalidateActivePipelineJob();
+    },
+    onError: (error) => {
+      setPipelineMessage(error instanceof Error ? error.message : "流水线启动失败，请检查章节范围后重试。");
     },
   });
 

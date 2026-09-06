@@ -63,6 +63,10 @@ export class NovelWorkflowService extends NovelWorkflowStoreService {
     return this.applicationService.attachNovelToTask(...args);
   }
 
+  createNovelProject(...args: Parameters<NovelWorkflowApplicationService["createNovelProject"]>) {
+    return this.applicationService.createNovelProject(...args);
+  }
+
   claimAutoDirectorNovelCreation(...args: Parameters<NovelWorkflowApplicationService["claimAutoDirectorNovelCreation"]>) {
     return this.applicationService.claimAutoDirectorNovelCreation(...args);
   }

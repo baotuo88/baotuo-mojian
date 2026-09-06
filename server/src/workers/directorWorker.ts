@@ -80,12 +80,14 @@ export class DirectorWorker {
       await this.queue.acquireResourceGate(command.novelId, command.commandType);
       try {
         await this.queue.markRunning(command.id, slotId);
+        this.queue.assertLeaseActive(stopRenewal);
 
         console.log(
           `[director.worker] executing commandId=${command.id} type=${command.commandType} taskId=${command.taskId} novelId=${command.novelId} slot=${slotId}`,
         );
 
         const outcome = await this.commandExecutor.execute(command.id);
+        this.queue.assertLeaseActive(stopRenewal);
 
         if (outcome === "cancelled") {
           await this.queue.cancelTask(command.id, slotId);

@@ -131,8 +131,26 @@ function setRequestErrorMessage(
   res.locals.requestErrorMessage = joinErrorParts([error, detail]);
 }
 
+function sanitizeErrorForLogging(error: unknown): unknown {
+  if (error instanceof Error) {
+    const sanitized: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+    };
+    if (error.stack && process.env.NODE_ENV !== "production") {
+      sanitized.stack = error.stack;
+    }
+    if ((error as Error & { cause?: unknown }).cause) {
+      sanitized.cause = sanitizeErrorForLogging((error as Error & { cause?: unknown }).cause);
+    }
+    return sanitized;
+  }
+  return error;
+}
+
 function logServerError(req: Request, error: unknown): void {
-  console.error(`[error] ${req.method} ${req.originalUrl}`, error);
+  const sanitizedError = sanitizeErrorForLogging(error);
+  console.error(`[error] ${req.method} ${req.originalUrl}`, sanitizedError);
 }
 
 function collectErrorMessages(error: unknown, depth = 0): string[] {
@@ -237,10 +255,16 @@ export function errorHandler(
     if (error.statusCode >= 500) {
       logServerError(req, error);
     }
+
+    // 生产环境隐藏详细错误信息
+    const responseError = error.statusCode >= 500 && process.env.NODE_ENV === "production"
+      ? "服务器内部错误，请稍后重试。"
+      : error.message;
+
     res.status(error.statusCode).json({
       success: false,
-      error: error.message,
-      message: detail,
+      error: responseError,
+      message: error.statusCode >= 500 && process.env.NODE_ENV === "production" ? undefined : detail,
     });
     return;
   }
@@ -259,8 +283,14 @@ export function errorHandler(
 
   setRequestErrorMessage(res, message);
   logServerError(req, error);
+
+  // 生产环境返回通用错误信息，避免泄露内部实现细节
+  const responseMessage = process.env.NODE_ENV === "production"
+    ? "服务器内部错误，请稍后重试。"
+    : message;
+
   res.status(500).json({
     success: false,
-    error: message,
+    error: responseMessage,
   });
 }

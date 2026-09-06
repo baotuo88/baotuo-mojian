@@ -8,7 +8,13 @@ import { assertChapterContentNotEmpty } from "./chapterEmptyContentError";
 import type { ArtifactSyncMode } from "../novelCoreShared";
 import type { ContentProvenance } from "@ai-novel/shared/types/canonicalState";
 
+export interface ChapterExecutionFence {
+  executionId: string;
+  checkpointVersion: number;
+}
+
 export interface ChapterArtifactSyncOptions {
+  executionFence?: ChapterExecutionFence;
   scheduleBackgroundSync?: boolean;
   artifactSyncMode?: ArtifactSyncMode;
   syncArtifacts?: boolean;
@@ -21,6 +27,21 @@ export interface ChapterArtifactSyncOptions {
 }
 
 export class ChapterArtifactSyncService {
+  private async assertExecutionFence(
+    fence?: ChapterExecutionFence,
+    client: Pick<typeof prisma, "directorRuntimeExecution"> = prisma,
+  ): Promise<void> {
+    if (!fence) return;
+    const execution = await client.directorRuntimeExecution.findUnique({
+      where: { id: fence.executionId },
+      select: { status: true, checkpointVersion: true, leaseExpiresAt: true },
+    });
+    const leaseActive = !execution?.leaseExpiresAt || execution.leaseExpiresAt.getTime() > Date.now();
+    if (!execution || execution.status !== "running" || execution.checkpointVersion !== fence.checkpointVersion || !leaseActive) {
+      throw new Error("Execution fence rejected chapter write.");
+    }
+  }
+
   async saveDraftAndArtifacts(
     novelId: string,
     chapterId: string,
@@ -34,13 +55,16 @@ export class ChapterArtifactSyncService {
       source: "chapter_artifact_save",
     });
     await withSqliteRetry(
-      () => prisma.chapter.update({
-        where: { id: chapterId },
-        data: {
-          content: safeContent,
-          generationState,
-          chapterStatus: "generating",
-        },
+      () => prisma.$transaction(async (tx) => {
+        await this.assertExecutionFence(options.executionFence, tx);
+        await tx.chapter.update({
+          where: { id: chapterId },
+          data: {
+            content: safeContent,
+            generationState,
+            chapterStatus: "generating",
+          },
+        });
       }),
       { label: "chapterArtifactSync.chapter.update" },
     );
@@ -56,6 +80,7 @@ export class ChapterArtifactSyncService {
     content: string,
     options: ChapterArtifactSyncOptions = {},
   ): Promise<void> {
+    await this.assertExecutionFence(options.executionFence);
     if (!options.skipLegacySummaryAndFacts) {
       const facts = extractFacts(content);
       const summary = briefSummary(content, facts);

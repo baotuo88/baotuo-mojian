@@ -15,6 +15,10 @@ const chapterRuntimeControlPolicySchema = z.object({
 
 export const chapterRuntimeRequestSchema = z.object({
   workflowTaskId: z.string().trim().optional(),
+  executionFence: z.object({
+    executionId: z.string().trim().min(1),
+    checkpointVersion: z.number().int().min(0),
+  }).optional(),
   provider: llmProviderSchema.optional(),
   model: z.string().trim().optional(),
   temperature: z.number().min(0).max(2).optional(),
