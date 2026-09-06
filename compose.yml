@@ -52,6 +52,7 @@ services:
       start_period: 30s
     networks:
       - backend
+      - egress
 
   web:
     build:
@@ -99,3 +100,6 @@ networks:
   frontend:
   backend:
     internal: true
+  # API 需要访问外部 LLM 供应商（OpenAI / DeepSeek 等），
+  # 因此单独挂一张可出网的网络；数据库和 Qdrant 仍只在 internal 的 backend 上。
+  egress:
