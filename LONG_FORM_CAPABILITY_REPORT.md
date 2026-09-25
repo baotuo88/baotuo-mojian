@@ -337,20 +337,23 @@ function splitRagChunks(params: {
 
 ### 3.4 崩溃恢复与幂等性
 
-#### **执行栅栏（Execution Fence）**
+#### **单执行者租约（Single-Owner Lease）**
 
-章节正文落盘支持 execution fence：
+后台命令队列 `DirectorRunCommand` 用原子租约领取保证并发安全：
 ```typescript
-interface ExecutionContext {
-  executionId: string;
-  checkpointVersion: number;
-}
+// DirectorCommandLeaseService.leaseNextCommand
+// compare-and-swap：仅当 status 仍为 "queued" 时领取成功
+const claimed = await prisma.directorRunCommand.updateMany({
+  where: { id: candidate.id, status: "queued" },
+  data: { status: "leased", leaseOwner, leaseExpiresAt, attempt: { increment: 1 } },
+});
+if (claimed.count !== 1) return null; // 已被别的 worker 抢到
 ```
 
 **保护机制**：
-- 保存前后确认 execution 仍为 running
-- 租约未过期且版本未变化
-- 旧执行失去租约后不得覆盖新执行的正文
+- `@@unique(taskId, commandType, idempotencyKey)` 保证同一逻辑命令不会重复入队
+- 原子 CAS 领取保证同一命令同一时刻只有一个 worker 持有租约
+- 租约过期由 `recoverStaleLeases` 重新排队或收敛终态，`renewLease` / `markCommandRunning` 在租约失效时返回 0 更新，阻止失联 worker 继续推进
 
 #### **恢复点（Checkpoint）**
 
@@ -592,7 +595,7 @@ interface SavePoint {
 **核心优势**：
 1. **架构设计原生支持**：分层上下文、窗口策略、卷级摘要不是后期补丁，而是系统核心设计
 2. **经过验收验证**：100 章固定样本验证了完整生产链、幂等性、崩溃恢复等关键能力
-3. **工程质量保障**：质量检测、执行栅栏、高内存预留等机制保证长篇生产稳定性
+3. **工程质量保障**：质量检测、单执行者租约、高内存预留等机制保证长篇生产稳定性
 4. **成本可控**：上下文预算管理、token 追踪、成本预警机制
 
 **支持规模**：
@@ -627,7 +630,7 @@ interface SavePoint {
 |------|------|------|
 | 架构设计 | ⭐⭐⭐⭐⭐ | 分层上下文、窗口策略、卷级摘要设计优秀 |
 | 规模支持 | ⭐⭐⭐⭐⭐ | 支持 24 卷、500+ 章、百万字级别 |
-| 稳定性 | ⭐⭐⭐⭐⭐ | 崩溃恢复、幂等性、执行栅栏保障 |
+| 稳定性 | ⭐⭐⭐⭐⭐ | 崩溃恢复、幂等性、单执行者租约保障 |
 | 质量保证 | ⭐⭐⭐⭐⭐ | 8 类质量检测、质量债务机制 |
 | 性能优化 | ⭐⭐⭐⭐ | 高内存预留、并发控制、上下文预算 |
 | 用户体验 | ⭐⭐⭐⭐ | 自动导演、恢复机制，但仪表盘可增强 |

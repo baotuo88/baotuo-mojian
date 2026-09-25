@@ -116,7 +116,7 @@ interface RunPipelineChapterDeps {
     chapterId: string,
     content: string,
     generationState: "drafted" | "repaired",
-    options?: { scheduleBackgroundSync?: boolean; artifactSyncMode?: PipelineRuntimeInput["artifactSyncMode"]; syncArtifacts?: boolean; executionFence?: PipelineRuntimeInput["executionFence"] },
+    options?: { scheduleBackgroundSync?: boolean; artifactSyncMode?: PipelineRuntimeInput["artifactSyncMode"]; syncArtifacts?: boolean },
   ) => Promise<void>;
   syncFinalChapterArtifacts: (
     novelId: string,
@@ -125,7 +125,6 @@ interface RunPipelineChapterDeps {
     options?: {
       artifactSyncMode?: PipelineRuntimeInput["artifactSyncMode"];
       contentProvenance?: ContentProvenance;
-      executionFence?: PipelineRuntimeInput["executionFence"];
     },
   ) => Promise<void>;
   finalizeChapterContent: (input: {
@@ -210,13 +209,12 @@ export async function runPipelineChapterWithRuntime(
           scheduleBackgroundSync: false,
           artifactSyncMode,
           syncArtifacts: false,
-          executionFence: options.executionFence,
         });
       }
     }
 
     if (!autoReview) {
-      await syncFinalRetainedChapterArtifacts(deps, novelId, chapterId, content, artifactSyncMode, "confirmed", options.executionFence);
+      await syncFinalRetainedChapterArtifacts(deps, novelId, chapterId, content, artifactSyncMode, "confirmed");
       await deps.markChapterGenerationState(chapterId, "approved");
       return {
         reviewExecuted: false,
@@ -331,7 +329,6 @@ export async function runPipelineChapterWithRuntime(
     latestResult.finalContent,
     artifactSyncMode,
     contentProvenance,
-    options.executionFence,
   );
 
   // 章节未通过时构建归因对象
@@ -420,7 +417,6 @@ async function syncFinalRetainedChapterArtifacts(
   content: string,
   artifactSyncMode: PipelineRuntimeInput["artifactSyncMode"],
   contentProvenance: ContentProvenance,
-  executionFence?: PipelineRuntimeInput["executionFence"],
 ): Promise<void> {
   if (!content.trim()) {
     return;
@@ -428,7 +424,6 @@ async function syncFinalRetainedChapterArtifacts(
   await deps.syncFinalChapterArtifacts(novelId, chapterId, content, {
     artifactSyncMode,
     contentProvenance,
-    executionFence,
   });
 }
 

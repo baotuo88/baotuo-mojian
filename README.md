@@ -222,7 +222,7 @@
 ### 长跑保护
 
 - **高内存预留**：`AUTO_DIRECTOR_HIGH_MEMORY_BATCH_LIMIT = 1`，结构化大纲、节拍表、章节清单等重任务同一范围内只允许一个在跑；预留 TTL 10 分钟、每 2 分钟续约，冲突时返回 409 而不是一起 OOM。
-- **执行栅栏**：正文落盘携带 `executionId` + `checkpointVersion`，保存前后都确认租约未过期、版本未变化，旧执行失去租约后不能覆盖新执行的正文。
+- **单执行者租约**：后台命令队列（`DirectorRunCommand`）用原子租约领取（compare-and-swap + `@@unique(taskId, commandType, idempotencyKey)`），同一任务同一时刻只有一个 worker 领到命令；租约过期由恢复流程重新排队或收敛终态，避免同一章节被多个执行体并发推进。
 - **质量债务**：局部章节问题记录为可见质量债务并继续推进整本；只有明确重规划、无可用正文、受保护内容风险或数据完整性风险才允许阻断。
 
 完整评估（含字数估算、竞品对比和改进建议）见 [LONG_FORM_CAPABILITY_REPORT.md](./LONG_FORM_CAPABILITY_REPORT.md)。
@@ -892,7 +892,7 @@ Express 路由层（routes/、modules/*/http/）
 
 ### 长篇生产的运行时保护
 
-- **执行栅栏**：章节正文落盘前后校验 `executionId` 与 `checkpointVersion`，失去租约的旧执行不能覆盖新执行的正文。
+- **单执行者租约**：后台命令队列（`DirectorRunCommand`）用原子租约领取保证同一任务同一时刻只有一个 worker 在执行，租约过期由命令恢复流程重新排队或收敛终态，避免同一章节被并发写入。
 - **高内存预留**：结构化大纲、节拍表、章节列表等阶段同一范围内只允许一个任务，预留冲突返回 409 并提示等待。
 - **幂等键**：`creationRequestId` 等幂等标识保证重复点击继续、重复消费命令不会产生重复产物。
 - **质量债务**：局部质量问题记录为可见债务而不是直接阻断整本生产，只有重规划、无可用正文、受保护内容风险等情况才会停下来等人。
@@ -962,7 +962,7 @@ Express 路由层（routes/、modules/*/http/）
 说明只改了一侧 schema，跑 `pnpm check:prisma-parity` 定位差异。
 
 **担心正文被覆盖或写坏**
-章节落盘有执行栅栏保护，另有自动版本快照（数量由 `NOVEL_SNAPSHOT_RETENTION_COUNT` 控制，手动快照不计入）。误操作后可用 `pnpm db:restore` 恢复开发数据，`pnpm db:prune-snapshots` 清理过量快照。
+章节执行由后台命令队列的单执行者租约保护（同一任务同一时刻只有一个 worker 写入），另有自动版本快照（数量由 `NOVEL_SNAPSHOT_RETENTION_COUNT` 控制，手动快照不计入）。误操作后可用 `pnpm db:restore` 恢复开发数据，`pnpm db:prune-snapshots` 清理过量快照。
 
 ### 模型调用
 

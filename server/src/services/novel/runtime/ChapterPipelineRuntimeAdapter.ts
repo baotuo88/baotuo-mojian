@@ -66,7 +66,6 @@ export class ChapterPipelineRuntimeAdapter {
                 skipLegacySummaryAndFacts: true,
                 provider: request.provider,
                 model: request.model,
-                executionFence: options.executionFence,
               },
             ),
           finalizeChapterContent: async (input) => {

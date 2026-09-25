@@ -61,7 +61,7 @@
 
 新手创建项目由稳定的 `creationRequestId` 驱动。服务端先恢复同一请求对应的 workflow task，再复用稳定小说 ID 或创建小说，最后完成 task 绑定。网络中断后的重试必须返回同一小说和 task；不能依赖前端同时成功完成多个独立请求，也不能通过删除孤立记录来恢复。
 
-章节正文落盘支持 execution fence：调用方携带 `executionId` 与 `checkpointVersion` 时，保存前后都必须确认 execution 仍为 running、租约未过期且版本未变化；旧执行失去租约后不得覆盖新执行的正文或产物。未携带 execution context 的兼容入口保持原有行为，新的导演执行链应优先传递 fence，逐步收紧到所有可重试写入。
+章节执行的并发安全由后台命令队列 `DirectorRunCommand` 的单执行者租约保证：`DirectorCommandLeaseService.leaseNextCommand` 用原子 compare-and-swap（仅当 `status="queued"` 时 `updateMany` 成功且 `count===1`）领取命令，配合 `@@unique(taskId, commandType, idempotencyKey)`，同一逻辑命令不会重复入队、同一命令同一时刻只有一个 worker 持有租约。租约过期由 `recoverStaleLeases` 重新排队或收敛终态，`renewLease` / `markCommandRunning` 在租约失效时返回 0 更新，阻止失联 worker 继续推进同一章节。
 
 ## 失败模式与诊断
 
