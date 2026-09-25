@@ -572,7 +572,13 @@ export class RagIndexService {
       });
     } catch (error) {
       // DB 写入失败，回滚：删除刚写的新 Qdrant 分块
-      await this.vectorStoreService.deletePoints(candidates.map((item) => item.id)).catch(() => {});
+      await this.vectorStoreService.deletePoints(candidates.map((item) => item.id)).catch((rollbackError) => {
+        console.warn("[RAG][Index] 回滚新向量分块失败，可能残留孤立向量。", {
+          jobId,
+          newChunkCount: candidates.length,
+          error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+        });
+      });
       throw error;
     }
 
@@ -588,8 +594,22 @@ export class RagIndexService {
         chunks: candidates.length,
         percent: 0.97,
       });
-      await this.vectorStoreService.deletePoints(oldIds).catch(() => {});
-      await prisma.knowledgeChunk.deleteMany({ where: { id: { in: oldIds } } }).catch(() => {});
+      // 新分块已就位，旧分块清理是尽力而为：失败不应让任务失败（否则重试会
+      // 再次写入并产生更多重复），但必须记录，避免孤立向量/记录静默残留。
+      await this.vectorStoreService.deletePoints(oldIds).catch((error) => {
+        console.warn("[RAG][Index] 删除旧向量分块失败，可能残留孤立向量。", {
+          jobId,
+          oldChunkCount: oldIds.length,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+      await prisma.knowledgeChunk.deleteMany({ where: { id: { in: oldIds } } }).catch((error) => {
+        console.warn("[RAG][Index] 删除旧分块数据库记录失败，可能残留孤立记录。", {
+          jobId,
+          oldChunkCount: oldIds.length,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }
 
     await this.updateJobProgress(jobId, {

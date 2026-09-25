@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import type {
   CanonicalStateSnapshot,
   StateVersionRecord,
@@ -29,8 +30,11 @@ export interface CreateStateVersionInput {
 }
 
 export class StateVersionLog {
-  async createVersion(input: CreateStateVersionInput): Promise<StateVersionRecord> {
-    const created = await prisma.$transaction(async (tx) => {
+  async createVersion(
+    input: CreateStateVersionInput,
+    client?: Prisma.TransactionClient,
+  ): Promise<StateVersionRecord> {
+    const run = async (tx: Prisma.TransactionClient) => {
       const latest = await tx.canonicalStateVersion.findFirst({
         where: { novelId: input.novelId },
         orderBy: { version: "desc" },
@@ -48,7 +52,12 @@ export class StateVersionLog {
           acceptedProposalIdsJson: JSON.stringify(input.acceptedProposalIds),
         },
       });
-    });
+    };
+
+    // When a caller already holds a transaction, join it so version creation
+    // and any sibling writes (e.g. linking proposals to this version) commit or
+    // roll back together. Otherwise open a self-contained transaction.
+    const created = client ? await run(client) : await prisma.$transaction(run);
 
     return {
       id: created.id,

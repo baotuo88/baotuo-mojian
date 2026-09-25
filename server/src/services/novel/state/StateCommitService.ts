@@ -121,24 +121,29 @@ export class StateCommitService {
         chapterOrder: input.chapterOrder,
         includeCurrentChapterState: true,
       });
-      versionRecord = await stateVersionLog.createVersion({
-        novelId: input.novelId,
-        chapterId: input.chapterId ?? null,
-        sourceType: input.sourceType ?? "chapter_runtime",
-        sourceStage: input.sourceStage ?? "chapter_execution",
-        summary: buildVersionSummary(input.chapterOrder, persisted.committed),
-        acceptedProposalIds: persisted.committed.map((proposal) => proposal.id).filter((id): id is string => Boolean(id)),
-        snapshot,
-      });
-      await prisma.stateChangeProposal.updateMany({
-        where: {
-          id: {
-            in: persisted.committed.map((proposal) => proposal.id).filter((id): id is string => Boolean(id)),
-          },
-        },
-        data: {
-          committedVersionId: versionRecord.id,
-        },
+      const committedIds = persisted.committed
+        .map((proposal) => proposal.id)
+        .filter((id): id is string => Boolean(id));
+      // Create the version record and link the committed proposals to it in one
+      // transaction so a crash can't leave committed proposals with a dangling
+      // committedVersionId (or an orphan version nothing points at).
+      versionRecord = await prisma.$transaction(async (tx) => {
+        const record = await stateVersionLog.createVersion({
+          novelId: input.novelId,
+          chapterId: input.chapterId ?? null,
+          sourceType: input.sourceType ?? "chapter_runtime",
+          sourceStage: input.sourceStage ?? "chapter_execution",
+          summary: buildVersionSummary(input.chapterOrder, persisted.committed),
+          acceptedProposalIds: committedIds,
+          snapshot,
+        }, tx);
+        if (committedIds.length > 0) {
+          await tx.stateChangeProposal.updateMany({
+            where: { id: { in: committedIds } },
+            data: { committedVersionId: record.id },
+          });
+        }
+        return record;
       });
     }
 
@@ -207,24 +212,26 @@ export class StateCommitService {
       chapterOrder: input.chapterOrder ?? undefined,
       includeCurrentChapterState: true,
     });
-    const versionRecord = await stateVersionLog.createVersion({
-      novelId: input.novelId,
-      chapterId: input.chapterId ?? committed[0]?.chapterId ?? null,
-      sourceType: input.sourceType ?? "manual_state_commit",
-      sourceStage: input.sourceStage ?? "proposal_confirmation",
-      summary: buildVersionSummary(input.chapterOrder ?? undefined, committed),
-      acceptedProposalIds: committed.map((proposal) => proposal.id).filter((id): id is string => Boolean(id)),
-      snapshot,
-    });
-    await prisma.stateChangeProposal.updateMany({
-      where: {
-        id: {
-          in: committed.map((proposal) => proposal.id).filter((id): id is string => Boolean(id)),
-        },
-      },
-      data: {
-        committedVersionId: versionRecord.id,
-      },
+    const committedIds = committed
+      .map((proposal) => proposal.id)
+      .filter((id): id is string => Boolean(id));
+    const versionRecord = await prisma.$transaction(async (tx) => {
+      const record = await stateVersionLog.createVersion({
+        novelId: input.novelId,
+        chapterId: input.chapterId ?? committed[0]?.chapterId ?? null,
+        sourceType: input.sourceType ?? "manual_state_commit",
+        sourceStage: input.sourceStage ?? "proposal_confirmation",
+        summary: buildVersionSummary(input.chapterOrder ?? undefined, committed),
+        acceptedProposalIds: committedIds,
+        snapshot,
+      }, tx);
+      if (committedIds.length > 0) {
+        await tx.stateChangeProposal.updateMany({
+          where: { id: { in: committedIds } },
+          data: { committedVersionId: record.id },
+        });
+      }
+      return record;
     });
 
     return {

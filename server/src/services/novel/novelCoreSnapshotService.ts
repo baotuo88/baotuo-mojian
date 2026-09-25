@@ -161,28 +161,38 @@ export class NovelCoreSnapshotService {
     };
 
     await this.createNovelSnapshot(novelId, "manual", `before-restore-${snapshotId.slice(0, 8)}`);
-    await prisma.novel.update({
-      where: { id: novelId },
-      data: {
-        outline: data.outline ?? undefined,
-        structuredOutline: data.structuredOutline ?? undefined,
-      },
-    });
 
-    if (Array.isArray(data.chapters) && data.chapters.length > 0) {
-      for (const chapter of data.chapters) {
-        if (chapter.id) {
-          await prisma.chapter.updateMany({
-            where: { id: chapter.id, novelId },
-            data: {
-              ...(chapter.title != null && { title: chapter.title }),
-              ...(chapter.order != null && { order: chapter.order }),
-              ...(chapter.content != null && { content: chapter.content }),
-            },
-          });
+    // Restore the novel body and all chapters atomically. Without a transaction
+    // a crash mid-loop leaves the manuscript half-restored (outline from the
+    // snapshot but only some chapters rewritten). A restore of a long novel can
+    // touch hundreds of chapters, so widen the transaction timeout.
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.novel.update({
+          where: { id: novelId },
+          data: {
+            outline: data.outline ?? undefined,
+            structuredOutline: data.structuredOutline ?? undefined,
+          },
+        });
+
+        if (Array.isArray(data.chapters) && data.chapters.length > 0) {
+          for (const chapter of data.chapters) {
+            if (chapter.id) {
+              await tx.chapter.updateMany({
+                where: { id: chapter.id, novelId },
+                data: {
+                  ...(chapter.title != null && { title: chapter.title }),
+                  ...(chapter.order != null && { order: chapter.order }),
+                  ...(chapter.content != null && { content: chapter.content }),
+                },
+              });
+            }
+          }
         }
-      }
-    }
+      },
+      { timeout: 120_000, maxWait: 10_000 },
+    );
 
     const restored = await prisma.novel.findUnique({ where: { id: novelId } });
     return restored ? normalizeNovelOutput(restored) : null;

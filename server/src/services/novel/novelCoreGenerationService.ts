@@ -1,4 +1,5 @@
 import type { BaseMessageChunk } from "@langchain/core/messages";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import {
   runStructuredPrompt,
@@ -207,12 +208,16 @@ export class NovelCoreGenerationService {
           normalized = parseStrictStructuredOutline(repaired, totalChapters);
         }
         const structuredOutline = stringifyStructuredOutline(normalized);
-        await prisma.novel.update({ where: { id: novelId }, data: { structuredOutline } });
-
         const chapters = toOutlineChapterRows(normalized);
-        if (chapters.length > 0) {
-          await this.syncChaptersFromOutline(novelId, chapters);
-        }
+        // Persist the structured outline and its derived chapter rows together
+        // so a crash can't leave the novel with a new outline but stale/partial
+        // chapters (or vice versa).
+        await prisma.$transaction(async (tx) => {
+          await tx.novel.update({ where: { id: novelId }, data: { structuredOutline } });
+          if (chapters.length > 0) {
+            await this.syncChaptersFromOutline(tx, novelId, chapters);
+          }
+        }, { timeout: 120_000, maxWait: 10_000 });
         queueRagUpsert("novel", novelId);
       },
     };
@@ -241,25 +246,28 @@ export class NovelCoreGenerationService {
   }
 
   private async syncChaptersFromOutline(
+    tx: Prisma.TransactionClient,
     novelId: string,
     chapters: Array<{ order: number; title: string; summary: string }>,
   ) {
-    const existing = await prisma.chapter.findMany({
+    const existing = await tx.chapter.findMany({
       where: { novelId },
       select: { id: true, order: true },
     });
     const existingByOrder = new Map(existing.map((chapter) => [chapter.order, chapter.id]));
 
-    await Promise.all(
-      chapters.map((chapter) => {
-        const existingId = existingByOrder.get(chapter.order);
-        if (existingId) {
-          return prisma.chapter.update({
-            where: { id: existingId },
-            data: { title: chapter.title, expectation: chapter.summary },
-          });
-        }
-        return prisma.chapter.create({
+    // Issue writes sequentially: an interactive transaction client is not safe
+    // for concurrent queries (notably on the SQLite adapter), so fanning these
+    // out with Promise.all could corrupt or abort the transaction.
+    for (const chapter of chapters) {
+      const existingId = existingByOrder.get(chapter.order);
+      if (existingId) {
+        await tx.chapter.update({
+          where: { id: existingId },
+          data: { title: chapter.title, expectation: chapter.summary },
+        });
+      } else {
+        await tx.chapter.create({
           data: {
             novelId,
             title: chapter.title,
@@ -269,8 +277,8 @@ export class NovelCoreGenerationService {
             generationState: "planned",
           },
         });
-      }),
-    );
+      }
+    }
   }
 
   async createChapterStream(novelId: string, chapterId: string, options: ChapterGenerateOptions = {}) {
