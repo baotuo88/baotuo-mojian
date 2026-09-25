@@ -126,7 +126,10 @@ function trackHighMemoryDirectorReservation(taskId: string, handle: HighMemoryRe
   const replaced = current.filter((reservation) => reservation.handle.key === handle.key);
   for (const reservation of replaced) {
     reservation.stopRenewing();
-    void reservation.handle.release();
+    // Fire-and-forget in a sync context: swallow release errors so a rejected
+    // reservation-store call for a *replaced* handle can't become an unhandled
+    // rejection (releaseHighMemoryDirectorReservations awaits, so it can propagate).
+    void reservation.handle.release().catch(() => {});
   }
   directorReservationsByTaskId.set(taskId, [
     ...current.filter((reservation) => reservation.handle.key !== handle.key),

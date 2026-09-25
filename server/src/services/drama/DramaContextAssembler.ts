@@ -30,7 +30,7 @@ export class DramaContextAssembler {
     const sourceMap = safeJsonParse<{ beatRefs?: number[] }>(episode.sourceMap, {});
     const relatedBeats = sourceMap.beatRefs?.length
       ? beats.filter((beat) => sourceMap.beatRefs?.includes(beat.order))
-      : beats.slice(Math.max(0, episodeOrder - 2), episodeOrder + 2);
+      : beats.slice(Math.max(0, targetOrder - 2), targetOrder + 2);
 
     return {
       project,
@@ -76,7 +76,7 @@ export class DramaContextAssembler {
       }).join("\n") || "暂无角色资源",
       factsDigest: project.facts.map((fact) => `E${fact.episodeOrder} ${fact.category}：${fact.text}`).join("\n") || "暂无事实",
       previousDigest: project.episodes
-        .filter((item) => item.order < episodeOrder && item.content)
+        .filter((item) => item.order < targetOrder && item.content)
         .slice(-3)
         .map((item) => `第${item.order}集《${item.title}》：${compactText(item.content, 260)}`)
         .join("\n") || "暂无前序台本",

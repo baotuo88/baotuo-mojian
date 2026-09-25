@@ -1,6 +1,18 @@
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import { apiClient } from "./client";
 
+// The client interceptor only rejects on HTTP error status; a 2xx envelope with
+// {success:false} or an absent `data` field flows through untouched. The old
+// `res.data.data!` non-null assertion turned that into a silent `undefined` that
+// crashed downstream `.map`/property access with a misleading stack. Unwrap through
+// this guard instead so a data-less success surfaces as one handled error.
+function unwrapApiData<T>(res: ApiResponse<T>): T {
+  if (!res.success || res.data == null) {
+    throw new Error(res.error ?? res.message ?? "服务器未返回有效数据。");
+  }
+  return res.data;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ComicSourceType = "novel_import" | "original" | "text_import" | "comic_import";
@@ -165,17 +177,17 @@ export interface ExportEpisodePayload {
 
 export async function listComicProjects(): Promise<ComicProject[]> {
   const res = await apiClient.get<ApiResponse<ComicProject[]>>("/comic/projects");
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function createComicProject(payload: CreateComicProjectPayload): Promise<ComicProject> {
   const res = await apiClient.post<ApiResponse<ComicProject>>("/comic/projects", payload);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function getComicProject(projectId: string): Promise<ComicProjectDetail> {
   const res = await apiClient.get<ApiResponse<ComicProjectDetail>>(`/comic/projects/${projectId}`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function deleteComicProject(projectId: string): Promise<void> {
@@ -184,12 +196,12 @@ export async function deleteComicProject(projectId: string): Promise<void> {
 
 export async function importComicSourceBundle(projectId: string): Promise<ComicProjectDetail> {
   const res = await apiClient.post<ApiResponse<ComicProjectDetail>>(`/comic/projects/${projectId}/source-bundle`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function updateComicStyle(projectId: string, style: string): Promise<ComicProject> {
   const res = await apiClient.patch<ApiResponse<ComicProject>>(`/comic/projects/${projectId}/style`, { style });
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export interface UpdateComicPresetPayload {
@@ -201,7 +213,7 @@ export interface UpdateComicPresetPayload {
 
 export async function updateComicPreset(projectId: string, payload: UpdateComicPresetPayload): Promise<ComicProject> {
   const res = await apiClient.patch<ApiResponse<ComicProject>>(`/comic/projects/${projectId}/preset`, payload);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 // ─── Characters ───────────────────────────────────────────────────────────────
@@ -259,7 +271,7 @@ export async function generateCharacterSheet(
     `/comic/characters/${charId}/sheet/generate`,
     { ...(provider ? { provider } : {}), ...(options ?? {}), ...(overrides ?? {}) },
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function prepareCharacterSheet(
@@ -271,12 +283,12 @@ export async function prepareCharacterSheet(
     `/comic/characters/${charId}/sheet/prepare`,
     { ...(provider ? { provider } : {}), ...(options ?? {}) },
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function getCharacterSheetData(charId: string): Promise<CharacterSheetData> {
   const res = await apiClient.get<ApiResponse<CharacterSheetData>>(`/comic/characters/${charId}/sheet`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function prepareCharacterExpressionSheet(charId: string, provider?: string): Promise<ImageGenerationPreview> {
@@ -284,7 +296,7 @@ export async function prepareCharacterExpressionSheet(charId: string, provider?:
     `/comic/characters/${charId}/expressions/prepare`,
     provider ? { provider } : {},
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function generateCharacterExpressionSheet(
@@ -296,19 +308,19 @@ export async function generateCharacterExpressionSheet(
     `/comic/characters/${charId}/expressions/generate`,
     { ...(provider ? { provider } : {}), ...(overrides ?? {}) },
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function getCharacterExpressionData(charId: string): Promise<CharacterExpressionData> {
   const res = await apiClient.get<ApiResponse<CharacterExpressionData>>(`/comic/characters/${charId}/expressions`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 // ─── Episodes ─────────────────────────────────────────────────────────────────
 
 export async function listComicEpisodes(projectId: string): Promise<ComicEpisode[]> {
   const res = await apiClient.get<ApiResponse<ComicEpisode[]>>(`/comic/projects/${projectId}/episodes`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function generateComicOutline(projectId: string, payload?: GenerateOutlinePayload): Promise<ComicEpisode[]> {
@@ -316,17 +328,17 @@ export async function generateComicOutline(projectId: string, payload?: Generate
     `/comic/projects/${projectId}/episodes/generate-outline`,
     payload ?? {},
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function getComicEpisode(episodeId: string): Promise<ComicEpisode> {
   const res = await apiClient.get<ApiResponse<ComicEpisode>>(`/comic/episodes/${episodeId}`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function updateEpisodeSourceText(episodeId: string, sourceText: string): Promise<ComicEpisode> {
   const res = await apiClient.patch<ApiResponse<ComicEpisode>>(`/comic/episodes/${episodeId}/source-text`, { sourceText });
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export interface UpdateEpisodePayload {
@@ -338,14 +350,14 @@ export interface UpdateEpisodePayload {
 
 export async function updateComicEpisode(episodeId: string, payload: UpdateEpisodePayload): Promise<ComicEpisode> {
   const res = await apiClient.patch<ApiResponse<ComicEpisode>>(`/comic/episodes/${episodeId}`, payload);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 // ─── Panels ───────────────────────────────────────────────────────────────────
 
 export async function listComicPanels(episodeId: string): Promise<ComicPanel[]> {
   const res = await apiClient.get<ApiResponse<ComicPanel[]>>(`/comic/episodes/${episodeId}/panels`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function generateComicPanelScript(episodeId: string, payload?: GenerateScriptPayload): Promise<ComicEpisode> {
@@ -353,17 +365,17 @@ export async function generateComicPanelScript(episodeId: string, payload?: Gene
     `/comic/episodes/${episodeId}/generate-script`,
     payload ?? {},
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function getComicPanel(panelId: string): Promise<ComicPanel> {
   const res = await apiClient.get<ApiResponse<ComicPanel>>(`/comic/panels/${panelId}`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function updatePanelVisualPrompt(panelId: string, visualPrompt: string): Promise<ComicPanel> {
   const res = await apiClient.patch<ApiResponse<ComicPanel>>(`/comic/panels/${panelId}/visual-prompt`, { visualPrompt });
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 // ─── Panel images ─────────────────────────────────────────────────────────────
@@ -373,7 +385,7 @@ export async function preparePanelImage(panelId: string, provider?: string): Pro
     `/comic/panels/${panelId}/image/prepare`,
     provider ? { provider } : {},
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function generatePanelImage(
@@ -385,7 +397,7 @@ export async function generatePanelImage(
     `/comic/panels/${panelId}/image/generate`,
     { ...(provider ? { provider } : {}), ...(overrides ?? {}) },
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export function panelImageUrl(panelId: string): string {
@@ -406,7 +418,7 @@ export async function letterPanel(
     `/comic/panels/${panelId}/letter`,
     opts ?? {},
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
@@ -415,13 +427,15 @@ export async function exportComicEpisode(
   episodeId: string,
   payload?: ExportEpisodePayload,
 ): Promise<{ jobId: string; artifacts: Array<{ index?: number; url: string; width: number; height: number }> }> {
-  const res = await apiClient.post(`/comic/episodes/${episodeId}/export`, payload ?? {});
-  return (res.data as ApiResponse<unknown>).data as ReturnType<typeof exportComicEpisode> extends Promise<infer T> ? T : never;
+  const res = await apiClient.post<
+    ApiResponse<{ jobId: string; artifacts: Array<{ index?: number; url: string; width: number; height: number }> }>
+  >(`/comic/episodes/${episodeId}/export`, payload ?? {});
+  return unwrapApiData(res.data);
 }
 
 export async function listExportJobs(projectId: string): Promise<ComicExportJob[]> {
   const res = await apiClient.get<ApiResponse<ComicExportJob[]>>(`/comic/projects/${projectId}/export-jobs`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 // ─── Batch jobs ───────────────────────────────────────────────────────────────
@@ -455,7 +469,7 @@ export async function startEpisodeBatch(
     `/comic/episodes/${episodeId}/batch/start`,
     payload ?? {},
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function retryBatchJob(jobId: string, provider?: string): Promise<{ jobId: string }> {
@@ -463,17 +477,17 @@ export async function retryBatchJob(jobId: string, provider?: string): Promise<{
     `/comic/batch-jobs/${jobId}/retry`,
     provider ? { provider } : {},
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function getBatchJob(jobId: string): Promise<ComicBatchJob> {
   const res = await apiClient.get<ApiResponse<ComicBatchJob>>(`/comic/batch-jobs/${jobId}`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function listBatchJobs(projectId: string): Promise<ComicBatchJob[]> {
   const res = await apiClient.get<ApiResponse<ComicBatchJob[]>>(`/comic/projects/${projectId}/batch-jobs`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function estimateBatchCost(episodeId: string, provider?: string): Promise<BatchCostEstimate> {
@@ -481,7 +495,7 @@ export async function estimateBatchCost(episodeId: string, provider?: string): P
   const res = await apiClient.get<ApiResponse<BatchCostEstimate>>(
     `/comic/episodes/${episodeId}/batch/estimate${params}`,
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 // ─── Facts ────────────────────────────────────────────────────────────────────
@@ -499,7 +513,7 @@ export interface ComicFact {
 
 export async function listComicFacts(projectId: string): Promise<ComicFact[]> {
   const res = await apiClient.get<ApiResponse<ComicFact[]>>(`/comic/projects/${projectId}/facts`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function deleteComicFact(factId: string): Promise<void> {
@@ -552,22 +566,22 @@ export interface UpdateAssetPayload {
 
 export async function listCharacterAssets(characterId: string): Promise<ComicCharacterAsset[]> {
   const res = await apiClient.get<ApiResponse<ComicCharacterAsset[]>>(`/comic/characters/${characterId}/assets`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function listProjectCharacterAssets(projectId: string): Promise<ComicCharacterAsset[]> {
   const res = await apiClient.get<ApiResponse<ComicCharacterAsset[]>>(`/comic/projects/${projectId}/character-assets`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function createCharacterAsset(payload: CreateAssetPayload): Promise<ComicCharacterAsset> {
   const res = await apiClient.post<ApiResponse<ComicCharacterAsset>>("/comic/character-assets", payload);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function updateCharacterAsset(assetId: string, payload: UpdateAssetPayload): Promise<ComicCharacterAsset> {
   const res = await apiClient.patch<ApiResponse<ComicCharacterAsset>>(`/comic/character-assets/${assetId}`, payload);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function deleteCharacterAsset(assetId: string): Promise<void> {
@@ -601,7 +615,7 @@ export async function prepareCharacterAssetImage(assetId: string, provider?: str
     `/comic/character-assets/${assetId}/prepare-image`,
     provider ? { provider } : {},
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function generateCharacterAssetImage(
@@ -613,7 +627,7 @@ export async function generateCharacterAssetImage(
     `/comic/character-assets/${assetId}/generate-image`,
     { provider, ...overrides },
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function uploadCharacterAssetImage(assetId: string, file: File): Promise<{ url: string }> {
@@ -622,7 +636,7 @@ export async function uploadCharacterAssetImage(assetId: string, file: File): Pr
     file,
     { headers: { "Content-Type": file.type } },
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export function characterAssetImageUrl(assetId: string): string {
@@ -638,7 +652,7 @@ export async function updateCharacterGender(
     `/comic/characters/${charId}/gender`,
     { gender },
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export interface UpdateVisualAnchorPayload {
@@ -662,7 +676,7 @@ export async function rewriteCharacterVisualAnchor(
     `/comic/characters/${charId}/visual-anchor/rewrite`,
     payload,
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 /**
@@ -677,7 +691,7 @@ export async function updateCharacterVisualAnchor(
     `/comic/characters/${charId}/visual-anchor`,
     payload,
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 // ─── Scenes ────────────────────────────────────────────────────────────────────
@@ -732,17 +746,17 @@ export interface UpdateScenePayload {
 
 export async function listComicScenes(projectId: string): Promise<ComicScene[]> {
   const res = await apiClient.get<ApiResponse<ComicScene[]>>(`/comic/projects/${projectId}/scenes`);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function createComicScene(payload: CreateScenePayload): Promise<ComicScene> {
   const res = await apiClient.post<ApiResponse<ComicScene>>("/comic/scenes", payload);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function updateComicScene(sceneId: string, payload: UpdateScenePayload): Promise<ComicScene> {
   const res = await apiClient.patch<ApiResponse<ComicScene>>(`/comic/scenes/${sceneId}`, payload);
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function deleteComicScene(sceneId: string): Promise<void> {
@@ -754,7 +768,7 @@ export async function prepareComicSceneImage(sceneId: string, provider?: string)
     `/comic/scenes/${sceneId}/prepare-image`,
     provider ? { provider } : {},
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function generateComicSceneImage(
@@ -766,7 +780,7 @@ export async function generateComicSceneImage(
     `/comic/scenes/${sceneId}/generate-image`,
     { ...(provider ? { provider } : {}), ...(overrides ?? {}) },
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export async function uploadComicSceneImage(sceneId: string, file: File): Promise<{ url: string }> {
@@ -775,7 +789,7 @@ export async function uploadComicSceneImage(sceneId: string, file: File): Promis
     file,
     { headers: { "Content-Type": file.type } },
   );
-  return res.data.data!;
+  return unwrapApiData(res.data);
 }
 
 export function comicSceneImageUrl(sceneId: string): string {

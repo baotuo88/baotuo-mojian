@@ -102,46 +102,52 @@ export class DramaEpisodeOutlineService {
       (episode) => episode.order >= startOrder && episode.order <= endOrder,
     );
 
-    for (const episode of episodes) {
-      const isPaywall = rhythmEngine.isPaywallEpisode(episode.order, project.targetEpisodes, paywallPlan);
-      const sourceMap = episode.sourceBeatRefs && episode.sourceBeatRefs.length > 0
-        ? JSON.stringify({ beatRefs: episode.sourceBeatRefs })
-        : null;
-      const beatSheet = JSON.stringify({
-        conflict: episode.conflict,
-      });
-      await prisma.dramaEpisode.upsert({
-        where: { projectId_order: { projectId, order: episode.order } },
-        update: {
-          title: episode.title,
-          hookOpening: episode.hookOpening,
-          hookType: episode.hookType,
-          cliffhanger: episode.cliffhanger,
-          emotionNet: episode.emotionNet,
-          isPaywall,
-          beatSheet,
-          sourceMap,
-          status: "planned",
-        },
-        create: {
-          projectId,
-          order: episode.order,
-          title: episode.title,
-          hookOpening: episode.hookOpening,
-          hookType: episode.hookType,
-          cliffhanger: episode.cliffhanger,
-          emotionNet: episode.emotionNet,
-          isPaywall,
-          beatSheet,
-          sourceMap,
-          status: "planned",
-        },
-      });
-    }
+    // Persist the whole outline batch + the project status flip atomically so a
+    // mid-loop failure can't leave a half-outlined project. Sequential for...of
+    // (not Promise.all) — the SQLite adapter can't run parallel writes in one tx.
+    // Mirrors ComicEpisodePlanService.generateOutline.
+    await prisma.$transaction(async (tx) => {
+      for (const episode of episodes) {
+        const isPaywall = rhythmEngine.isPaywallEpisode(episode.order, project.targetEpisodes, paywallPlan);
+        const sourceMap = episode.sourceBeatRefs && episode.sourceBeatRefs.length > 0
+          ? JSON.stringify({ beatRefs: episode.sourceBeatRefs })
+          : null;
+        const beatSheet = JSON.stringify({
+          conflict: episode.conflict,
+        });
+        await tx.dramaEpisode.upsert({
+          where: { projectId_order: { projectId, order: episode.order } },
+          update: {
+            title: episode.title,
+            hookOpening: episode.hookOpening,
+            hookType: episode.hookType,
+            cliffhanger: episode.cliffhanger,
+            emotionNet: episode.emotionNet,
+            isPaywall,
+            beatSheet,
+            sourceMap,
+            status: "planned",
+          },
+          create: {
+            projectId,
+            order: episode.order,
+            title: episode.title,
+            hookOpening: episode.hookOpening,
+            hookType: episode.hookType,
+            cliffhanger: episode.cliffhanger,
+            emotionNet: episode.emotionNet,
+            isPaywall,
+            beatSheet,
+            sourceMap,
+            status: "planned",
+          },
+        });
+      }
 
-    await prisma.dramaProject.update({
-      where: { id: projectId },
-      data: { status: "outlined" },
+      await tx.dramaProject.update({
+        where: { id: projectId },
+        data: { status: "outlined" },
+      });
     });
 
     return { generated: episodes.length, startOrder, endOrder };
