@@ -495,9 +495,8 @@ export class ChapterArtifactBackgroundSyncService {
       return;
     }
 
-    await Promise.all(jobRows.map(async (job) => {
-      const payload = parsePipelinePayload(job.payload);
-      const nextActivities = (payload.backgroundSync?.activities ?? [])
+    await Promise.all(jobRows.map((job) => this.mutateJobActivities(job.id, (payload) =>
+      (payload.backgroundSync?.activities ?? [])
         .filter((item) => item.kind !== kind)
         .concat({
           kind,
@@ -507,9 +506,8 @@ export class ChapterArtifactBackgroundSyncService {
           chapterTitle: chapter.chapterTitle,
           updatedAt: new Date().toISOString(),
         })
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-      await this.persistJobPayload(job.id, job.payload, payload, nextActivities);
-    }));
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+    )));
   }
 
   private async clearBackgroundActivity(
@@ -524,54 +522,64 @@ export class ChapterArtifactBackgroundSyncService {
       },
       select: {
         id: true,
-        payload: true,
       },
     });
     if (jobRows.length === 0) {
       return;
     }
 
-    await Promise.all(jobRows.map(async (job) => {
-      const payload = parsePipelinePayload(job.payload);
-      const nextActivities = (payload.backgroundSync?.activities ?? [])
-        .filter((item) => !(item.kind === kind && item.chapterId === chapterId));
-      if (nextActivities.length === (payload.backgroundSync?.activities ?? []).length) {
-        const unchanged = nextActivities.every((item, index) => {
-          const previous = (payload.backgroundSync?.activities ?? [])[index];
-          return previous
-            && previous.kind === item.kind
-            && previous.chapterId === item.chapterId
-            && previous.status === item.status;
-        });
-        if (unchanged) {
-          return;
-        }
-      }
-      await this.persistJobPayload(job.id, job.payload, payload, nextActivities);
-    }));
+    await Promise.all(jobRows.map((job) => this.mutateJobActivities(job.id, (payload) => {
+      const current = payload.backgroundSync?.activities ?? [];
+      const next = current.filter((item) => !(item.kind === kind && item.chapterId === chapterId));
+      // filter only removes; equal length ⇒ nothing matched ⇒ no-op (skip the write).
+      return next.length === current.length ? null : next;
+    })));
   }
 
-  private async persistJobPayload(
+  // Read-modify-write of generationJob.payload: two concurrent activity updates for the
+  // same job (different kinds, or an update racing a clear) each read the same base
+  // payload and write back, so the later writer drops the other's entry. Re-read the
+  // payload and CAS on its exact prior value (updateMany where payload=<read value>);
+  // on a miss a concurrent writer won, so re-read and retry. Best-effort throughout —
+  // this only drives the background-sync progress indicator, so it must never throw.
+  private async mutateJobActivities(
     jobId: string,
-    currentPayloadString: string | null,
-    payload: PipelinePayload,
-    activities: PipelineBackgroundSyncActivity[],
+    deriveActivities: (payload: PipelinePayload) => PipelineBackgroundSyncActivity[] | null,
+    attempts = 4,
   ): Promise<void> {
-    const nextPayload: PipelinePayload = {
-      ...payload,
-      backgroundSync: activities.length > 0 ? { activities } : undefined,
-    };
-    const nextPayloadString = stringifyPipelinePayload(nextPayload);
-    if ((currentPayloadString ?? "") === nextPayloadString) {
-      return;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const job = await prisma.generationJob.findUnique({
+        where: { id: jobId },
+        select: { payload: true, status: true },
+      }).catch(() => null);
+      if (!job || (job.status !== "queued" && job.status !== "running")) {
+        return;
+      }
+      const payload = parsePipelinePayload(job.payload);
+      const activities = deriveActivities(payload);
+      if (activities === null) {
+        return;
+      }
+      const nextPayload: PipelinePayload = {
+        ...payload,
+        backgroundSync: activities.length > 0 ? { activities } : undefined,
+      };
+      const nextPayloadString = stringifyPipelinePayload(nextPayload);
+      if ((job.payload ?? "") === nextPayloadString) {
+        return;
+      }
+      const updated = await prisma.generationJob.updateMany({
+        where: { id: jobId, payload: job.payload },
+        data: {
+          payload: nextPayloadString,
+          heartbeatAt: new Date(),
+        },
+      }).catch(() => null);
+      if (updated && updated.count === 1) {
+        return;
+      }
+      // CAS miss: a concurrent writer changed the payload — re-read and retry.
     }
-    await prisma.generationJob.update({
-      where: { id: jobId },
-      data: {
-        payload: nextPayloadString,
-        heartbeatAt: new Date(),
-      },
-    }).catch(() => null);
   }
 
   private async findActiveJobsForChapter(novelId: string, chapterOrder: number) {
@@ -585,7 +593,6 @@ export class ChapterArtifactBackgroundSyncService {
       orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
-        payload: true,
       },
     });
   }
