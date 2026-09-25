@@ -95,7 +95,7 @@ export default function CreativeHubPage() {
     queryFn: listCreativeHubThreads,
     staleTime: 30_000,
   });
-  const threads = threadsQuery.data?.data ?? [];
+  const threads = useMemo(() => threadsQuery.data?.data ?? [], [threadsQuery.data?.data]);
   const initialThread = useMemo(
     () => findCreativeHubInitialThread(threads, initialBindings, shouldCreateBoundThread),
     [initialBindings, shouldCreateBoundThread, threads],

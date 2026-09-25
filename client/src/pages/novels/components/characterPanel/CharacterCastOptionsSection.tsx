@@ -113,8 +113,8 @@ export default function CharacterCastOptionsSection(props: CharacterCastOptionsS
     enabled: Boolean(novelId) && useWorldContext,
   });
 
-  const castOptions = castOptionsQuery.data?.data ?? [];
-  const relations = relationsQuery.data?.data ?? [];
+  const castOptions = useMemo(() => castOptionsQuery.data?.data ?? [], [castOptionsQuery.data?.data]);
+  const relations = useMemo(() => relationsQuery.data?.data ?? [], [relationsQuery.data?.data]);
   const worldSliceView = worldSliceQuery.data?.data;
   const hasUsableWorld = Boolean(worldSliceView?.hasWorld);
   const hasWorldSlice = Boolean(worldSliceView?.slice);
@@ -130,7 +130,7 @@ export default function CharacterCastOptionsSection(props: CharacterCastOptionsS
 
   useEffect(() => {
     setIsPlannerExpanded(appliedOption == null);
-  }, [appliedOption?.id]);
+  }, [appliedOption]);
 
   async function refreshCastOptions() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.novels.characterCastOptions(novelId) });

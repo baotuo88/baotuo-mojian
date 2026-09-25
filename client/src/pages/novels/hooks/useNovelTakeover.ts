@@ -427,7 +427,7 @@ export function useNovelTakeover({
       actions,
     };
   }, [
-    activeAutoDirectorTask,
+    acceptManualChangesAndContinueMutation,
     activeChapterTitleWarning,
     activeDirectorSnapshot?.dashboardView,
     activeDirectorSnapshot?.displayState.currentAction,
@@ -435,6 +435,7 @@ export function useNovelTakeover({
     activeTab,
     archiveCompletedAutoDirectorMutation,
     bookAutomationProjection,
+    calibrateDirectorStepMutation,
     chapterCount,
     chapterTitleRepairMutation,
     characterCount,
@@ -446,9 +447,12 @@ export function useNovelTakeover({
     isDirectorExitActionExpanded,
     novelTitleHint,
     openCandidateSelection,
+    openChapterExecution,
     openQualityRepair,
     displayAutoDirectorTask,
     setActiveTab,
+    setIsDirectorExitActionExpanded,
+    setIsTaskDrawerOpen,
     setSelectedChapterId,
   ]);
 }

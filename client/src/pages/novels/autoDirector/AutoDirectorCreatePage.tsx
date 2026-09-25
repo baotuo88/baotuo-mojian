@@ -81,7 +81,7 @@ export default function AutoDirectorCreatePage() {
   const storyModeTree = storyModeTreeQuery.data?.data ?? [];
   const genreOptions = flattenGenreTreeOptions(genreTree);
   const storyModeOptions = flattenStoryModeTreeOptions(storyModeTree);
-  const worldOptions = worldListQuery.data?.data ?? [];
+  const worldOptions = useMemo(() => worldListQuery.data?.data ?? [], [worldListQuery.data?.data]);
 
   useEffect(() => {
     if (!hasLegacyParams) {
@@ -131,6 +131,10 @@ export default function AutoDirectorCreatePage() {
       return;
     }
     restoreWorkflowMutation.mutate();
+    // Restore only when the task id / legacy-param flag changes. `restoreWorkflowMutation` is a
+    // fresh object each render, so depending on it would re-fire the restore continuously; only
+    // its stable `.mutate` is used here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasLegacyParams, normalizedTaskId]);
 
   const controller = useAutoDirectorCreateController({

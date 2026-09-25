@@ -73,7 +73,7 @@ export default function CharacterDynamicsSection(props: CharacterDynamicsSection
   });
 
   const overview = overviewQuery.data?.data ?? null;
-  const candidates = candidatesQuery.data?.data ?? [];
+  const candidates = useMemo(() => candidatesQuery.data?.data ?? [], [candidatesQuery.data?.data]);
   const pendingCandidates = useMemo(
     () => candidates.filter((candidate) => candidate.status === "pending"),
     [candidates],

@@ -85,7 +85,7 @@ export default function Home() {
     },
   });
 
-  const allNovels = novelQuery.data?.data?.items ?? [];
+  const allNovels = useMemo(() => novelQuery.data?.data?.items ?? [], [novelQuery.data?.data?.items]);
   const hasNovels = allNovels.length > 0;
   const taskOverview = taskQuery.data?.data ?? null;
   const primaryNovel = useMemo(() => selectPrimaryNovel(allNovels), [allNovels]);

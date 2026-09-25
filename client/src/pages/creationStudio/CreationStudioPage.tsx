@@ -58,9 +58,12 @@ export default function CreationStudioPage() {
     if (!interpretation) return;
     setNarrativeForm(interpretation.recommendedNarrativeForm);
     setTargetWordCount(interpretation.recommendedTargetWordCount);
-    setSelectedDirectionId((current) => current || interpretation.directions[0].id);
+    setSelectedDirectionId((current) => current || (interpretation.directions[0]?.id ?? ""));
     setWritingPlatform(interpretation.recommendedWritingPlatform);
     setConfirmedBaseline(`${interpretation.recommendedNarrativeForm}:${interpretation.recommendedTargetWordCount}:${interpretation.recommendedWritingPlatform}`);
+    // Hydrate once per task/interpretation change. Keyed on the stable `task?.taskId` rather than
+    // the whole `task` object so a background refetch does not clobber in-progress user edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.taskId, interpretation]);
 
   const currentScaleKey = `${narrativeForm}:${targetWordCount}:${writingPlatform}`;
@@ -94,7 +97,7 @@ export default function CreationStudioPage() {
     }),
     onSuccess: async (response) => {
       setConfirmedBaseline(`${narrativeForm}:${normalizeTarget(narrativeForm, targetWordCount)}:${writingPlatform}`);
-      setSelectedDirectionId(response.data?.interpretation?.directions[0].id ?? "");
+      setSelectedDirectionId(response.data?.interpretation?.directions[0]?.id ?? "");
       await queryClient.invalidateQueries({ queryKey: ["creation-studio", taskId] });
       toast.success("方向已按新的作品规模更新。");
     },

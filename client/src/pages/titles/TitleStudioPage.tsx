@@ -19,7 +19,7 @@ export default function TitleStudioPage() {
     queryFn: () => getNovelList({ page: 1, limit: NOVEL_LIST_PAGE_LIMIT_MAX }),
   });
 
-  const genreTree = genreTreeQuery.data?.data ?? [];
+  const genreTree = useMemo(() => genreTreeQuery.data?.data ?? [], [genreTreeQuery.data?.data]);
   const genreOptions = useMemo(() => flattenGenreTreeOptions(genreTree), [genreTree]);
   const novels = novelListQuery.data?.data?.items ?? [];
 

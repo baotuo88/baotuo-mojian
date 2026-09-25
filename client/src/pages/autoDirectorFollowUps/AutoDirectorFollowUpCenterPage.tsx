@@ -165,7 +165,7 @@ export default function AutoDirectorFollowUpCenterPage() {
     },
   });
 
-  const items = listQuery.data?.data?.items ?? [];
+  const items = useMemo(() => listQuery.data?.data?.items ?? [], [listQuery.data?.data?.items]);
 
   const detailQuery = useQuery({
     queryKey: queryKeys.autoDirectorFollowUps.detail(selectedDirectorTaskId || "none"),

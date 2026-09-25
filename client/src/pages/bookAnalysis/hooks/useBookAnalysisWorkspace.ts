@@ -128,7 +128,7 @@ export function useBookAnalysisWorkspace(): BookAnalysisWorkspace {
     },
   });
 
-  const analyses = analysesQuery.data?.data ?? [];
+  const analyses = useMemo(() => analysesQuery.data?.data ?? [], [analysesQuery.data?.data]);
   const selectedAnalysis = detailQuery.data?.data;
   const sourceDocument = sourceDocumentQuery.data?.data;
   const selectedSourceVersionId = selectedVersionId || sourceDocument?.activeVersionId || sourceDocument?.versions[0]?.id || "";

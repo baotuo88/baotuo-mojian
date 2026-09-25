@@ -110,7 +110,7 @@ export default function TaskCenterPage() {
     refetchInterval: (query) => (query.state.data?.data?.items.length ?? 0) > 0 ? 4000 : false,
   });
 
-  const allRows = listQuery.data?.data?.items ?? [];
+  const allRows = useMemo(() => listQuery.data?.data?.items ?? [], [listQuery.data?.data?.items]);
   const visibleRows = useMemo(
     () =>
       (onlyAnomaly ? allRows.filter(isTaskMustHandle) : allRows)

@@ -56,6 +56,9 @@ export function VisualAssetLibrary({
   useEffect(() => {
     setSelectedById(createSelectionMap(initialSelection));
     setDetailAssetId(null);
+    // `initialSelectionKey` is the stable serialization of `initialSelection`; depending on
+    // the array itself would re-run this reset on every render (new array identity each time).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSelectionKey, scopeKey]);
 
   useEffect(() => {

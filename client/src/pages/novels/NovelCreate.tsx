@@ -120,6 +120,10 @@ export default function NovelCreate() {
       return;
     }
     restoreWorkflowMutation.mutate();
+    // Fire the restore only when the workflow task id / mode changes. `restoreWorkflowMutation`
+    // is a new object each render, so depending on it would re-fire the mutation continuously;
+    // its `.mutate` is stable, which is all this effect uses.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowTaskIdFromQuery, workflowMode]);
 
   const createNovelMutation = useMutation({

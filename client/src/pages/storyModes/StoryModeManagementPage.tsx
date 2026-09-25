@@ -150,7 +150,7 @@ export default function StoryModeManagementPage() {
     queryFn: getStoryModeTree,
   });
 
-  const storyModeTree = storyModeTreeQuery.data?.data ?? [];
+  const storyModeTree = useMemo(() => storyModeTreeQuery.data?.data ?? [], [storyModeTreeQuery.data?.data]);
   const isCreatingChild = Boolean(defaultParentId);
   const totalStoryModes = useMemo(() => countStoryModes(storyModeTree), [storyModeTree]);
   const editingStoryMode = useMemo(

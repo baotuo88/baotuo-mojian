@@ -61,7 +61,7 @@ export default function PromptWorkbenchPage() {
     enabled: Boolean(slotState.scope === "novel" && slotState.activeNovelId),
     staleTime: 30_000,
   });
-  const chapters = chaptersQuery.data?.data ?? [];
+  const chapters = useMemo(() => chaptersQuery.data?.data ?? [], [chaptersQuery.data?.data]);
   const selectedChapter = useMemo(
     () => chapters.find((chapter) => chapter.id === selectedChapterId) ?? null,
     [chapters, selectedChapterId],

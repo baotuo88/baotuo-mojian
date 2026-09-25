@@ -204,5 +204,6 @@ export function useNovelTaskDrawerActions({
     openQualityRepair,
     reviewTab,
     setActiveTab,
+    setIsTaskDrawerOpen,
   ]);
 }

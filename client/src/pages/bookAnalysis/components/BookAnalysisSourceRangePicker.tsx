@@ -159,10 +159,13 @@ export default function BookAnalysisSourceRangePicker({
   const barWidth = sourceCharCount > 0 ? clamp((selectedCharCount / sourceCharCount) * 100, 0, 100 - barLeft) : 0;
 
   useEffect(() => {
-    if (!selectedRange && mode !== "full") {
+    // When a range is selected, normalize the mode to chapter/chars (functional
+    // update so the effect need not depend on the current `mode`); when no range
+    // is selected the mode is intentionally left untouched.
+    if (!selectedRange) {
       return;
     }
-    setMode(selectedRange ? mode === "chars" ? "chars" : "chapter" : "full");
+    setMode((current) => (current === "chars" ? "chars" : "chapter"));
   }, [selectedRange]);
 
   useEffect(() => {

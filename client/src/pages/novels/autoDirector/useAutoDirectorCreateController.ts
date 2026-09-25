@@ -193,7 +193,7 @@ export function useAutoDirectorCreateController(input: UseAutoDirectorCreateCont
     queryKey: queryKeys.styleEngine.profiles,
     queryFn: getStyleProfiles,
   });
-  const styleProfiles = styleProfilesQuery.data?.data ?? [];
+  const styleProfiles = useMemo(() => styleProfilesQuery.data?.data ?? [], [styleProfilesQuery.data?.data]);
   const selectedStyleProfile = useMemo(
     () => styleProfiles.find((item) => item.id === selectedStyleProfileId) ?? null,
     [selectedStyleProfileId, styleProfiles],

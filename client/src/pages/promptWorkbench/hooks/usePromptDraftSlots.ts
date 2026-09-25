@@ -225,7 +225,7 @@ export function usePromptDraftSlots(prompt: PromptCatalogItem | null) {
     }
   }, [saveMutation.error, saveMutation.isError]);
 
-  const overrides: PromptSlotOverrideView[] = overrideQuery.data?.data ?? [];
+  const overrides: PromptSlotOverrideView[] = useMemo(() => overrideQuery.data?.data ?? [], [overrideQuery.data?.data]);
   const { globalSlotMap, novelSlotMap } = useMemo(
     () => mapSlotsByScope(overrides, activeNovelId),
     [activeNovelId, overrides],

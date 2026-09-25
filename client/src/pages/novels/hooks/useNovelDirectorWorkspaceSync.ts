@@ -110,7 +110,7 @@ export function useNovelDirectorWorkspaceSync({
     if (refreshSignatureRef.current === activeAutoDirectorRefreshSignature) return;
     refreshSignatureRef.current = activeAutoDirectorRefreshSignature;
     void invalidateAutoDirectorTaskState(activeAutoDirectorTask.id);
-  }, [activeAutoDirectorRefreshSignature, activeAutoDirectorTask, id]);
+  }, [activeAutoDirectorRefreshSignature, activeAutoDirectorTask, id, invalidateAutoDirectorTaskState, refreshSignatureRef]);
 
   useEffect(() => {
     if (!id || !activeAutoDirectorTask || !activeAutoDirectorWorkspaceSignature) {
@@ -122,7 +122,7 @@ export function useNovelDirectorWorkspaceSync({
     workspaceSignatureRef.current = activeAutoDirectorWorkspaceSignature;
     const recommendedTab = tabFromDirectorDisplayStage(activeDirectorSnapshot?.displayState.stageKey ?? null);
     void invalidateWorkspaceDataForTabs([isNovelWorkspaceFlowTab(activeTab) ? activeTab : null, recommendedTab, workflowCurrentTab]);
-  }, [activeAutoDirectorTask, activeAutoDirectorWorkspaceSignature, activeDirectorSnapshot?.displayState.stageKey, activeTab, id, workflowCurrentTab]);
+  }, [activeAutoDirectorTask, activeAutoDirectorWorkspaceSignature, activeDirectorSnapshot?.displayState.stageKey, activeTab, id, invalidateWorkspaceDataForTabs, workflowCurrentTab, workspaceSignatureRef]);
 
   useEffect(() => {
     if (!id || !activeAutoDirectorTask || !activeAutoDirectorArtifactSignature) {
@@ -133,5 +133,5 @@ export function useNovelDirectorWorkspaceSync({
     if (artifactSignatureRef.current === activeAutoDirectorArtifactSignature) return;
     artifactSignatureRef.current = activeAutoDirectorArtifactSignature;
     void invalidateVisibleWorkspaceData();
-  }, [activeAutoDirectorArtifactSignature, activeAutoDirectorTask, id, selectedChapterId]);
+  }, [activeAutoDirectorArtifactSignature, activeAutoDirectorTask, artifactSignatureRef, id, invalidateVisibleWorkspaceData, selectedChapterId]);
 }

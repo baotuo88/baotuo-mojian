@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { BaseCharacter, Character, VolumePlan } from "@ai-novel/shared/types/novel";
 import type { NovelDetailResponse } from "@/api/novel";
 import {
@@ -98,59 +98,71 @@ export function useNovelEditInitialization({
   setSelectedBaseCharacterId,
   setCharacterForm,
 }: UseNovelEditInitializationArgs) {
+  // Hydrate editable form state from `detail` only once per novel. TanStack
+  // Query hands us a fresh `detail` object reference on every background
+  // refetch; without these guards the effect would re-run and overwrite the
+  // user's unsaved edits (data loss). We track which novel id we have already
+  // hydrated so refetches of the same novel are ignored.
+  const hydratedBasicNovelIdRef = useRef<string | null>(null);
+  const hydratedVolumeNovelIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!detail) {
       return;
     }
 
-    setBasicForm({
-      title: detail.title,
-      description: detail.description ?? "",
-      targetAudience: detail.targetAudience ?? "",
-      bookSellingPoint: detail.bookSellingPoint ?? "",
-      competingFeel: detail.competingFeel ?? "",
-      first30ChapterPromise: detail.first30ChapterPromise ?? "",
-      commercialTagsText: formatCommercialTagsInput(detail.commercialTags ?? []),
-      genreId: detail.genreId ?? "",
-      primaryStoryModeId: detail.primaryStoryModeId ?? "",
-      secondaryStoryModeId: detail.secondaryStoryModeId ?? "",
-      worldId: detail.worldId ?? "",
-      status: detail.status,
-      writingMode: detail.writingMode ?? "original",
-      projectMode: detail.projectMode ?? "co_pilot",
-      readerChannelPreference: "ai_judge",
-      writingPlatformPreference: detail.writingPlatform ?? "ai_recommend",
-      narrativePov: detail.narrativePov ?? "third_person",
-      pacePreference: detail.pacePreference ?? "balanced",
-      styleTone: detail.styleTone ?? "",
-      emotionIntensity: detail.emotionIntensity ?? "medium",
-      aiFreedom: detail.aiFreedom ?? "medium",
-      postGenerationStyleReviewEnabled: detail.postGenerationStyleReviewEnabled ?? true,
-      defaultChapterLength: detail.defaultChapterLength ?? 2800,
-      estimatedChapterCount: detail.estimatedChapterCount ?? DEFAULT_ESTIMATED_CHAPTER_COUNT,
-      projectStatus: detail.projectStatus ?? "not_started",
-      storylineStatus: detail.storylineStatus ?? "not_started",
-      outlineStatus: detail.outlineStatus ?? "not_started",
-      resourceReadyScore: detail.resourceReadyScore ?? 0,
-      continuationSourceType: detail.sourceKnowledgeDocumentId ? "knowledge_document" : "novel",
-      sourceNovelId: detail.sourceNovelId ?? "",
-      sourceKnowledgeDocumentId: detail.sourceKnowledgeDocumentId ?? "",
-      continuationBookAnalysisId: detail.continuationBookAnalysisId ?? "",
-      continuationBookAnalysisSections: detail.continuationBookAnalysisSections ?? [],
-    });
-    if (hydrateVolumeDraftFromDetail) {
+    if (hydratedBasicNovelIdRef.current !== detail.id) {
+      hydratedBasicNovelIdRef.current = detail.id;
+      setBasicForm({
+        title: detail.title,
+        description: detail.description ?? "",
+        targetAudience: detail.targetAudience ?? "",
+        bookSellingPoint: detail.bookSellingPoint ?? "",
+        competingFeel: detail.competingFeel ?? "",
+        first30ChapterPromise: detail.first30ChapterPromise ?? "",
+        commercialTagsText: formatCommercialTagsInput(detail.commercialTags ?? []),
+        genreId: detail.genreId ?? "",
+        primaryStoryModeId: detail.primaryStoryModeId ?? "",
+        secondaryStoryModeId: detail.secondaryStoryModeId ?? "",
+        worldId: detail.worldId ?? "",
+        status: detail.status,
+        writingMode: detail.writingMode ?? "original",
+        projectMode: detail.projectMode ?? "co_pilot",
+        readerChannelPreference: "ai_judge",
+        writingPlatformPreference: detail.writingPlatform ?? "ai_recommend",
+        narrativePov: detail.narrativePov ?? "third_person",
+        pacePreference: detail.pacePreference ?? "balanced",
+        styleTone: detail.styleTone ?? "",
+        emotionIntensity: detail.emotionIntensity ?? "medium",
+        aiFreedom: detail.aiFreedom ?? "medium",
+        postGenerationStyleReviewEnabled: detail.postGenerationStyleReviewEnabled ?? true,
+        defaultChapterLength: detail.defaultChapterLength ?? 2800,
+        estimatedChapterCount: detail.estimatedChapterCount ?? DEFAULT_ESTIMATED_CHAPTER_COUNT,
+        projectStatus: detail.projectStatus ?? "not_started",
+        storylineStatus: detail.storylineStatus ?? "not_started",
+        outlineStatus: detail.outlineStatus ?? "not_started",
+        resourceReadyScore: detail.resourceReadyScore ?? 0,
+        continuationSourceType: detail.sourceKnowledgeDocumentId ? "knowledge_document" : "novel",
+        sourceNovelId: detail.sourceNovelId ?? "",
+        sourceKnowledgeDocumentId: detail.sourceKnowledgeDocumentId ?? "",
+        continuationBookAnalysisId: detail.continuationBookAnalysisId ?? "",
+        continuationBookAnalysisSections: detail.continuationBookAnalysisSections ?? [],
+      });
+      const recommendedEndOrder = Math.max(
+        detail.estimatedChapterCount ?? DEFAULT_ESTIMATED_CHAPTER_COUNT,
+        detail.volumes?.flatMap((volume) => volume.chapters).length ?? 0,
+        detail.chapters.length || 0,
+        1,
+      );
+      setPipelineForm((prev) => ({
+        ...prev,
+        endOrder: Math.max(prev.endOrder, recommendedEndOrder),
+      }));
+    }
+
+    if (hydrateVolumeDraftFromDetail && hydratedVolumeNovelIdRef.current !== detail.id) {
+      hydratedVolumeNovelIdRef.current = detail.id;
       setVolumeDraft(detail.volumes ?? []);
     }
-    const recommendedEndOrder = Math.max(
-      detail.estimatedChapterCount ?? DEFAULT_ESTIMATED_CHAPTER_COUNT,
-      detail.volumes?.flatMap((volume) => volume.chapters).length ?? 0,
-      detail.chapters.length || 0,
-      1,
-    );
-    setPipelineForm((prev) => ({
-      ...prev,
-      endOrder: Math.max(prev.endOrder, recommendedEndOrder),
-    }));
   }, [detail, hydrateVolumeDraftFromDetail, setBasicForm, setPipelineForm, setVolumeDraft]);
 
   useEffect(() => {

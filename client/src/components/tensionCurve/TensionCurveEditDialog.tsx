@@ -72,7 +72,7 @@ export function TensionCurveEditDialog(props: TensionCurveEditDialogProps) {
   const [referenceTemplateKey, setReferenceTemplateKey] = useState(tensionCurveReferenceTemplates[0]?.key ?? "escalation");
 
   const primarySeries = series[0] ?? null;
-  const primaryPoints = primarySeries?.points ?? [];
+  const primaryPoints = useMemo(() => primarySeries?.points ?? [], [primarySeries?.points]);
   const primaryPointCount = primaryPoints.length;
   const canvasWidth = chartWidth(primaryPointCount);
   const userAnchorCount = primaryPoints.filter((point) => point.source === "user").length;

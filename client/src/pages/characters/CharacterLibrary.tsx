@@ -36,7 +36,7 @@ export default function CharacterLibrary() {
     queryFn: () => getBaseCharacterList(),
   });
 
-  const characters = characterListQuery.data?.data ?? [];
+  const characters = useMemo(() => characterListQuery.data?.data ?? [], [characterListQuery.data?.data]);
 
   const imageAssetQueries = useQueries({
     queries: characters.map((character) => ({

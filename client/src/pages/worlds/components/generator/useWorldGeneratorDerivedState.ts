@@ -28,8 +28,8 @@ export function useWorldGeneratorDerivedState(input: UseWorldGeneratorDerivedSta
     queryFn: getGenreTree,
   });
 
-  const templates = (templateQuery.data?.data ?? []) as WorldGeneratorTemplateOption[];
-  const genreTree = genreTreeQuery.data?.data ?? [];
+  const templates = useMemo(() => (templateQuery.data?.data ?? []) as WorldGeneratorTemplateOption[], [templateQuery.data?.data]);
+  const genreTree = useMemo(() => genreTreeQuery.data?.data ?? [], [genreTreeQuery.data?.data]);
   const genreOptions = useMemo(
     () => flattenGenreTreeOptions(genreTree) as GeneratorGenreOption[],
     [genreTree],

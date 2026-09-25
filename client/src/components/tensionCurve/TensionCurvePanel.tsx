@@ -51,7 +51,7 @@ export default function TensionCurvePanel(props: TensionCurvePanelProps) {
   const [showReferenceCurve, setShowReferenceCurve] = useState(false);
   const [referenceTemplateKey, setReferenceTemplateKey] = useState(tensionCurveReferenceTemplates[0]?.key ?? "escalation");
 
-  const primaryPoints = series[0]?.points ?? [];
+  const primaryPoints = useMemo(() => series[0]?.points ?? [], [series]);
   const primaryPointCount = primaryPoints.length;
   const canvasWidth = chartWidth(primaryPointCount);
   const userAnchorCount = primaryPoints.filter((point) => point.source === "user").length;

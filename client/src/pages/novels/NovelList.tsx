@@ -186,7 +186,7 @@ export default function NovelList() {
     },
   });
 
-  const allNovels = novelListQuery.data?.data?.items ?? [];
+  const allNovels = useMemo(() => novelListQuery.data?.data?.items ?? [], [novelListQuery.data?.data?.items]);
   const totalPages = novelListQuery.data?.data?.totalPages ?? 1;
   const totalNovels = novelListQuery.data?.data?.total ?? 0;
   const selectedCockpitNovel = allNovels.find((item) => item.id === cockpitNovelId) ?? null;

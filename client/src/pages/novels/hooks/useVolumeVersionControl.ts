@@ -56,7 +56,7 @@ export function useVolumeVersionControl({
     enabled: Boolean(novelId),
   });
 
-  const versions = volumeVersionsQuery.data?.data ?? [];
+  const versions = useMemo(() => volumeVersionsQuery.data?.data ?? [], [volumeVersionsQuery.data?.data]);
   const selectedVersion = useMemo(
     () => versions.find((item) => item.id === selectedVersionId),
     [selectedVersionId, versions],

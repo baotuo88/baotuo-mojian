@@ -32,7 +32,7 @@ import {
   updateWorldAxioms,
   updateWorldLayer,
   updateWorldStructure,
-  useWorldLibraryItem,
+  applyWorldLibraryItem,
 } from "@/api/world";
 import { queryKeys } from "@/api/queryKeys";
 import { toast } from "@/components/ui/toast";
@@ -218,16 +218,20 @@ export default function WorldWorkspace() {
   });
   const saveStructureMutation = useMutation({
     mutationFn: (payload: Parameters<typeof updateWorldStructure>[1]) => updateWorldStructure(id, payload),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "保存世界结构失败。"),
   });
   const saveAxiomsMutation = useMutation({
     mutationFn: (axioms: string[]) => updateWorldAxioms(id, axioms),
     onSuccess: invalidateWorld,
+    onError: (error) => toast.error(error instanceof Error ? error.message : "保存世界公理失败。"),
   });
   const backfillStructureMutation = useMutation({
     mutationFn: () => backfillWorldStructure(id, { provider: llm.provider, model: llm.model }),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "补全世界结构失败。"),
   });
   const generateStructureMutation = useMutation({
     mutationFn: (payload: Parameters<typeof generateWorldStructure>[1]) => generateWorldStructure(id, payload),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "生成世界结构失败。"),
   });
   const snapshotCreateMutation = useMutation({
     mutationFn: () => createWorldSnapshot(id, snapshotLabel || undefined),
@@ -568,12 +572,12 @@ export default function WorldWorkspace() {
               })
             }
             onInjectLibraryField={(libraryId) =>
-              void useWorldLibraryItem(libraryId, { worldId: id, targetField: selectedLayerMeta.primaryField }).then(
+              void applyWorldLibraryItem(libraryId, { worldId: id, targetField: selectedLayerMeta.primaryField }).then(
                 () => invalidateWorld(),
               )
             }
             onInjectLibraryStructure={(libraryId, targetCollection) =>
-              void useWorldLibraryItem(libraryId, { worldId: id, targetCollection }).then(() => invalidateWorld())
+              void applyWorldLibraryItem(libraryId, { worldId: id, targetCollection }).then(() => invalidateWorld())
             }
             onPublishLibrary={() => publishLibraryMutation.mutate()}
             onCreateSnapshot={() => snapshotCreateMutation.mutate()}

@@ -43,7 +43,7 @@ export default function GenreManagementPage() {
     queryFn: getGenreTree,
   });
 
-  const genreTree = genreTreeQuery.data?.data ?? [];
+  const genreTree = useMemo(() => genreTreeQuery.data?.data ?? [], [genreTreeQuery.data?.data]);
   const parentOptions = useMemo(() => flattenGenreTreeOptions(genreTree), [genreTree]);
   const totalGenres = useMemo(() => countGenres(genreTree), [genreTree]);
   const linkedNovelCount = useMemo(

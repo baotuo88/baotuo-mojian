@@ -94,9 +94,10 @@ export default function TaskCenterManualEditImpactCard({
     },
   });
 
+  const { reset: resetMutation } = mutation;
   useEffect(() => {
-    mutation.reset();
-  }, [mutation, task.id]);
+    resetMutation();
+  }, [resetMutation, task.id]);
 
   if (!canAnalyze) {
     return null;

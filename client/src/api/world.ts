@@ -401,7 +401,7 @@ export async function createWorldLibraryItem(payload: {
   return data;
 }
 
-export async function useWorldLibraryItem(
+export async function applyWorldLibraryItem(
   libraryId: string,
   payload?: {
     worldId?: string;

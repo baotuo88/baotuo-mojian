@@ -375,6 +375,10 @@ export function usePromptPreview(input: UsePromptPreviewInput) {
   useEffect(() => {
     previewMutation.reset();
     testRunMutation.reset();
+    // Reset preview/test state only when the selected prompt changes. The mutation objects get a
+    // new identity each render, so depending on them would clear state on every render; their
+    // `.reset` methods are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompt?.key]);
 
   const generatePreview = useCallback(() => {

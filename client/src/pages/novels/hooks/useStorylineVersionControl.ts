@@ -51,7 +51,7 @@ export function useStorylineVersionControl({
     enabled: Boolean(novelId),
   });
 
-  const storylineVersions = storylineVersionsQuery.data?.data ?? [];
+  const storylineVersions = useMemo(() => storylineVersionsQuery.data?.data ?? [], [storylineVersionsQuery.data?.data]);
   const selectedVersion = useMemo(
     () => storylineVersions.find((item) => item.id === selectedVersionId),
     [selectedVersionId, storylineVersions],

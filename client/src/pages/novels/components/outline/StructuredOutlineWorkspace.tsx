@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AiButton from "@/components/common/AiButton";
 import TensionCurvePanel, { type TensionCurveSeries, type TensionCurveViewportOption } from "@/components/tensionCurve/TensionCurvePanel";
 import { TensionCurveEditDialog } from "@/components/tensionCurve/TensionCurveEditDialog";
@@ -162,7 +162,7 @@ export default function StructuredOutlineWorkspace(props: StructuredTabViewProps
   const selectedBeat = selectedBeatKey === "all"
     ? null
     : selectedBeatSheet?.beats.find((beat) => beat.key === selectedBeatKey) ?? null;
-  const selectedVolumeChapters = selectedVolume?.chapters ?? [];
+  const selectedVolumeChapters = useMemo(() => selectedVolume?.chapters ?? [], [selectedVolume?.chapters]);
   const selectedVolumeRequiredChapterCount = getBeatSheetRequiredChapterCount(selectedBeatSheet);
   const selectedVolumeNeedsChapterExpansion = selectedVolumeRequiredChapterCount > selectedVolumeChapters.length;
   const visibleChapters = selectedBeat

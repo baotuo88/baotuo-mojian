@@ -48,7 +48,7 @@ export default function BookAnalysisCharacterImagePanel({
     queryKey: queryKeys.images.assets("book_analysis_character", character.id),
     queryFn: () => listBookAnalysisCharacterImages(analysisId, character.id),
   });
-  const assets = assetsQuery.data?.data ?? [];
+  const assets = useMemo(() => assetsQuery.data?.data ?? [], [assetsQuery.data?.data]);
   const primaryAsset = useMemo(() => assets.find((item) => item.isPrimary) ?? assets[0] ?? null, [assets]);
 
   const taskQuery = useQuery({

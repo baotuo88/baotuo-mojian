@@ -59,7 +59,7 @@ export default function AntiAiRulesPage() {
     queryFn: () => getEffectiveAntiAiRules(previewStyleProfileId ? { styleProfileId: previewStyleProfileId } : undefined),
   });
 
-  const rules = rulesQuery.data?.data ?? [];
+  const rules = useMemo(() => rulesQuery.data?.data ?? [], [rulesQuery.data?.data]);
   const profiles = profilesQuery.data?.data ?? [];
   const effective = effectiveQuery.data?.data;
 
@@ -215,11 +215,16 @@ export default function AntiAiRulesPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "修正失败。"),
   });
 
+  const testPreviewRuleIdsKey = testPreviewRuleIds.join("|");
   useEffect(() => {
     detectionMutation.reset();
     rewriteMutation.reset();
     setRewritePreview("");
-  }, [previewStyleProfileId, testPreviewRuleIds.join("|")]);
+    // Reset preview state only when the selected profile / rule set changes. The mutation objects
+    // get a new identity each render, so depending on them would clear state on every render;
+    // their `.reset` methods are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewStyleProfileId, testPreviewRuleIdsKey]);
 
   const openCreateDialog = () => {
     setEditingRule(null);

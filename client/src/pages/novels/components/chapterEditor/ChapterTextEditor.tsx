@@ -286,7 +286,7 @@ export default function ChapterTextEditor(props: ChapterTextEditorProps) {
       block: "center",
       behavior: "smooth",
     });
-  }, [highlightedParagraphRange, preview]);
+  }, [focusRange, highlightedParagraphRange, normalizedContent, preview]);
 
   const updateParagraphMarkers = useCallback(() => {
     const surface = surfaceRef.current;

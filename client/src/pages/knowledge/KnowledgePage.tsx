@@ -309,7 +309,7 @@ export default function KnowledgePage() {
     },
   });
 
-  const visibleDocuments = documentsQuery.data?.data ?? [];
+  const visibleDocuments = useMemo(() => documentsQuery.data?.data ?? [], [documentsQuery.data?.data]);
   const knowledgeDocumentJobs = useMemo(
     () => (ragJobsQuery.data?.data ?? []).filter((item) => item.ownerType === "knowledge_document"),
     [ragJobsQuery.data?.data],

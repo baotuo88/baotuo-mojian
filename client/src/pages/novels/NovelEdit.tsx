@@ -346,8 +346,8 @@ export default function NovelEdit() {
     () => chapters.find((item) => item.id === selectedChapterId),
     [chapters, selectedChapterId],
   );
-  const characters = novelDetailQuery.data?.data?.characters ?? [];
-  const baseCharacters = baseCharacterListQuery.data?.data ?? [];
+  const characters = useMemo(() => novelDetailQuery.data?.data?.characters ?? [], [novelDetailQuery.data?.data?.characters]);
+  const baseCharacters = useMemo(() => baseCharacterListQuery.data?.data ?? [], [baseCharacterListQuery.data?.data]);
   const selectedCharacter = useMemo(
     () => characters.find((item) => item.id === selectedCharacterId),
     [characters, selectedCharacterId],
@@ -463,7 +463,7 @@ export default function NovelEdit() {
   const characterResources = characterResourcesQuery.data?.data?.items ?? [];
   const pendingCharacterResourceProposals = characterResourcesQuery.data?.data?.pendingProposals ?? [];
   const chapterResourceContext = chapterResourceContextQuery.data?.data ?? null;
-  const chapterAuditReports = chapterAuditReportsQuery.data?.data ?? [];
+  const chapterAuditReports = useMemo(() => chapterAuditReportsQuery.data?.data ?? [], [chapterAuditReportsQuery.data?.data]);
   const pipelineBackgroundActivities = useMemo(
     () => parsePipelineBackgroundActivities(pipelineJobQuery.data?.data?.payload ?? null),
     [pipelineJobQuery.data?.data?.payload],

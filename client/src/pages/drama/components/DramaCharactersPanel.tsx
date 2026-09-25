@@ -308,6 +308,10 @@ function CharacterAssetEditor(props: {
 
   useEffect(() => {
     setDraft(buildDraft(props.character));
+    // Depend on the individual character fields buildDraft reads rather than the
+    // `props.character` object itself; the object gets a new identity every render
+    // and would otherwise wipe the in-progress draft on each parent re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     props.character.id,
     props.character.name,

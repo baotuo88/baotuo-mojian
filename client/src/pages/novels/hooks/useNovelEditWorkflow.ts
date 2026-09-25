@@ -57,6 +57,10 @@ export function useNovelEditWorkflow(novelId: string) {
       return;
     }
     bootstrapMutation.mutate();
+    // Bootstrap once per novel/task change. `bootstrapMutation` is a fresh object each render,
+    // so depending on it would re-fire the mutation on every render; only its stable `.mutate`
+    // is used here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [novelId, workflowTaskId]);
 
   const activeTab = useMemo(

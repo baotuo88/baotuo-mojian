@@ -52,7 +52,7 @@ export function TaskRecoveryProvider({ children }: { children: ReactNode }) {
     staleTime: 10_000,
   });
 
-  const rawItems = recoveryQuery.data?.data?.items ?? [];
+  const rawItems = useMemo(() => recoveryQuery.data?.data?.items ?? [], [recoveryQuery.data?.data?.items]);
   const items = useMemo(
     () => rawItems.filter((item) => !acceptedRecoveryKeys.has(recoveryItemKey(item))),
     [acceptedRecoveryKeys, rawItems],

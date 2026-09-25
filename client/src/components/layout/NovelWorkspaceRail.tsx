@@ -252,6 +252,7 @@ export default function NovelWorkspaceRail(props: NovelWorkspaceRailProps) {
       activeTask?.checkpointType,
       activeTask?.currentItemKey,
       activeTask?.currentStage,
+      activeTask?.status,
       reviewScope,
     ],
   );
@@ -286,7 +287,7 @@ export default function NovelWorkspaceRail(props: NovelWorkspaceRailProps) {
       chapter: chapterReady,
       pipeline: pipelineReady,
     } satisfies Record<NovelWorkspaceFlowTab, boolean>, effectiveResetSteps);
-  }, [effectiveResetSteps, novelDetail?.bible, novelDetail?.chapters, novelDetail?.characters, novelDetail?.plotBeats, novelWorldQuery.data?.data?.hasNovelWorld, qualitySummary, workspace]);
+  }, [effectiveResetSteps, novelDetail?.bible, novelDetail?.chapters, novelDetail?.characters, novelDetail?.plotBeats, novelDetail?.title, novelWorldQuery.data?.data?.hasNovelWorld, qualitySummary, workspace]);
 
   const workflowIndex = workflowCurrentTab
     ? NOVEL_WORKSPACE_FLOW_STEPS.findIndex((item) => item.key === workflowCurrentTab)

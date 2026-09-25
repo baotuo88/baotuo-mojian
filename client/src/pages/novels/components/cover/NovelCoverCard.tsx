@@ -46,7 +46,7 @@ export function NovelCoverCard(props: NovelCoverCardProps) {
     staleTime: 30_000,
   });
 
-  const assets = assetsQuery.data?.data ?? [];
+  const assets = useMemo(() => assetsQuery.data?.data ?? [], [assetsQuery.data?.data]);
   const primaryAsset = useMemo(
     () => assets.find((item) => item.isPrimary) ?? assets[0] ?? null,
     [assets],

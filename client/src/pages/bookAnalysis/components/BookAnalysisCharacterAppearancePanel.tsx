@@ -65,7 +65,7 @@ export default function BookAnalysisCharacterAppearancePanel({
   const [showAllSnapshots, setShowAllSnapshots] = useState(false);
   const [snapshotPage, setSnapshotPage] = useState(0);
   const referenceInitializedForCharacter = useRef("");
-  const queryKey = ["book-analysis-character-appearance", analysisId, character.id];
+  const queryKey = useMemo(() => ["book-analysis-character-appearance", analysisId, character.id], [analysisId, character.id]);
   const termsQueryKey = ["book-analysis-character-appearance-terms", analysisId, character.id, "pending"];
   const appearanceQuery = useQuery({
     queryKey,
@@ -93,12 +93,12 @@ export default function BookAnalysisCharacterAppearancePanel({
     queryKey: termsQueryKey,
     queryFn: () => listBookAnalysisCharacterAppearanceTerms(analysisId, character.id, "pending"),
   });
-  const pendingTerms = termsQuery.data?.data ?? [];
+  const pendingTerms = useMemo(() => termsQuery.data?.data ?? [], [termsQuery.data?.data]);
   const characterImagesQuery = useQuery({
     queryKey: ["book-analysis-character-images", analysisId, character.id],
     queryFn: () => listBookAnalysisCharacterImages(analysisId, character.id),
   });
-  const characterImages = characterImagesQuery.data?.data ?? [];
+  const characterImages = useMemo(() => characterImagesQuery.data?.data ?? [], [characterImagesQuery.data?.data]);
 
   const scanMutation = useMutation({
     mutationFn: () => scanBookAnalysisCharacterAppearance(analysisId, character.id, { targetPercent }),

@@ -185,8 +185,11 @@ export default function NovelExistingProjectTakeoverDialog({
     contextTaskSnapshot?.task
     && ["queued", "running", "waiting_approval"].includes(contextTaskSnapshot.task.status),
   );
-  const styleProfiles = styleProfilesQuery.data?.data ?? [];
-  const currentNovelStyleBindings = novelStyleBindingsQuery.data?.data ?? [];
+  const styleProfiles = useMemo(() => styleProfilesQuery.data?.data ?? [], [styleProfilesQuery.data?.data]);
+  const currentNovelStyleBindings = useMemo(
+    () => novelStyleBindingsQuery.data?.data ?? [],
+    [novelStyleBindingsQuery.data?.data],
+  );
   const selectedStyleProfile = useMemo(
     () => styleProfiles.find((item) => item.id === selectedStyleProfileId) ?? null,
     [selectedStyleProfileId, styleProfiles],

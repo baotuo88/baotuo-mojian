@@ -58,6 +58,29 @@ export default function ChapterExecutionResultPanel(props: ChapterExecutionResul
     repairStreamingChapterId,
   } = props;
 
+  // These hooks must run on every render, before any early return, or the hook
+  // call order changes when `selectedChapter` toggles between defined and
+  // undefined and React crashes ("rendered fewer/more hooks than expected").
+  const contentViewportRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const streaming = Boolean(selectedChapter)
+      && isStreaming
+      && streamingChapterId === selectedChapter?.id;
+    const finalizing = streaming && chapterRunStatus?.phase === "finalizing";
+    if (!streaming && !finalizing) {
+      return;
+    }
+    const viewport = contentViewportRef.current;
+    if (!viewport) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      viewport.scrollTop = viewport.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedChapter, isStreaming, streamingChapterId, chapterRunStatus, streamContent]);
+
   if (!selectedChapter) {
     return (
       <div className="rounded-xl border border-dashed p-8 text-sm leading-7 text-muted-foreground">
@@ -95,7 +118,6 @@ export default function ChapterExecutionResultPanel(props: ChapterExecutionResul
 
   const writingInOtherChapter = isStreaming && streamingChapterId && streamingChapterId !== selectedChapter.id;
 
-  const contentViewportRef = useRef<HTMLDivElement | null>(null);
   const displayedStatus = resolveDisplayedChapterStatus(selectedChapter);
   const needsAuditPrompt = displayedStatus === "pending_review"
     && selectedChapter.generationState !== "reviewed"
@@ -103,20 +125,6 @@ export default function ChapterExecutionResultPanel(props: ChapterExecutionResul
   const needsConfirmationPrompt = displayedStatus === "pending_review"
     && (selectedChapter.generationState === "reviewed" || selectedChapter.generationState === "approved");
   const needsRepairPrompt = displayedStatus === "needs_repair";
-
-  useEffect(() => {
-    if (!isSelectedChapterStreaming && !isSelectedChapterFinalizing) {
-      return;
-    }
-    const viewport = contentViewportRef.current;
-    if (!viewport) {
-      return;
-    }
-    const frame = window.requestAnimationFrame(() => {
-      viewport.scrollTop = viewport.scrollHeight;
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [contentPanelContent, isSelectedChapterFinalizing, isSelectedChapterStreaming, selectedChapter.id]);
 
   const openQualityPanel = () => {
     onOpenReferencePanel("quality");

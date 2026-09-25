@@ -156,7 +156,7 @@ export default function ChatPage() {
     },
   });
   const persistedRun = runDetailQuery.data?.data;
-  const replaySteps = persistedRun?.steps ?? [];
+  const replaySteps = useMemo(() => persistedRun?.steps ?? [], [persistedRun?.steps]);
   const replayableSteps = useMemo(() => (
     replaySteps.filter((step) => replaySteps.some((candidate) => (
       candidate.seq > step.seq && candidate.stepType === "tool_call"

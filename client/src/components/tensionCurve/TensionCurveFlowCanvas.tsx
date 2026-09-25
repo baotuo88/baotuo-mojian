@@ -124,7 +124,7 @@ export function TensionCurveFlowCanvas(props: TensionCurveFlowCanvasProps) {
   const [flowNodes, setFlowNodes] = useNodesState<TensionFlowNode>([]);
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<TensionFlowNode> | null>(null);
 
-  const primaryPoints = series[0]?.points ?? [];
+  const primaryPoints = useMemo(() => series[0]?.points ?? [], [series]);
   const primaryPointCount = primaryPoints.length;
   const canvasWidth = chartWidth(primaryPointCount);
   const editable = !readonly && Boolean(onPointChange);

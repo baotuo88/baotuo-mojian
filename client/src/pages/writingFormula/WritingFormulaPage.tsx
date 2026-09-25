@@ -128,11 +128,11 @@ export default function WritingFormulaPage() {
     queryFn: () => getStyleBindings(),
   });
 
-  const profiles = profilesQuery.data?.data ?? [];
+  const profiles = useMemo(() => profilesQuery.data?.data ?? [], [profilesQuery.data?.data]);
   const templates = templatesQuery.data?.data ?? [];
   const antiAiRules = antiAiRulesQuery.data?.data ?? [];
   const bindings = bindingsQuery.data?.data ?? [];
-  const allBindings = allBindingsQuery.data?.data ?? [];
+  const allBindings = useMemo(() => allBindingsQuery.data?.data ?? [], [allBindingsQuery.data?.data]);
   const novelOptions = (novelListQuery.data?.data?.items ?? []).map((novel) => ({
     id: novel.id,
     title: novel.title,
@@ -212,6 +212,9 @@ export default function WritingFormulaPage() {
     const nextSearchParams = new URLSearchParams(searchParams);
     nextSearchParams.delete("mode");
     setSearchParams(nextSearchParams, { replace: true });
+    // Triggered by the `mode` query param (via activeMode); `openWorkspaceDialog` is a per-render
+    // function and depending on it would reopen the dialog every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMode, profiles, searchParams, selectedProfileId, setSearchParams]);
 
   useEffect(() => {
@@ -497,6 +500,10 @@ export default function WritingFormulaPage() {
     testWriteMutation.reset();
     detectionMutation.reset();
     rewriteMutation.reset();
+    // Reset preview state only when the selected profile changes. The mutation objects get a new
+    // identity each render, so depending on them would clear state on every render; their `.reset`
+    // methods are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProfileId]);
 
   return (

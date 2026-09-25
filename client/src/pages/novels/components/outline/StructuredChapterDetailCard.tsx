@@ -86,8 +86,8 @@ export default function StructuredChapterDetailCard(props: StructuredChapterDeta
   const [batchMode, setBatchMode] = useState<BatchMode>("count");
   const [batchCount, setBatchCount] = useState(3);
 
-  const volumeChapters = selectedVolume?.chapters ?? [];
-  const remainingChapters = selectedChapterIndex >= 0 ? volumeChapters.slice(selectedChapterIndex) : [];
+  const volumeChapters = useMemo(() => selectedVolume?.chapters ?? [], [selectedVolume?.chapters]);
+  const remainingChapters = useMemo(() => (selectedChapterIndex >= 0 ? volumeChapters.slice(selectedChapterIndex) : []), [selectedChapterIndex, volumeChapters]);
   const hasVisibleBatch = visibleChapters.length > 1 && visibleChapters.length < volumeChapters.length;
   const hasVolumeBatch = volumeChapters.length > 1;
   const hasCountBatch = remainingChapters.length > 1;

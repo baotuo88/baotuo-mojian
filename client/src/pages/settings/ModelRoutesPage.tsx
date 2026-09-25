@@ -114,7 +114,7 @@ export default function ModelRoutesPage() {
   const modelRoutes = modelRoutesQuery.data?.data;
   const modelRouteConnectivity = modelRouteConnectivityQuery.data?.data;
   const structuredFallback = structuredFallbackQuery.data?.data;
-  const taskTypes = modelRoutes?.taskTypes ?? [];
+  const taskTypes = useMemo(() => modelRoutes?.taskTypes ?? [], [modelRoutes?.taskTypes]);
   const providerOptions = useMemo(() => providerConfigs.map((item) => item.provider), [providerConfigs]);
   const routeMap = useMemo(() => new Map((modelRoutes?.routes ?? []).map((item) => [item.taskType, item])), [modelRoutes?.routes]);
   const connectivityMap = useMemo(
