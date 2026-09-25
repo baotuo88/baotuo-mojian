@@ -229,18 +229,27 @@ function rescaleSceneTargets(targetWordCount: number, scenes: ChapterSceneCard[]
     .sort((left, right) => right.scene.targetWordCount - left.scene.targetWordCount || left.index - right.index);
 
   let cursor = 0;
+  let stagnantSteps = 0;
   while (delta !== 0 && ordered.length > 0) {
+    // When delta < 0 but every scene is already clamped at the 1-word floor, no
+    // scene can absorb the remaining reduction. Break after a full no-op cycle so
+    // a target total smaller than the scene count cannot spin the loop forever.
+    if (stagnantSteps >= ordered.length) {
+      break;
+    }
     const target = ordered[cursor % ordered.length]?.scene;
     if (!target) {
       break;
     }
     if (delta < 0 && target.targetWordCount <= 1) {
       cursor += 1;
+      stagnantSteps += 1;
       continue;
     }
     target.targetWordCount += delta > 0 ? 1 : -1;
     delta += delta > 0 ? -1 : 1;
     cursor += 1;
+    stagnantSteps = 0;
   }
 
   return scaled.map((scene) => chapterSceneCardSchema.parse(scene));

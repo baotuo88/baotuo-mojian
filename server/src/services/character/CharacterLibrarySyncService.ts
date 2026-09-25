@@ -381,6 +381,12 @@ export class CharacterLibrarySyncService {
         throw new Error("角色同步提案不存在或已处理。");
       }
       const payload = parseJsonObject(proposal.payloadJson);
+      // A "novel_to_library" proposal can legitimately carry a null draft (the AI
+      // recommended not saving). Guard before sanitize — otherwise the raw Zod parse
+      // in sanitizeBaseCharacterDraft throws a cryptic 500 instead of this domain error.
+      if (!payload.baseCharacterDraft) {
+        throw new Error("缺少可写入角色库的角色设定。");
+      }
       draft = sanitizeBaseCharacterDraft(payload.baseCharacterDraft);
       proposalId = proposal.id;
     }
@@ -669,6 +675,9 @@ export class CharacterLibrarySyncService {
       throw new Error("更新角色库需要已有角色库角色和小说角色。新建角色库请使用保存到角色库入口。");
     }
     const payload = parseJsonObject(proposal.payloadJson);
+    if (!payload.baseCharacterDraft) {
+      throw new Error("缺少可写入角色库的角色设定。");
+    }
     const draft = sanitizeBaseCharacterDraft(payload.baseCharacterDraft);
     const revision = await prisma.$transaction(async (tx) => {
       await tx.baseCharacter.update({

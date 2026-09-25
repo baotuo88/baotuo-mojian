@@ -135,23 +135,28 @@ export class CharacterConversationService {
       const legacy = await characterDialogueService.startSession(request.scopeId!, request.id);
       return this.mirrorLegacySession(legacy.id);
     }
-    await prisma.characterConversationSession.updateMany({
-      where: this.activeWhere(request),
-      data: { status: "archived" },
-    });
-    const row = await prisma.characterConversationSession.create({
-      data: {
-        subjectKind: request.kind,
-        subjectId: request.id,
-        scopeKind: request.scopeKind,
-        scopeId: request.scopeId ?? null,
-        interactionPolicy: resolved.projection.interactionPolicy,
-        chapterAnchor: resolved.projection.chapterAnchor ?? null,
-        sourceSnapshotJson: JSON.stringify(resolved.projection),
-        evidenceBoundaryJson: JSON.stringify(resolved.projection.evidence),
-        status: "active",
-      },
-      include: this.sessionInclude(),
+    // Archive the prior active session(s) and open the new one atomically — if the
+    // create failed after the updateMany, the subject would be left with no active
+    // session at all. $transaction keeps the swap all-or-nothing.
+    const row = await prisma.$transaction(async (tx) => {
+      await tx.characterConversationSession.updateMany({
+        where: this.activeWhere(request),
+        data: { status: "archived" },
+      });
+      return tx.characterConversationSession.create({
+        data: {
+          subjectKind: request.kind,
+          subjectId: request.id,
+          scopeKind: request.scopeKind,
+          scopeId: request.scopeId ?? null,
+          interactionPolicy: resolved.projection.interactionPolicy,
+          chapterAnchor: resolved.projection.chapterAnchor ?? null,
+          sourceSnapshotJson: JSON.stringify(resolved.projection),
+          evidenceBoundaryJson: JSON.stringify(resolved.projection.evidence),
+          status: "active",
+        },
+        include: this.sessionInclude(),
+      });
     });
     return serializeSession(row as GenericSessionRow);
   }

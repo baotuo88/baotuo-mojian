@@ -224,6 +224,14 @@ export function errorHandler(
   res: Response<ApiResponse<null>>,
   _next: NextFunction,
 ): void {
+  // If the response has already begun streaming (e.g. a piped file/SSE stream that
+  // errored mid-flight), writing status/JSON here throws ERR_HTTP_HEADERS_SENT.
+  // Delegate to Express's built-in final handler, which logs and destroys the socket.
+  if (res.headersSent) {
+    logServerError(req, error);
+    _next(error);
+    return;
+  }
   if (
     error
     && typeof error === "object"

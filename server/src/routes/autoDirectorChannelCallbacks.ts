@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { timingSafeEqual } from "node:crypto";
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import { z } from "zod";
 import { authMiddleware } from "../middleware/auth";
@@ -51,8 +52,19 @@ function resolveMappedOperatorId(mappingRaw: string, channelUserId: string, chan
   return mapped.trim();
 }
 
+// Constant-time secret comparison so callback tokens / HMAC signatures cannot be
+// recovered byte-by-byte through response-timing measurements.
+function safeEqualSecret(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
+
 function verifyChannelToken(expected: string, token: string | undefined, channelLabel: string): void {
-  if (!expected || token?.trim() !== expected) {
+  if (!expected || !safeEqualSecret(token?.trim() ?? "", expected)) {
     throw new AppError(`Invalid ${channelLabel} callback token.`, 403);
   }
 }
@@ -71,7 +83,7 @@ function verifyWeComMarkdownSignature(input: {
     taskId: input.taskId,
     actionCode: input.actionCode,
   }, input.callbackToken);
-  if (expected !== input.signature.trim()) {
+  if (!safeEqualSecret(expected, input.signature.trim())) {
     throw new AppError("Invalid WeCom markdown callback signature.", 403);
   }
 }

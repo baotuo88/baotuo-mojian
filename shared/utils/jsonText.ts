@@ -59,6 +59,12 @@ export function extractJSONValue(source: string): string {
       inString = !inString;
       continue;
     }
+    // Structural braces/brackets only count outside of string values; a `}` or `]`
+    // inside a string (common in Chinese web-novel content and task-sheet fields)
+    // must not drive the depth counter to 0 and truncate the JSON early.
+    if (inString) {
+      continue;
+    }
     if (char === opener) {
       depth += 1;
       continue;
