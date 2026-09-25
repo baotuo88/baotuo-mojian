@@ -151,6 +151,13 @@ export class RagWorker {
           error: message,
         });
       }
+    } catch (error) {
+      // tick() is launched via `void this.tick()`, so any rejection here
+      // (e.g. claimNextRunnableJob or a status update failing) would surface
+      // as an unhandledRejection and crash the process. Contain it instead.
+      this.logWarn("Worker tick failed unexpectedly.", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       this.activeTicks -= 1;
     }

@@ -259,12 +259,15 @@ router.post("/threads/:threadId/runs/stream", validate({
   try {
     const { threadId } = req.params as { threadId: string };
     const body = req.body as z.infer<typeof streamRunSchema>;
-    const disposeHeartbeat = initCreativeHubSSE(res);
+    // Resolve everything that can fail BEFORE we flush SSE headers. If these
+    // awaits reject after headers were sent, the error handler can no longer
+    // set a status (ERR_HTTP_HEADERS_SENT) and the heartbeat interval leaks.
     const threadState = await creativeHubService.getThreadState(threadId);
     const parentCheckpointId = body.checkpointId ?? threadState.currentCheckpointId ?? null;
     const resourceBindings = toBindings(body.resourceBindings);
     const seedMessages = await buildSeedMessages(threadId, parentCheckpointId, body.messages);
 
+    const disposeHeartbeat = initCreativeHubSSE(res);
     try {
       await creativeHubLangGraph.runThread({
         threadId,

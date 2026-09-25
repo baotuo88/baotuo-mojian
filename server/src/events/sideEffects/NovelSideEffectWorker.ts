@@ -77,6 +77,11 @@ export class NovelSideEffectWorker {
         const forceDead = error instanceof UnsupportedNovelSideEffectPayloadError;
         await this.jobService.markFailedOrDead(job, error, { forceDead });
       }
+    } catch (error) {
+      // tick() is launched via `void this.tick()`. Any rejection escaping here
+      // (leaseNext, or markFailedOrDead itself failing) would become an
+      // unhandledRejection and crash the process. Contain and log instead.
+      console.warn("[novel-side-effect-worker] tick failed unexpectedly", error);
     } finally {
       this.isTicking = false;
     }
