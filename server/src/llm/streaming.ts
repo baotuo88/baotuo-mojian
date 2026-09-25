@@ -1,4 +1,4 @@
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import type { BaseMessageChunk } from "@langchain/core/messages";
 import type { SSEFrame } from "@ai-novel/shared/types/api";
 
@@ -71,6 +71,32 @@ export function initSSE(res: Response): () => void {
   return () => clearInterval(heartbeat);
 }
 
+export interface ClientAbort {
+  signal: AbortSignal;
+  dispose: () => void;
+}
+
+// Fires `abort` when the HTTP client disconnects before the response has finished,
+// so in-flight LLM work that reads the signal (LangChain `.stream`/`.invoke`, LangGraph
+// `.invoke`) stops burning provider tokens instead of running to completion into a dead
+// socket. A normal end (response already finished) does NOT abort. Always call dispose()
+// in a finally to detach the listener from the (potentially long-lived) request.
+export function attachClientAbort(req: Request, res: Response): ClientAbort {
+  const controller = new AbortController();
+  const onClose = () => {
+    if (!res.writableEnded) {
+      controller.abort();
+    }
+  };
+  req.on("close", onClose);
+  return {
+    signal: controller.signal,
+    dispose: () => {
+      req.off("close", onClose);
+    },
+  };
+}
+
 export async function streamToSSE(
   res: Response,
   stream: AsyncIterable<BaseMessageChunk>,
@@ -78,13 +104,14 @@ export async function streamToSSE(
     fullContent: string,
     helpers: StreamDoneHelpers,
   ) => void | StreamDonePayload | Promise<void | StreamDonePayload>,
+  signal?: AbortSignal,
 ): Promise<void> {
   const disposeHeartbeat = initSSE(res);
   let fullContent = "";
 
   try {
     for await (const chunk of stream) {
-      if (res.writableEnded) {
+      if (res.writableEnded || signal?.aborted) {
         break;
       }
       const text = normalizeChunkContent(chunk.content);

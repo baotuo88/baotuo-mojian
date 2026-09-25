@@ -821,17 +821,17 @@ export class WorldService {
     });
   }
 
-  async createWorldGenerateStream(input: WorldGenerateInput) {
+  async createWorldGenerateStream(input: WorldGenerateInput, signal?: AbortSignal) {
     return createWorldDraftGenerateStream(input, {
       createSnapshot: (worldId, label) => this.createSnapshot(worldId, label),
       queueRagUpsert: (ownerType, ownerId) => this.queueRagUpsert(ownerType, ownerId),
-    });
+    }, signal);
   }
 
-  async createRefineStream(worldId: string, input: RefineWorldInput) {
+  async createRefineStream(worldId: string, input: RefineWorldInput, signal?: AbortSignal) {
     return createWorldDraftRefineStream(worldId, input, {
       createSnapshot: (id, label) => this.createSnapshot(id, label),
       queueRagUpsert: (ownerType, ownerId) => this.queueRagUpsert(ownerType, ownerId),
-    });
+    }, signal);
   }
 }

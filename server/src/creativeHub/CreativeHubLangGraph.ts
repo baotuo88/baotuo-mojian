@@ -489,7 +489,7 @@ export class CreativeHubLangGraph {
     };
   }
 
-  async runThread(input: RunThreadInput, emitFrame: (frame: CreativeHubStreamFrame) => void): Promise<CreativeHubGraphResult> {
+  async runThread(input: RunThreadInput, emitFrame: (frame: CreativeHubStreamFrame) => void, signal?: AbortSignal): Promise<CreativeHubGraphResult> {
     const resourceBindings = toBindings(input.resourceBindings);
     const activeRuns = await this.store.listRuns({
       sessionId: `creative_hub_${input.threadId}`,
@@ -529,7 +529,7 @@ export class CreativeHubLangGraph {
         latestError: null,
         diagnostics: undefined,
         turnSummary: null,
-      });
+      }, signal ? { signal } : undefined);
 
       return {
         runId: result.runId,

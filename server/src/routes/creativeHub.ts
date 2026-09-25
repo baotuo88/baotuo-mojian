@@ -14,6 +14,7 @@ import {
 } from "../creativeHub/creativeHubRuntimeHelpers";
 import { authMiddleware } from "../middleware/auth";
 import { validate } from "../middleware/validate";
+import { attachClientAbort } from "../llm/streaming";
 import { creativeHubService } from "../creativeHub/CreativeHubService";
 
 const router = Router();
@@ -268,6 +269,7 @@ router.post("/threads/:threadId/runs/stream", validate({
     const seedMessages = await buildSeedMessages(threadId, parentCheckpointId, body.messages);
 
     const disposeHeartbeat = initCreativeHubSSE(res);
+    const clientAbort = attachClientAbort(req, res);
     try {
       await creativeHubLangGraph.runThread({
         threadId,
@@ -282,7 +284,7 @@ router.post("/threads/:threadId/runs/stream", validate({
         },
       }, (frame) => {
         writeCreativeHubFrame(res, frame);
-      });
+      }, clientAbort.signal);
     } catch (error) {
       writeCreativeHubFrame(res, {
         event: "creative_hub/error",
@@ -290,6 +292,7 @@ router.post("/threads/:threadId/runs/stream", validate({
       });
     } finally {
       disposeHeartbeat();
+      clientAbort.dispose();
       if (!res.writableEnded) {
         res.end();
       }

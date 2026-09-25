@@ -13,7 +13,7 @@ import {
   extractReasoningTextFromChunk,
   isMiniMaxCompatibleProvider,
 } from "../llm/reasoning";
-import { initSSE, writeSSEFrame } from "../llm/streaming";
+import { attachClientAbort, initSSE, writeSSEFrame } from "../llm/streaming";
 import { authMiddleware } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { ragServices } from "../services/rag";
@@ -231,7 +231,8 @@ router.post("/", validate({ body: chatSchema }), async (req, res, next) => {
       }),
     ];
 
-    const stream = await llm.stream(messages);
+    const clientAbort = attachClientAbort(req, res);
+    const stream = await llm.stream(messages, { signal: clientAbort.signal });
     const disposeHeartbeat = initSSE(res);
     let fullContent = "";
     const isMiniMaxStream = isMiniMaxCompatibleProvider(
@@ -245,7 +246,7 @@ router.post("/", validate({ body: chatSchema }), async (req, res, next) => {
 
     try {
       for await (const chunk of stream) {
-        if (res.writableEnded) {
+        if (res.writableEnded || clientAbort.signal.aborted) {
           break;
         }
 
@@ -306,6 +307,7 @@ router.post("/", validate({ body: chatSchema }), async (req, res, next) => {
       });
     } finally {
       disposeHeartbeat();
+      clientAbort.dispose();
       if (!res.writableEnded) {
         res.end();
       }

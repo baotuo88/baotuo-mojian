@@ -1,7 +1,7 @@
 import type { Router } from "express";
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import { z } from "zod";
-import { initSSE, streamToSSE, writeSSEFrame } from "../../../../llm/streaming";
+import { attachClientAbort, initSSE, streamToSSE, writeSSEFrame } from "../../../../llm/streaming";
 import { validate } from "../../../../middleware/validate";
 import type { WorldSkeletonGenerateInput } from "../../../../services/world/worldSkeletonGeneration";
 import {
@@ -94,13 +94,17 @@ export function registerGenerationWorldRoutes(router: Router): void {
   );
 
   router.post("/generate", validate({ body: worldGenerateSchema }), async (req, res, next) => {
+    const clientAbort = attachClientAbort(req, res);
     try {
       const { stream, onDone } = await worldService.createWorldGenerateStream(
         req.body as z.infer<typeof worldGenerateSchema>,
+        clientAbort.signal,
       );
-      await streamToSSE(res, stream, onDone);
+      await streamToSSE(res, stream, onDone, clientAbort.signal);
     } catch (error) {
       next(error);
+    } finally {
+      clientAbort.dispose();
     }
   });
 
@@ -202,15 +206,19 @@ export function registerGenerationWorldRoutes(router: Router): void {
   );
 
   router.post("/:id/refine", validate({ params: worldIdSchema, body: worldRefineSchema }), async (req, res, next) => {
+    const clientAbort = attachClientAbort(req, res);
     try {
       const { id } = req.params as z.infer<typeof worldIdSchema>;
       const { stream, onDone } = await worldService.createRefineStream(
         id,
         req.body as z.infer<typeof worldRefineSchema>,
+        clientAbort.signal,
       );
-      await streamToSSE(res, stream, onDone);
+      await streamToSSE(res, stream, onDone, clientAbort.signal);
     } catch (error) {
       next(error);
+    } finally {
+      clientAbort.dispose();
     }
   });
 }

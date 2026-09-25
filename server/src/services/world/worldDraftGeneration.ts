@@ -113,6 +113,7 @@ async function persistGeneratedWorld(
 export async function createWorldDraftGenerateStream(
   input: WorldGenerateInput,
   callbacks: WorldDraftCallbacks,
+  signal?: AbortSignal,
 ) {
   if (featureFlags.worldGraphEnabled) {
     const llm = await getLLM(input.provider ?? "deepseek", {
@@ -124,7 +125,7 @@ export async function createWorldDraftGenerateStream(
       seed: input.description,
       name: input.name,
       worldType: input.worldType,
-    });
+    }, signal ? { signal } : undefined);
 
     if (graphState.error) {
       throw new Error(`World graph generation failed: ${graphState.error}`);
@@ -169,6 +170,7 @@ export async function createWorldDraftGenerateStream(
       provider: input.provider ?? "deepseek",
       model: input.model,
       temperature: 0.7,
+      signal,
     },
   });
 
@@ -185,6 +187,7 @@ export async function createWorldDraftRefineStream(
   worldId: string,
   input: RefineWorldInput,
   callbacks: WorldDraftCallbacks,
+  signal?: AbortSignal,
 ) {
   const world = await prisma.world.findUnique({ where: { id: worldId } });
   if (!world) {
@@ -197,6 +200,7 @@ export async function createWorldDraftRefineStream(
     provider: input.provider ?? "deepseek",
     model: input.model,
     temperature: input.refinementLevel === "deep" ? 0.8 : 0.5,
+    signal,
   };
 
   if (mode === "alternatives") {
