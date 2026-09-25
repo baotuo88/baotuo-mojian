@@ -343,6 +343,7 @@ export class DirectorCommandService {
         status: "cancelled",
         finishedAt: new Date(),
         errorMessage: "用户请求取消自动导演任务。",
+        activeSlot: null,
       },
     });
     await this.closeCancelledTaskRuntimeState(taskId, new Date());
@@ -565,6 +566,7 @@ export class DirectorCommandService {
         leaseExpiresAt: null,
         finishedAt: new Date(),
         errorMessage: null,
+        activeSlot: null,
       },
     });
   }
@@ -582,6 +584,7 @@ export class DirectorCommandService {
         leaseExpiresAt: null,
         finishedAt,
         errorMessage: CANCELLED_COMMAND_MESSAGE,
+        activeSlot: null,
       },
     });
     if (updated.count !== 1) {
@@ -607,6 +610,7 @@ export class DirectorCommandService {
         leaseExpiresAt: null,
         finishedAt: failedAt,
         errorMessage: message,
+        activeSlot: null,
       },
     });
     if (updated.count !== 1) {
@@ -732,6 +736,10 @@ export class DirectorCommandService {
     );
     const idempotencyKey = `${input.commandType}:${row.updatedAt.getTime()}:${hashPayload(normalizedPayload)}`;
     const payloadJson = stableJson(normalizedPayload);
+    // activeSlot holds the command's exclusion class while it is active; the
+    // @@unique([taskId, activeSlot]) index then rejects a second active command of the
+    // same class for this task at the DB layer, closing the check-then-act race above.
+    const activeSlot = input.commandType === "cancel" ? "cancel" : "execution";
     const createCommand = () => prisma.directorRunCommand.create({
       data: {
         taskId: input.taskId,
@@ -739,6 +747,7 @@ export class DirectorCommandService {
         commandType: input.commandType,
         idempotencyKey,
         status: "queued",
+        activeSlot,
         payloadJson,
       },
     });
@@ -751,7 +760,25 @@ export class DirectorCommandService {
       taskDispatcher.notify({ commandType: input.commandType, taskId: input.taskId });
       return toAcceptedResponse(command, null);
     } catch (error) {
-      if (!isUniqueConstraintError(error) || input.allowTerminalReuse === false) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+      // A concurrent enqueue already occupied this task's slot (the (taskId, activeSlot)
+      // unique index), or an identical command already exists. Reuse the active command
+      // rather than surfacing the raw conflict — this is exactly the outcome the
+      // findFirst pre-check produces when it wins the race instead of losing it.
+      const activeExisting = await prisma.directorRunCommand.findFirst({
+        where: {
+          taskId: input.taskId,
+          commandType: input.commandType === "cancel" ? "cancel" : { in: EXECUTION_COMMAND_TYPES },
+          status: { in: ACTIVE_COMMAND_STATUSES },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      });
+      if (activeExisting) {
+        return toAcceptedResponse(activeExisting, null);
+      }
+      if (input.allowTerminalReuse === false) {
         throw error;
       }
       const existing = await prisma.directorRunCommand.findFirst({

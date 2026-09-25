@@ -16,12 +16,38 @@ import {
   type ImportBaseCharacterToNovelInput,
   type NovelCharacterSaveToLibraryInput,
 } from "@ai-novel/shared/types/characterSync";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import { characterSyncClassificationPrompt } from "../../prompting/prompts/character/characterSync.prompts";
 import { queueRagUpsert } from "../novel/novelCoreSupport";
 
 const APPLY_TO_NOVEL_FIELDS = ["name", "role", "personality", "background", "development"] as const;
+
+// baseCharacterRevision.version is bumped from a prior `findFirst(orderBy version desc)`
+// read, so two writers targeting the same baseCharacterId can compute the same next
+// version and collide on `@@unique([baseCharacterId, version])` (P2002). That collision is
+// safe — the loser just needs to re-read the max version and try again. Retrying re-runs
+// the whole operation (a P2002 inside an interactive tx aborts it, so the retry must wrap
+// the entire `$transaction`, not just the create).
+function isUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+async function withRevisionVersionConflictRetry<T>(operation: () => Promise<T>, attempts = 5): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
 
 type ApplyToNovelField = (typeof APPLY_TO_NOVEL_FIELDS)[number];
 
@@ -215,14 +241,23 @@ export class CharacterLibrarySyncService {
       throw new Error("基础角色不存在");
     }
 
-    return prisma.baseCharacterRevision.create({
-      data: {
-        baseCharacterId,
-        version: 1,
-        snapshotJson: toJson(baseCharacterToDraft(baseCharacter)),
-        changeSummary: "为现有角色库角色建立初始版本。",
-        sourceType,
-      },
+    return withRevisionVersionConflictRetry(async () => {
+      const existing = await prisma.baseCharacterRevision.findFirst({
+        where: { baseCharacterId },
+        orderBy: { version: "desc" },
+      });
+      if (existing) {
+        return existing;
+      }
+      return prisma.baseCharacterRevision.create({
+        data: {
+          baseCharacterId,
+          version: 1,
+          snapshotJson: toJson(baseCharacterToDraft(baseCharacter)),
+          changeSummary: "为现有角色库角色建立初始版本。",
+          sourceType,
+        },
+      });
     });
   }
 
@@ -231,19 +266,21 @@ export class CharacterLibrarySyncService {
     if (!baseCharacter) {
       throw new Error("基础角色不存在");
     }
-    const latest = await prisma.baseCharacterRevision.findFirst({
-      where: { baseCharacterId },
-      orderBy: { version: "desc" },
-    });
-    return prisma.baseCharacterRevision.create({
-      data: {
-        baseCharacterId,
-        version: (latest?.version ?? 0) + 1,
-        snapshotJson: toJson(baseCharacterToDraft(baseCharacter)),
-        changeSummary,
-        sourceType,
-        sourceRefId,
-      },
+    return withRevisionVersionConflictRetry(async () => {
+      const latest = await prisma.baseCharacterRevision.findFirst({
+        where: { baseCharacterId },
+        orderBy: { version: "desc" },
+      });
+      return prisma.baseCharacterRevision.create({
+        data: {
+          baseCharacterId,
+          version: (latest?.version ?? 0) + 1,
+          snapshotJson: toJson(baseCharacterToDraft(baseCharacter)),
+          changeSummary,
+          sourceType,
+          sourceRefId,
+        },
+      });
     });
   }
 
@@ -644,6 +681,17 @@ export class CharacterLibrarySyncService {
       data[field] = baseSnapshot[field];
     }
     await prisma.$transaction(async (tx) => {
+      // CAS-claim the proposal before applying: applyProposal's check-then-act
+      // (findUnique + status check, then dispatch) is not atomic, so two concurrent
+      // calls for the same proposal would both pass the check and double-apply. Only
+      // the writer that flips pending_review here proceeds; the loser rolls back.
+      const claimed = await tx.characterSyncProposal.updateMany({
+        where: { id: proposal.id, status: "pending_review" },
+        data: { status: "applied" },
+      });
+      if (claimed.count !== 1) {
+        throw new Error("角色同步提案已被处理。");
+      }
       await tx.character.update({
         where: { id: proposal.characterId ?? "" },
         data,
@@ -654,10 +702,6 @@ export class CharacterLibrarySyncService {
           baseRevisionId: proposal.baseRevisionId,
           lastSyncedAt: new Date(),
         },
-      });
-      await tx.characterSyncProposal.update({
-        where: { id: proposal.id },
-        data: { status: "applied" },
       });
     });
     queueRagUpsert("character", proposal.characterId);
@@ -679,7 +723,17 @@ export class CharacterLibrarySyncService {
       throw new Error("缺少可写入角色库的角色设定。");
     }
     const draft = sanitizeBaseCharacterDraft(payload.baseCharacterDraft);
-    const revision = await prisma.$transaction(async (tx) => {
+    const revision = await withRevisionVersionConflictRetry(() => prisma.$transaction(async (tx) => {
+      // CAS-claim the proposal first (see applyLibraryToNovelProposal). If the tx
+      // later aborts on a version conflict, the claim rolls back with it, so the
+      // retry re-claims the still-pending proposal cleanly.
+      const claimed = await tx.characterSyncProposal.updateMany({
+        where: { id: proposal.id, status: "pending_review" },
+        data: { status: "applied" },
+      });
+      if (claimed.count !== 1) {
+        throw new Error("角色同步提案已被处理。");
+      }
       await tx.baseCharacter.update({
         where: { id: proposal.baseCharacterId ?? "" },
         data: {
@@ -720,12 +774,11 @@ export class CharacterLibrarySyncService {
       await tx.characterSyncProposal.update({
         where: { id: proposal.id },
         data: {
-          status: "applied",
           baseRevisionId: revision.id,
         },
       });
       return revision;
-    });
+    }));
     return revision;
   }
 }

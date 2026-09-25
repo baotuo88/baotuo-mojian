@@ -252,41 +252,54 @@ export class DirectorCommandExecutor {
     seedPatch: Record<string, unknown> = {},
     candidateSelectionReady = false,
   ): Promise<void> {
-    const row = await prisma.novelWorkflowTask.findUnique({
-      where: { id: taskId },
-      select: { seedPayloadJson: true },
-    }).catch(() => null);
-    if (!row) {
-      return;
+    // Read-merge-write of the shared seedPayloadJson blob must be atomic: two
+    // commands recording results for the same task concurrently (reachable when
+    // more than one command is active on a task) would otherwise each merge onto a
+    // stale read and the last writer would drop the other's directorCommandResults
+    // entry. Doing it in one interactive tx serializes the pair (on the SQLite
+    // runtime the second writer waits on the row lock rather than clobbering).
+    // Best-effort throughout — recording a result must never crash the executor.
+    try {
+      await prisma.$transaction(async (tx) => {
+        const row = await tx.novelWorkflowTask.findUnique({
+          where: { id: taskId },
+          select: { seedPayloadJson: true },
+        });
+        if (!row) {
+          return;
+        }
+        const current = parseSeedPayload<{ directorCommandResults?: Record<string, unknown> }>(row.seedPayloadJson) ?? {};
+        const directorCommandResults = {
+          ...(current.directorCommandResults ?? {}),
+          [commandId]: {
+            result,
+            completedAt: new Date().toISOString(),
+          },
+        };
+        await tx.novelWorkflowTask.update({
+          where: { id: taskId },
+          data: {
+            ...(candidateSelectionReady
+              ? {
+                status: "waiting_approval",
+                currentStage: "AI 自动导演",
+                currentItemKey: "candidate_selection_required",
+                currentItemLabel: "书级方向已准备好，请选择一套继续",
+                progress: 0.18,
+                checkpointType: "candidate_selection_required",
+                checkpointSummary: "AI 已生成可选的书级方向。",
+              }
+              : {}),
+            seedPayloadJson: mergeSeedPayload(row.seedPayloadJson, {
+              ...seedPatch,
+              directorCommandResults,
+            }),
+            heartbeatAt: new Date(),
+          },
+        });
+      });
+    } catch {
+      /* best-effort: result recording is non-critical and must not throw */
     }
-    const current = parseSeedPayload<{ directorCommandResults?: Record<string, unknown> }>(row.seedPayloadJson) ?? {};
-    const directorCommandResults = {
-      ...(current.directorCommandResults ?? {}),
-      [commandId]: {
-        result,
-        completedAt: new Date().toISOString(),
-      },
-    };
-    await prisma.novelWorkflowTask.update({
-      where: { id: taskId },
-      data: {
-        ...(candidateSelectionReady
-          ? {
-            status: "waiting_approval",
-            currentStage: "AI 自动导演",
-            currentItemKey: "candidate_selection_required",
-            currentItemLabel: "书级方向已准备好，请选择一套继续",
-            progress: 0.18,
-            checkpointType: "candidate_selection_required",
-            checkpointSummary: "AI 已生成可选的书级方向。",
-          }
-          : {}),
-        seedPayloadJson: mergeSeedPayload(row.seedPayloadJson, {
-          ...seedPatch,
-          directorCommandResults,
-        }),
-        heartbeatAt: new Date(),
-      },
-    }).catch(() => null);
   }
 }

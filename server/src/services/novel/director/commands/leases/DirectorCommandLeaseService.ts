@@ -111,6 +111,7 @@ export class DirectorCommandLeaseService {
             status: action === "fail_task" ? "failed" : "stale",
             finishedAt: now,
             errorMessage: STALE_COMMAND_INTERNAL_MESSAGE,
+            activeSlot: null,
           },
         });
         if (recovered.count !== 1) {
@@ -200,6 +201,7 @@ export class DirectorCommandLeaseService {
         leaseExpiresAt: null,
         finishedAt: new Date(),
         errorMessage: null,
+        activeSlot: null,
       },
     });
   }
@@ -213,6 +215,7 @@ export class DirectorCommandLeaseService {
         leaseExpiresAt: null,
         finishedAt,
         errorMessage: CANCELLED_COMMAND_MESSAGE,
+        activeSlot: null,
       },
     });
     if (updated.count !== 1) return;
@@ -230,6 +233,7 @@ export class DirectorCommandLeaseService {
         leaseExpiresAt: null,
         finishedAt: failedAt,
         errorMessage: message,
+        activeSlot: null,
       },
     });
     if (updated.count !== 1) return;

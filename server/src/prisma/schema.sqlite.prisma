@@ -2246,12 +2246,18 @@ model DirectorRunCommand {
   errorMessage    String?
   startedAt       DateTime?
   finishedAt      DateTime?
+  // Sentinel that holds the command's exclusion class ("execution"/"cancel") while the
+  // command is active, and is cleared to null on any terminal transition. Combined with
+  // @@unique([taskId, activeSlot]) it enforces at most one active execution command (and
+  // one active cancel) per task — a cross-row invariant a plain unique key can't express.
+  activeSlot      String?
   task            NovelWorkflowTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   novel           Novel?             @relation(fields: [novelId], references: [id], onDelete: SetNull)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
   @@unique([taskId, commandType, idempotencyKey])
+  @@unique([taskId, activeSlot])
   @@index([status, runAfter, updatedAt])
   @@index([taskId, status, updatedAt])
   @@index([novelId, updatedAt])

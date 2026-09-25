@@ -193,17 +193,27 @@ export class StateCommitService {
 
     await prisma.$transaction(async (tx) => {
       for (const proposal of committed) {
-        await this.applyCommittedProposal(tx, proposal);
         if (!proposal.id) {
+          // Synthetic/in-memory proposal with no row to guard — apply directly.
+          await this.applyCommittedProposal(tx, proposal);
           continue;
         }
-        await tx.stateChangeProposal.update({
-          where: { id: proposal.id },
+        // CAS the status transition INSIDE the tx before applying side effects, so a
+        // concurrent commit of the same proposal (manual confirm racing
+        // PendingReviewAutoPromotion, or two auto-promotion runs) can't double-apply:
+        // the losing txn sees count 0 and skips applyCommittedProposal, which would
+        // otherwise append a duplicate characterResourceEvent to the append-only ledger.
+        const claimed = await tx.stateChangeProposal.updateMany({
+          where: { id: proposal.id, status: "pending_review" },
           data: {
             status: "committed",
             validationNotesJson: JSON.stringify(proposal.validationNotes),
           },
         });
+        if (claimed.count !== 1) {
+          continue;
+        }
+        await this.applyCommittedProposal(tx, proposal);
       }
     });
 
