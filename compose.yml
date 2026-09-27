@@ -38,6 +38,7 @@ services:
       QDRANT_URL: http://qdrant:6333
     volumes:
       - image_storage:/app/storage/generated-images
+      - media_storage:/app/server/storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,6 +95,7 @@ services:
 volumes:
   postgres_data:
   image_storage:
+  media_storage:
   qdrant_storage:
 
 networks:

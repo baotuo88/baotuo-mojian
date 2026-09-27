@@ -39,6 +39,9 @@ COPY shared/package.json ./shared/package.json
 COPY server/prisma.config.ts ./server/prisma.config.ts
 COPY server/src/config/database.ts ./server/src/config/database.ts
 COPY server/src/prisma ./server/src/prisma
+# pnpm 的 inject-workspace-packages 会把 shared 包内容复制进虚拟 store，
+# 复制发生在 install 时；若不先放入构建产物，运行期就会解析不到 dist。
+COPY --from=build --chown=node:node /app/shared/dist ./shared/dist
 ENV AI_NOVEL_DATABASE_MODE=postgresql
 RUN pnpm install --frozen-lockfile \
     && pnpm --filter @ai-novel/server prisma:generate
