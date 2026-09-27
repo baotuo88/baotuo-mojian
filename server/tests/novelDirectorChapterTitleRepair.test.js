@@ -140,7 +140,7 @@ test("repairDirectorChapterTitles clears warning notice after titles are diversi
   assert.equal(markTaskWaitingApprovalCalls[0].seedPayload.taskNotice, null);
 });
 
-test.skip("repairDirectorChapterTitles keeps warning notice when repaired titles are still too concentrated", { skip: "Semantic title-diversity retry policy is pending a deterministic non-LLM fixture." }, async () => {
+test("repairDirectorChapterTitles keeps warning notice when repaired titles are still too concentrated", async () => {
   const repetitiveTitles = Array.from({ length: 10 }, (_, index) => `医院的秘密${index + 1}`);
   const workspace = {
     novelId: "novel_demo",
@@ -152,7 +152,18 @@ test.skip("repairDirectorChapterTitles keeps warning notice when repaired titles
     readiness: {},
     strategyPlan: null,
     critiqueReport: null,
-    beatSheets: [],
+    beatSheets: [{
+      volumeId: "volume-1",
+      volumeSortOrder: 1,
+      status: "generated",
+      beats: [{
+        key: "open_hook",
+        label: "开卷抓手",
+        summary: "建立开篇危机。",
+        chapterSpanHint: "1-10章",
+        mustDeliver: ["开篇压力"],
+      }],
+    }],
     rebalanceDecisions: [],
     volumes: [
       createVolume("volume-1", 1, repetitiveTitles),
