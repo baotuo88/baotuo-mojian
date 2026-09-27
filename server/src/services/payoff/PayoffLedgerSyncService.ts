@@ -259,7 +259,9 @@ export class PayoffLedgerSyncService {
       : `当前暂无激活卷窗口。${volumeRows.length > 0 ? `已有卷：${volumeRows.map((item) => `第${item.sortOrder}卷《${item.title}》`).join("；")}` : ""}`;
 
     const latestChapterContext = [
-      typeof chapterOrder === "number" ? `当前章节序号：第${chapterOrder}章` : "当前章节序号：未知",
+      typeof chapterOrder === "number"
+        ? `当前章节序号：第${chapterOrder}章`
+        : "当前章节序号：未知（无法解析当前章节序号，本次对账未启用章节窗口，已按全量章节引用读取，请检查小说章节数据）",
       snapshot?.sourceChapter
         ? `最新状态快照来源：第${snapshot.sourceChapter.order}章《${snapshot.sourceChapter.title}》`
         : "最新状态快照来源：无",
