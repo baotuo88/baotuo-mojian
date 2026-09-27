@@ -232,8 +232,7 @@ router.post("/", validate({ body: chatSchema }), async (req, res, next) => {
     ];
 
     const clientAbort = attachClientAbort(req, res);
-    const stream = await llm.stream(messages, { signal: clientAbort.signal });
-    const disposeHeartbeat = initSSE(res);
+    let disposeHeartbeat = () => {};
     let fullContent = "";
     const isMiniMaxStream = isMiniMaxCompatibleProvider(
       resolvedLLM.provider,
@@ -245,6 +244,8 @@ router.post("/", validate({ body: chatSchema }), async (req, res, next) => {
     let miniMaxReasoningBuffer = "";
 
     try {
+      const stream = await llm.stream(messages, { signal: clientAbort.signal });
+      disposeHeartbeat = initSSE(res);
       for await (const chunk of stream) {
         if (res.writableEnded || clientAbort.signal.aborted) {
           break;

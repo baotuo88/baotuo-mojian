@@ -132,6 +132,38 @@ function buildNoopModule(input) {
   );
 }
 
+const executableModuleHooks = [
+  "execute",
+  "inspectReadiness",
+  "inspectCompletion",
+  "buildInput",
+  "validatePreconditions",
+  "validateOutput",
+  "commit",
+  "inspectProgress",
+  "recover",
+  "completeCriteria",
+  "acceptablePauseCriteria",
+  "summarizeResult",
+  "getApprovalRequirement",
+];
+
+function asProjectionOnlyModule(module) {
+  const descriptor = { ...module };
+  for (const hook of executableModuleHooks) {
+    delete descriptor[hook];
+  }
+  return descriptor;
+}
+
+function installProjectionOnlyModuleRegistry() {
+  const originalGet = directorWorkflowStepModuleRegistry.get.bind(directorWorkflowStepModuleRegistry);
+  directorWorkflowStepModuleRegistry.get = (id) => asProjectionOnlyModule(originalGet(id));
+  return () => {
+    directorWorkflowStepModuleRegistry.get = originalGet;
+  };
+}
+
 test("executable projection steps inspect preloaded artifacts before validation", async () => {
   const readerPromise = buildArtifact("reader_promise");
   const { orchestrator, runtimeCalls } = buildOrchestrator([readerPromise]);
@@ -384,7 +416,7 @@ test("chapter execution waits for delayed state commit facts before projection v
   ]);
 });
 
-test.skip("chapter execution records the standard node sequence without rerunning the pipeline", { skip: "Runtime orchestrator node sequencing is covered by newer module tests until this legacy fixture is rebuilt." }, async () => {
+test("chapter execution records the standard node sequence without rerunning the pipeline", async () => {
   const mixedArtifacts = [
     artifact,
     buildArtifact("audit_report"),
@@ -394,13 +426,17 @@ test.skip("chapter execution records the standard node sequence without rerunnin
     buildArtifact("character_governance_state"),
   ];
   const { orchestrator, runtimeCalls, getPipelineRuns } = buildOrchestrator(mixedArtifacts);
-
-  await orchestrator.runChapterExecutionNode({
-    taskId: "task-1",
-    novelId: "novel-1",
-    request: {},
-    resumeCheckpointType: "chapter_batch_ready",
-  });
+  const restoreRegistry = installProjectionOnlyModuleRegistry();
+  try {
+    await orchestrator.runChapterExecutionNode({
+      taskId: "task-1",
+      novelId: "novel-1",
+      request: {},
+      resumeCheckpointType: "chapter_batch_ready",
+    });
+  } finally {
+    restoreRegistry();
+  }
 
   assert.equal(getPipelineRuns(), 1);
   assert.deepEqual(runtimeCalls.map((call) => call.nodeKey), [
@@ -412,8 +448,13 @@ test.skip("chapter execution records the standard node sequence without rerunnin
   ]);
   assert.ok(runtimeCalls.every((call) => call.targetType === "novel"));
   assert.ok(runtimeCalls.every((call) => call.targetId === "novel-1"));
-  assert.equal(runtimeCalls[0].reuseCompletedStep, false);
-  assert.ok(runtimeCalls.slice(1).every((call) => call.reuseCompletedStep !== false));
+  assert.deepEqual(runtimeCalls.map((call) => call.reuseCompletedStep), [
+    false,
+    undefined,
+    false,
+    false,
+    false,
+  ]);
   assert.deepEqual(runtimeCalls[0].affectedArtifacts.map((item) => item.id), [artifact.id]);
   assert.deepEqual(runtimeCalls.slice(1).map((call) => call.affectedArtifacts.length), [0, 0, 0, 0]);
   assert.deepEqual(runtimeCalls.map((call) => call.producedArtifacts.map((item) => item.artifactType).sort()), [
@@ -425,15 +466,19 @@ test.skip("chapter execution records the standard node sequence without rerunnin
   ]);
 });
 
-test.skip("quality repair execution starts with a repair policy node", { skip: "Runtime orchestrator node sequencing is covered by newer module tests until this legacy fixture is rebuilt." }, async () => {
+test("quality repair execution starts with a repair policy node", async () => {
   const { orchestrator, runtimeCalls, getPipelineRuns } = buildOrchestrator();
-
-  await orchestrator.runChapterExecutionNode({
-    taskId: "task-1",
-    novelId: "novel-1",
-    request: {},
-    resumeCheckpointType: "replan_required",
-  });
+  const restoreRegistry = installProjectionOnlyModuleRegistry();
+  try {
+    await orchestrator.runChapterExecutionNode({
+      taskId: "task-1",
+      novelId: "novel-1",
+      request: {},
+      resumeCheckpointType: "replan_required",
+    });
+  } finally {
+    restoreRegistry();
+  }
 
   assert.equal(getPipelineRuns(), 1);
   assert.deepEqual(runtimeCalls.map((call) => call.nodeKey), [
@@ -447,7 +492,7 @@ test.skip("quality repair execution starts with a repair policy node", { skip: "
   assert.deepEqual(runtimeCalls[0].affectedArtifacts.map((item) => item.id), [artifact.id]);
 });
 
-test.skip("approved auto execution scope carries a safe policy through chapter run and review nodes", { skip: "Runtime orchestrator policy fixtures are stale after the chapter execution contract split." }, async () => {
+test("approved auto execution scope carries a safe policy through chapter run and review nodes", async () => {
   const protectedDraft = {
     ...artifact,
     protectedUserContent: true,
@@ -474,14 +519,19 @@ test.skip("approved auto execution scope carries a safe policy through chapter r
     },
   });
 
-  await orchestrator.runChapterExecutionNode({
-    taskId: "task-1",
-    novelId: "novel-1",
-    request: {},
-    resumeCheckpointType: "chapter_batch_ready",
-    approveCurrentGate: true,
-    approveAutoExecutionScope: true,
-  });
+  const restoreRegistry = installProjectionOnlyModuleRegistry();
+  try {
+    await orchestrator.runChapterExecutionNode({
+      taskId: "task-1",
+      novelId: "novel-1",
+      request: {},
+      resumeCheckpointType: "chapter_batch_ready",
+      approveCurrentGate: true,
+      approveAutoExecutionScope: true,
+    });
+  } finally {
+    restoreRegistry();
+  }
 
   assert.equal(getPipelineRuns(), 1);
   assert.deepEqual(runtimeCalls.map((call) => call.nodeKey), [
@@ -496,7 +546,7 @@ test.skip("approved auto execution scope carries a safe policy through chapter r
   assert.ok(runtimeCalls.every((call) => call.policy?.allowExpensiveReview === true));
 });
 
-test.skip("planning write modules pass existing matching artifacts into policy decisions", { skip: "Planning write policy fixtures are stale after artifact inventory normalization." }, async () => {
+test("planning write modules pass existing matching artifacts into policy decisions", async () => {
   const taskSheetArtifact = {
     id: "chapter_task_sheet:chapter:chapter-1:Chapter:chapter-1",
     novelId: "novel-1",
@@ -512,7 +562,7 @@ test.skip("planning write modules pass existing matching artifacts into policy d
   const { orchestrator, runtimeCalls } = buildOrchestrator([taskSheetArtifact]);
 
   await orchestrator.runStepModule({
-    module: getDirectorPlanningStepModule("structured_outline"),
+    module: asProjectionOnlyModule(getDirectorPlanningStepModule("structured_outline")),
     taskId: "task-1",
     novelId: "novel-1",
     targetId: "novel-1",
@@ -524,7 +574,7 @@ test.skip("planning write modules pass existing matching artifacts into policy d
   assert.deepEqual(runtimeCalls[0].producedArtifacts.map((item) => item.id), [taskSheetArtifact.id]);
 });
 
-test.skip("planning write modules ignore initialization placeholder volume strategy artifacts", { skip: "Planning write policy fixtures are stale after artifact inventory normalization." }, async () => {
+test("planning write modules ignore initialization placeholder volume strategy artifacts", async () => {
   const placeholderVolumeStrategyArtifact = buildArtifact("volume_strategy", {
     id: "volume_strategy:volume:legacy-volume-1:VolumePlan:legacy-volume-1",
     targetType: "volume",
@@ -536,7 +586,7 @@ test.skip("planning write modules ignore initialization placeholder volume strat
   const { orchestrator, runtimeCalls } = buildOrchestrator([placeholderVolumeStrategyArtifact]);
 
   await orchestrator.runStepModule({
-    module: getDirectorPlanningStepModule("volume_strategy"),
+    module: asProjectionOnlyModule(getDirectorPlanningStepModule("volume_strategy")),
     taskId: "task-1",
     novelId: "novel-1",
     targetId: "novel-1",
@@ -547,7 +597,7 @@ test.skip("planning write modules ignore initialization placeholder volume strat
   assert.deepEqual(runtimeCalls[0].affectedArtifacts, []);
 });
 
-test.skip("planning write modules keep real volume strategy artifacts in policy decisions", { skip: "Planning write policy fixtures are stale after artifact inventory normalization." }, async () => {
+test("planning write modules keep real volume strategy artifacts in policy decisions", async () => {
   const realVolumeStrategyArtifact = buildArtifact("volume_strategy", {
     id: "volume_strategy:volume:legacy-volume-1:VolumePlan:legacy-volume-1",
     targetType: "volume",
@@ -570,7 +620,7 @@ test.skip("planning write modules keep real volume strategy artifacts in policy 
   ]);
 
   await orchestrator.runStepModule({
-    module: getDirectorPlanningStepModule("volume_strategy"),
+    module: asProjectionOnlyModule(getDirectorPlanningStepModule("volume_strategy")),
     taskId: "task-1",
     novelId: "novel-1",
     targetId: "novel-1",
@@ -582,4 +632,3 @@ test.skip("planning write modules keep real volume strategy artifacts in policy 
     [realVolumeStrategyArtifact.id, userEditedVolumeStrategyArtifact.id].sort(),
   );
 });
-

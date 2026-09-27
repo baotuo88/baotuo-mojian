@@ -342,7 +342,7 @@ test("StateCommitService commitExistingProposals applies ledger update and write
   const calls = {
     upsert: 0,
     eventCreate: 0,
-    proposalUpdate: 0,
+    claim: 0,
     updateMany: 0,
     version: 0,
   };
@@ -370,18 +370,22 @@ test("StateCommitService commitExistingProposals applies ledger update and write
         },
       },
       stateChangeProposal: {
-        update: async (args) => {
-          calls.proposalUpdate += 1;
-          assert.equal(args.where.id, "proposal-1");
-          assert.equal(args.data.status, "committed");
+        updateMany: async (args) => {
+          // tx1: CAS-claim the pending proposal before applying side effects
+          if (args.data.status === "committed") {
+            calls.claim += 1;
+            assert.equal(args.where.id, "proposal-1");
+            assert.equal(args.where.status, "pending_review");
+            return { count: 1 };
+          }
+          // tx2: link the committed proposal to the new version record
+          calls.updateMany += 1;
+          assert.deepEqual(args.where.id.in, ["proposal-1"]);
+          assert.equal(args.data.committedVersionId, "version-1");
+          return { count: 1 };
         },
       },
     });
-    prisma.stateChangeProposal.updateMany = async (args) => {
-      calls.updateMany += 1;
-      assert.deepEqual(args.where.id.in, ["proposal-1"]);
-      assert.equal(args.data.committedVersionId, "version-1");
-    };
     canonicalStateService.getSnapshot = async () => ({ novelId: "novel-1", snapshot: true });
     stateVersionLog.createVersion = async (input) => {
       calls.version += 1;
@@ -402,7 +406,7 @@ test("StateCommitService commitExistingProposals applies ledger update and write
     assert.deepEqual(calls, {
       upsert: 1,
       eventCreate: 1,
-      proposalUpdate: 1,
+      claim: 1,
       updateMany: 1,
       version: 1,
     });

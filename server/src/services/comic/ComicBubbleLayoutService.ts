@@ -10,6 +10,7 @@
 import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+import type * as SharpNS from "sharp";
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import { resolveGeneratedImagesRoot } from "../../runtime/appPaths";
@@ -231,7 +232,7 @@ export class ComicBubbleLayoutService {
 
     if (dialogues.length > 0) {
       const usedAnchors = new Set<string>();
-      const composites: sharp.OverlayOptions[] = [];
+      const composites: SharpNS.OverlayOptions[] = [];
 
       for (let idx = 0; idx < dialogues.length; idx++) {
         const dlg = dialogues[idx];

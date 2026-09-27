@@ -116,7 +116,7 @@ function createPromptInput(targetChapterCount = 4) {
   };
 }
 
-test.skip("chapter title diversity detects repeated X的Y framing", { skip: "Semantic diversity detector is pending a deterministic classifier fixture." }, () => {
+test("chapter title diversity detects repeated X的Y framing", () => {
   const issue = getChapterTitleDiversityIssue([
     "废墟中的发现",
     "第一株灵植的种子",
@@ -130,7 +130,7 @@ test.skip("chapter title diversity detects repeated X的Y framing", { skip: "Sem
   assert.equal(detectChapterTitleSurfaceFrame("掠夺者的阴影"), "of_phrase");
 });
 
-test.skip("chapter title diversity detects repeated A，B framing", { skip: "Semantic diversity detector is pending a deterministic classifier fixture." }, () => {
+test("chapter title diversity detects repeated A，B framing", () => {
   const issue = getChapterTitleDiversityIssue([
     "签下合同，甜蜜同居",
     "房租超支，紧急筹钱",
@@ -144,7 +144,7 @@ test.skip("chapter title diversity detects repeated A，B framing", { skip: "Sem
   assert.equal(detectChapterTitleSurfaceFrame("房租超支，紧急筹钱"), "comma_split");
 });
 
-test.skip("chapter title diversity accepts mixed chapter title surfaces", { skip: "Semantic diversity detector is pending a deterministic classifier fixture." }, () => {
+test("chapter title diversity accepts mixed chapter title surfaces", () => {
   assert.doesNotThrow(() => assertChapterTitleDiversity([
     "夜探旧温室",
     "掠夺者逼近",
@@ -200,7 +200,7 @@ test("volume chapter list prompt render hardens title diversity rules", () => {
   assert.match(String(messages[0].content), /章名结构过于集中/);
 });
 
-test.skip("volume chapter list prompt retries semantically when titles are structurally repetitive", { skip: "LLM retry path needs a deterministic semantic-title fixture before re-enabling." }, async () => {
+test("volume chapter list prompt retries semantically when titles are structurally repetitive", async () => {
   const calls = [];
 
   setPromptRunnerStructuredInvokerForTests(async (input) => {
@@ -229,10 +229,10 @@ test.skip("volume chapter list prompt retries semantically when titles are struc
         beatLabel: "开卷抓手",
         chapterCount: 4,
         chapters: [
-          { beatKey: "open_hook", title: "夜探旧温室", summary: "主角夜探温室，确认异常来源并推动探索线正式启动。" },
-          { beatKey: "open_hook", title: "掠夺者逼近", summary: "外部威胁压到眼前，当前卷的生存压力第一次真正落地。" },
-          { beatKey: "open_hook", title: "谁在回收种子？", summary: "主角发现有人暗中回收灵种，把悬疑线抬到台前。" },
-          { beatKey: "open_hook", title: "防线第一次成形", summary: "主角完成阶段性布防，让当前卷第一次出现可见成果。" },
+          { beatKey: "open_hook", title: "夜探旧温室", summary: "主角决定夜探温室并亲自确认异常来源，发现灵种失窃记录后改变调查方向。" },
+          { beatKey: "open_hook", title: "掠夺者逼近", summary: "主角主动设下诱饵伏击逼近的掠夺者，夺回一批灵种并暴露温室坐标。" },
+          { beatKey: "open_hook", title: "谁在回收种子？", summary: "主角追查回收痕迹并当面对质，确认守夜人参与后决定暂时隐瞒证据。" },
+          { beatKey: "open_hook", title: "防线第一次成形", summary: "主角说服邻居共同布防并分配种子，聚落首次形成协作防线但也出现资源争执。" },
         ],
       },
       repairUsed: false,

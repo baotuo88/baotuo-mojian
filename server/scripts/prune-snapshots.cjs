@@ -6,7 +6,9 @@ const dotenv = require("dotenv");
 const ROOT_DIR = path.resolve(__dirname, "..");
 dotenv.config({ path: path.join(ROOT_DIR, ".env"), quiet: true });
 
-const DEFAULT_BACKUP_DIR = path.join(ROOT_DIR, "tmp", "db-backups");
+const DEFAULT_BACKUP_DIR = process.env.DB_BACKUP_DIR
+  ? path.resolve(process.env.DB_BACKUP_DIR)
+  : path.join(ROOT_DIR, "tmp", "db-backups");
 const DEFAULT_SQLITE_DATABASE_URL = "file:./dev.db";
 const DEFAULT_RETENTION_COUNT = 10;
 const AUTOMATIC_TRIGGERS = new Set(["auto_milestone", "before_pipeline"]);
