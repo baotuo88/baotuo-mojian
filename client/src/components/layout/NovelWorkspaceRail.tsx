@@ -345,7 +345,13 @@ export default function NovelWorkspaceRail(props: NovelWorkspaceRailProps) {
       : activeTask.status === "waiting_approval"
         ? `等待处理：${getNovelWorkspaceTabLabel(workflowCurrentTab ?? activeTab)}`
       : activeTask.currentItemLabel || `AI 正在推进 ${getNovelWorkspaceTabLabel(workflowCurrentTab ?? activeTab)}`)
-    : "当前没有后台导演任务，可以直接继续手动创作。";
+    : visibleBookAutomationProjection?.status === "waiting_recovery"
+      ? "AI 自动推进暂时停下，需要查看原因并继续。"
+      : visibleBookAutomationProjection?.status === "blocked"
+        ? "当前步骤需要先处理，完成后即可继续自动推进。"
+        : visibleBookAutomationProjection?.status === "failed"
+          ? "自动推进遇到问题，可打开执行详情查看原因并重试。"
+          : "当前没有后台导演任务，可以直接继续手动创作。";
   const cockpitProjection = useMemo(() => {
     if (!visibleBookAutomationProjection || !runtimeSummary?.trim()) {
       return visibleBookAutomationProjection;
