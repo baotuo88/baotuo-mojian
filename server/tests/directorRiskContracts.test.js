@@ -68,7 +68,35 @@ test("director risk assessment prompt is registered with a strict structured con
   assert.equal(registered, directorRiskAssessmentPrompt);
   assert.equal(directorRiskAssessmentPrompt.taskType, "critical_review");
   assert.equal(directorRiskAssessmentPrompt.mode, "structured");
-  assert.equal(directorRiskAssessmentPrompt.outputSchema, aiDirectorRiskAssessmentSchema);
+  // `pnpm-workspace.yaml` 的 injectWorkspacePackages 会把 shared 注入为独立副本，
+  // 包路径与工作区相对路径加载到的是两个模块实例，跨包比较对象身份永远不相等。
+  // 这里断言注册资产与 shared 契约在行为上一致，并保留严格性验证。
+  const outputSchema = directorRiskAssessmentPrompt.outputSchema;
+  const contractProbe = {
+    score: 8,
+    category: "replan",
+    impactScope: "chapter_range",
+    affectedChapterOrders: [7, 8],
+    evidenceSummary: "第 7 章的关键转折缺失，后续两章的既定任务无法成立。",
+    recommendation: "replan",
+    recommendationReason: "应在当前章节完成持久化后重新规划第 7 至 8 章。",
+    canPause: true,
+  };
+  for (const fixture of [
+    contractProbe,
+    { ...contractProbe, score: 9 },
+    { ...contractProbe, score: 0 },
+    { ...contractProbe, recommendation: "unknown_action" },
+    {},
+  ]) {
+    assert.equal(
+      outputSchema.safeParse(fixture).success,
+      aiDirectorRiskAssessmentSchema.safeParse(fixture).success,
+      `注册资产的结构化契约应与 shared 定义一致：${JSON.stringify(fixture).slice(0, 80)}`,
+    );
+  }
+  assert.equal(outputSchema.safeParse(contractProbe).success, true);
+  assert.equal(outputSchema.safeParse({ ...contractProbe, score: 9 }).success, false);
 
   const messages = directorRiskAssessmentPrompt.render({
     failureStage: "chapter_acceptance",
