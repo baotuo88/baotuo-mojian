@@ -23,6 +23,10 @@ export function resolveGeneratedImagesRoot(): string {
   return path.join(resolveServerRoot(), "storage", "generated-images");
 }
 
+export function resolveGeneratedMediaRoot(): string {
+  return path.join(resolveServerRoot(), "storage", "generated-media");
+}
+
 export function resolveDatabaseFilePath(filePath: string): string {
   const baseDir = resolveDataRoot();
   return path.isAbsolute(filePath) ? filePath : path.resolve(baseDir, filePath);

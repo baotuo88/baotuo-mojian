@@ -32,6 +32,9 @@ import novelRouter from "./modules/novel/http/novel";
 import creationStudioRouter from "./modules/novel/creation-studio/http/creationStudioRoutes";
 import { shortStoryProductionService } from "./modules/novel/short-story/application/ShortStoryProductionService";
 import dramaRouter from "./modules/drama/http/dramaRoutes";
+import mediaAssetRouter from "./modules/media/http/mediaAssetRoutes";
+import mediaProviderRouter from "./modules/media/http/mediaProviderRoutes";
+import { syncMediaProviderRegistries } from "./modules/media";
 import comicRouter from "./modules/comic/http/comicRoutes";
 import novelDirectorRouter from "./services/novel/director/http/novelDirector";
 import novelExportRouter from "./modules/export/http/novelExport";
@@ -144,6 +147,8 @@ export function createApp() {
   app.use("/api/novel-workflows", novelWorkflowsRouter);
   app.use("/api/novels", novelExportRouter);
   app.use("/api/drama", dramaRouter);
+  app.use("/api/media", mediaProviderRouter);
+  app.use("/api/media", mediaAssetRouter);
   app.use("/api/comic", comicRouter);
   app.use("/api/worlds", worldRouter);
   app.use("/api/rag", ragRouter);
@@ -274,6 +279,14 @@ function initializeBackgroundServices(): BackgroundServicesHandle {
   void loadProviderApiKeys().catch((error) => {
     console.warn("数据库中的模型密钥加载失败，已回退到环境变量。", error);
   });
+
+  void syncMediaProviderRegistries()
+    .then((report) => {
+      console.log("[media] database media channels loaded.", report);
+    })
+    .catch((error) => {
+      console.warn("媒体通道加载失败，已回退到环境变量预置通道。", error);
+    });
 
   void ensureSystemResourceStarterData()
     .then((systemResourceReport) => {

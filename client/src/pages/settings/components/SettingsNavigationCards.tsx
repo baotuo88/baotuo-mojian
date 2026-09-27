@@ -59,6 +59,25 @@ export default function SettingsNavigationCards(props: {
         </Card>
       ) : null}
 
+      {mode === "all" ? (
+        <Card className="min-w-0 overflow-hidden">
+        <CardHeader>
+          <CardTitle>媒体通道</CardTitle>
+          <CardDescription className={AUTO_DIRECTOR_MOBILE_CLASSES.wrapText}>
+            管理配音、视频、配乐服务商，也可以填写自定义接口地址。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className={AUTO_DIRECTOR_MOBILE_CLASSES.settingsEntryActionRow}>
+          <div className={`min-w-0 text-sm text-muted-foreground ${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText}`}>
+            配置好的通道会参与配音、视频和配乐生成。
+          </div>
+          <Button asChild className={AUTO_DIRECTOR_MOBILE_CLASSES.fullWidthAction}>
+            <Link to="/settings/media">进入媒体通道</Link>
+          </Button>
+        </CardContent>
+        </Card>
+      ) : null}
+
       {mode === "all" || mode === "routes" ? (
         <Card className="min-w-0 overflow-hidden">
         <CardHeader>

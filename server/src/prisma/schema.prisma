@@ -4080,3 +4080,41 @@ model ComicBatchJob {
   @@index([episodeId, status])
   @@index([type, status])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 媒体通道（MediaProvider）
+// 短剧/漫画/漫剧的配音、视频、配乐能力统一走「可配置通道」：一家供应商一条记录，
+// 支持 OpenAI 兼容自定义端点（NewAPI、One-API、中转站等），密钥与地址不入代码。
+// kind: tts=配音 | video=视频 | music=配乐/音效
+// protocol: openai_speech | openai_video | http_json
+// ─────────────────────────────────────────────────────────────────────────────
+model MediaProvider {
+  id               String   @id @default(cuid())
+  // 能力类型：tts/video/music
+  kind             String
+  // 通道标识：同一 kind 内唯一，业务侧用它与 provider 字段对应
+  providerKey      String
+  label            String
+  description      String?
+  // 协议：openai_speech/openai_video/http_json
+  protocol         String   @default("http_json")
+  // OpenAI 兼容端点基址，例如 https://newapi.example.com/v1
+  baseURL          String?
+  // 调用密钥（仅服务端读取，接口返回一律脱敏）
+  apiKey           String?
+  // 模型名，例如 tts-1、seedance-1-0-pro、suno-v4
+  model            String?
+  // 协议扩展 JSON：路径、请求头、返回格式、超时等
+  options          String?
+  isActive         Boolean  @default(true)
+  // 环境变量预置通道或系统内置通道（不可删除，可停用）
+  isBuiltin        Boolean  @default(false)
+  supportsRefImages Boolean @default(false)
+  costPerSecond    Float    @default(0)
+  currency         String   @default("CNY")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([kind, providerKey])
+  @@index([kind, isActive])
+}

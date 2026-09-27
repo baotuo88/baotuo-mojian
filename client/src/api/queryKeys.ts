@@ -102,6 +102,9 @@ export const queryKeys = {
   llm: {
     providers: ["llm", "providers"] as const,
   },
+  media: {
+    providers: ["media", "providers"] as const,
+  },
   images: {
     task: (taskId: string) => ["images", "task", taskId] as const,
     assets: (sceneType: "character" | "novel_cover" | "book_analysis_character", sceneId: string) => ["images", "assets", sceneType, sceneId] as const,
