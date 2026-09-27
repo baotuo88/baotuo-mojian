@@ -19,6 +19,8 @@
 - 这类启动器应由 `run-tests.cjs fast` 按测试文件名路由到，保持单文件独立进程和统一的失败传播规则。
 - 真实 SQLite/Prisma 集成测试统一使用 `server/tests/support/realSqliteHarness.cjs`。Prisma CLI 必须取自 `server/node_modules/.bin/prisma`，并以 `serverRoot` 为工作目录执行 `db push --config prisma.config.ts`；不要从工作区根目录通过 `pnpm --filter` 间接启动，否则 Prisma config、schema 与 SQLite 路径解析会随调用环境漂移。
 - 设置隔离 `DATABASE_URL` 后，业务场景必须在新的 Node 子进程中首次加载 `dist/db/prisma.js`；不能在父进程已缓存 Prisma adapter 后再切换数据库 URL。
+- `pnpm-workspace.yaml` 开启了 `injectWorkspacePackages: true`，workspace 包会被注入为独立副本（例如 `node_modules/.pnpm/@ai-novel+shared@file+shared/node_modules/@ai-novel/shared`）。因此 `require("@ai-novel/shared/...")` 与 `require("../../shared/dist/...")` 是两个不同的模块实例；跨包契约测试只能断言行为契约（`safeParse` 结果、字段、严格性），不得断言对象身份。
+- 注入副本只在安装时刷新。修改并重建 `shared` 后，运行时仍可能加载注入副本中的旧代码；如果发现“源码已改但运行时行为未变”，先确认是否需要重新安装，而不是继续在业务代码里加兼容分支。
 
 ## Failure Modes
 
@@ -27,6 +29,8 @@
 - 从工作区根目录间接执行 Prisma CLI 可能出现 `unable to open database file`；先核对 CLI 路径、`cwd`、`DATABASE_URL` 和 schema config，不要通过改随机数据库路径或操作开发库来掩盖问题。
 - 进程能够及时退出但出现断言失败时，应按业务契约分类处理，不能将失败归因于 teardown。
 - 测试结果与当前工作流规则发生冲突时，应先检查 Wiki 和运行时代码的结构化契约，再更新过期断言；例如软性章节义务应记录为 `continue_with_risk` 质量债务并继续生产链。
+- 严格相等断言在 schema 上失败（`operator: 'strictEqual'`，`actual/expected` 都显示为 `[ZodObject]` 且结构看起来一致）时，用 `require.resolve` 分别解析两条 import 路径：一条指向 `node_modules/.pnpm/@ai-novel+shared@file+shared/...`、另一条指向 `shared/dist/...`，即可确认是注入副本造成的双实例。不要把它放宽成 `deepEqual` 掩盖问题，应改为契约断言或统一 import 路径。
+- 2026-09-27 已按该规则处理 `server/tests/directorRiskContracts.test.js`：跨包身份断言改为“注册资产与 shared 契约行为一致 + 严格性验证”，fast 套件恢复全绿。后续新增跨包契约测试直接按此写法，不要再引入对象身份比较。
 
 ## Related Modules
 
@@ -35,3 +39,6 @@
 - `server/tests/`
 - `server/src/services/rag/RagWorker.ts`
 - `server/src/app.ts`
+- `pnpm-workspace.yaml`
+- `server/tests/directorRiskContracts.test.js`
+- `shared/`
