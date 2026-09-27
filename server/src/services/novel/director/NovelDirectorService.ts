@@ -4,6 +4,7 @@ import {
   runWithLlmUsageTracking,
   type LlmUsageTrackingContext,
 } from "../../../llm/usageTracking";
+import { isTransientStructuredFailure } from "../../../llm/transientRetry";
 import type {
   DirectorPolicyMode,
   DirectorRuntimeProjection,
@@ -285,14 +286,39 @@ export class NovelDirectorService {
         return;
       }
       const message = error instanceof Error ? error.message : "自动导演后台任务执行失败。";
-      await this.workflowService.markTaskFailed(taskId, message);
-      console.error(`[director.background] task failed taskId=${taskId}`, error);
+      // 传输类瞬时失败由命令层退避重排，这里不把整条链判定为失败。
+      // 仅在错误会继续抛回命令层（rethrowFailure）且任务确实还有可重排命令时才延迟判定，
+      // 否则保持原有失败语义，避免任务永久挂在运行中。
+      const deferred = rethrowFailure && await this.deferTransientFailure(taskId, error);
+      if (deferred) {
+        console.warn(`[director.background] transient failure deferred taskId=${taskId}`, error);
+      } else {
+        await this.workflowService.markTaskFailed(taskId, message);
+        console.error(`[director.background] task failed taskId=${taskId}`, error);
+      }
       if (rethrowFailure) {
         throw error;
       }
     } finally {
       await releaseHighMemoryDirectorReservations(taskId);
     }
+  }
+
+  /**
+   * 判断瞬时失败是否可以交给命令层退避重排。
+   * 只有任务确实还挂着执行命令时才延迟判定，否则维持原有失败语义。
+   */
+  private async deferTransientFailure(taskId: string, error: unknown): Promise<boolean> {
+    if (!isTransientStructuredFailure(error)) {
+      return false;
+    }
+    const activeCommands = await prisma.directorRunCommand.count({
+      where: {
+        taskId,
+        status: { in: ["queued", "leased", "running"] },
+      },
+    }).catch(() => 0);
+    return activeCommands > 0;
   }
 
   private withWorkflowTaskUsage<T>(workflowTaskId: string | null | undefined, runner: () => Promise<T>): Promise<T> {

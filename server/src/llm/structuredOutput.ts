@@ -435,15 +435,24 @@ export class StructuredOutputError extends Error {
 
   readonly diagnostics: StructuredOutputDiagnostics;
 
+  /**
+   * 模型有完成 token 但正文为空时为 true。
+   * 典型场景是推理型通道把整个输出预算花在思考上，此时应当放宽预算重试，
+   * 而不是把整条生产链判定为失败。
+   */
+  readonly emptyResponse: boolean;
+
   constructor(input: {
     message: string;
     category: StructuredOutputErrorCategory;
     diagnostics: StructuredOutputDiagnostics;
+    emptyResponse?: boolean;
   }) {
     super(`[STRUCTURED_OUTPUT:${input.category}] ${input.message}`);
     this.name = "StructuredOutputError";
     this.category = input.category;
     this.diagnostics = input.diagnostics;
+    this.emptyResponse = input.emptyResponse ?? false;
   }
 }
 

@@ -36,8 +36,15 @@ import {
 } from "./DirectorCommandServiceHelpers";
 import { taskDispatcher } from "../../../../workers/TaskDispatcher";
 import { DirectorCommandLeaseService } from "./leases/DirectorCommandLeaseService";
+import { isTransientStructuredFailure, resolveTransientRetryDelayMs } from "../../../../llm/transientRetry";
 
 const ACTIVE_COMMAND_STATUSES: DirectorRunCommandStatus[] = ["queued", "leased", "running"];
+
+// 通道限流、网关 5xx、结构化调用拿不到可用内容等属于可恢复的传输故障。
+// 这类失败先把命令排回队列并退避重试，避免整条自动导演链停在"等待恢复"。
+const TRANSIENT_FAILURE_MAX_ATTEMPTS = 3;
+const TRANSIENT_FAILURE_RETRY_BASE_DELAY_MS = 30_000;
+const TRANSIENT_FAILURE_RETRY_MAX_DELAY_MS = 120_000;
 const EXECUTION_COMMAND_TYPES: DirectorRunCommandType[] = [
   "generate_candidates",
   "refine_candidates",
@@ -599,6 +606,9 @@ export class DirectorCommandService {
   async markCommandFailed(commandId: string, workerId: string, error: unknown): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     const failedAt = new Date();
+    if (await this.requeueTransientFailure(commandId, workerId, error, message, failedAt)) {
+      return;
+    }
     const updated = await prisma.directorRunCommand.updateMany({
       where: {
         id: commandId,
@@ -633,6 +643,59 @@ export class DirectorCommandService {
     }).catch(() => null);
     await this.workflowService.requeueTaskForRecovery(command.taskId, message)
       .catch(() => null);
+  }
+
+  /**
+   * 传输类瞬时失败（通道限流、网关 5xx、结构化调用拿不到可用内容）先退避重排，
+   * 不直接判定任务失败；只有重试用尽才走原来的失败与人工恢复流程。
+   */
+  private async requeueTransientFailure(
+    commandId: string,
+    workerId: string,
+    error: unknown,
+    message: string,
+    now: Date,
+  ): Promise<boolean> {
+    if (!isTransientStructuredFailure(error)) {
+      return false;
+    }
+    const command = await this.getCommandById(commandId);
+    if (!command || command.attempt >= TRANSIENT_FAILURE_MAX_ATTEMPTS) {
+      return false;
+    }
+    const delayMs = resolveTransientRetryDelayMs(command.attempt, error, {
+      baseDelayMs: TRANSIENT_FAILURE_RETRY_BASE_DELAY_MS,
+      maxDelayMs: TRANSIENT_FAILURE_RETRY_MAX_DELAY_MS,
+    });
+    const requeued = await prisma.directorRunCommand.updateMany({
+      where: {
+        id: commandId,
+        leaseOwner: workerId,
+        status: { in: ["leased", "running"] },
+      },
+      data: {
+        status: "queued",
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        activeSlot: null,
+        runAfter: new Date(now.getTime() + delayMs),
+        startedAt: null,
+        errorMessage: message,
+      },
+    });
+    if (requeued.count !== 1) {
+      return false;
+    }
+    // 保持任务心跳，避免退避窗口内被 stale 扫描当成中断任务收走。
+    await prisma.novelWorkflowTask.updateMany({
+      where: { id: command.taskId },
+      data: { heartbeatAt: now },
+    }).catch(() => null);
+    console.warn(
+      `[director.command] transient failure requeued commandId=${commandId} attempt=${command.attempt}/${TRANSIENT_FAILURE_MAX_ATTEMPTS} delayMs=${delayMs} message=${message.slice(0, 200)}`,
+    );
+    taskDispatcher.notify();
+    return true;
   }
 
   private async closeCancelledTaskRuntimeState(taskId: string, now: Date): Promise<void> {

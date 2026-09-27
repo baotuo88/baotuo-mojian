@@ -34,6 +34,7 @@ import {
   type StructuredInvokeResult,
 } from "./structuredInvokeParser";
 import { toText } from "@ai-novel/shared/utils/jsonText";
+import { runWithTransientRetry } from "./transientRetry";
 import type { PromptInvocationMeta } from "../prompting/core/promptTypes";
 
 export {
@@ -225,21 +226,41 @@ async function invokeStructuredAttempt<T>(input: {
       label: input.baseInput.label,
       timeoutMs: input.baseInput.timeoutMs,
       signal: input.baseInput.signal,
-      run: async (signal) => {
-        const stream = await llm.stream(
-          messages,
-          signal ? { ...invokeOptions, signal } : invokeOptions,
-        );
-        let rawContent = "";
-        let tokenUsage = null;
-        for await (const chunk of stream) {
-          const content = toText(chunk.content);
-          rawContent += content;
-          liveSession.delta(content);
-          tokenUsage = mergeStreamTokenUsage(tokenUsage, extractLlmTokenUsage(chunk));
-        }
-        return { rawContent, tokenUsage };
-      },
+      run: async (signal) => runWithTransientRetry(
+        async () => {
+          const stream = await llm.stream(
+            messages,
+            signal ? { ...invokeOptions, signal } : invokeOptions,
+          );
+          let rawContent = "";
+          let tokenUsage = null;
+          for await (const chunk of stream) {
+            const content = toText(chunk.content);
+            rawContent += content;
+            liveSession.delta(content);
+            tokenUsage = mergeStreamTokenUsage(tokenUsage, extractLlmTokenUsage(chunk));
+          }
+          return { rawContent, tokenUsage };
+        },
+        {
+          signal,
+          // 通道限流/网络抖动属于可恢复故障。重试会重新累积正文，
+          // 已经推给实时视图的片段可能与最终结果重复，但不会影响结构化解析。
+          onRetry: ({ nextAttempt, delayMs }) => {
+            logStructuredInvokeEvent({
+              event: "invoke_retry_transient",
+              label: input.baseInput.label,
+              provider: resolved.provider,
+              model: resolved.model,
+              taskType: input.baseInput.taskType,
+              strategy: input.strategy,
+              errorCategory: "transport_error",
+              retryAttempt: nextAttempt,
+              delayMs,
+            });
+          },
+        },
+      ),
     });
     const rawContent = collected.rawContent;
     logStructuredInvokeEvent({
@@ -317,6 +338,27 @@ async function invokeStructuredAttempt<T>(input: {
   }
 }
 
+/** 空内容重试时追加的正文预算与上限。 */
+const EMPTY_RESPONSE_RETRY_TOKEN_INCREMENT = 2_048;
+const EMPTY_RESPONSE_RETRY_TOKEN_CEILING = 16_384;
+
+/**
+ * 模型返回空内容时放宽输出预算。
+ * 推理型通道会把预算消耗在思考上，原预算常常不足以再产出正文，
+ * 因此在换策略重试时同步给正文留出额外额度。
+ */
+function expandTargetForEmptyResponse(target: StructuredAttemptTarget): StructuredAttemptTarget {
+  const current = target.maxTokens;
+  if (typeof current !== "number" || current <= 0) {
+    return target;
+  }
+  const expanded = Math.max(current * 2, current + EMPTY_RESPONSE_RETRY_TOKEN_INCREMENT);
+  return {
+    ...target,
+    maxTokens: Math.min(EMPTY_RESPONSE_RETRY_TOKEN_CEILING, expanded),
+  };
+}
+
 async function tryStructuredStrategies<T>(input: {
   baseInput: StructuredInvokeInput<T>;
   target: StructuredAttemptTarget;
@@ -331,12 +373,13 @@ async function tryStructuredStrategies<T>(input: {
     ]
     : sequence;
   let lastError: StructuredOutputError | null = null;
+  let attemptTarget = input.target;
   for (let index = 0; index < preferredSequence.length; index += 1) {
     const strategy = preferredSequence[index]!;
     try {
       return await invokeStructuredAttempt({
         baseInput: input.baseInput,
-        target: input.target,
+        target: attemptTarget,
         strategy,
         strategyIndex: index,
         fallbackAvailable: input.fallbackAvailable,
@@ -351,6 +394,22 @@ async function tryStructuredStrategies<T>(input: {
         fallbackAvailable: input.fallbackAvailable,
         fallbackUsed: input.fallbackUsed,
       });
+      if (lastError.emptyResponse && index < preferredSequence.length - 1) {
+        // 推理型通道可能把整个输出预算花在思考上，导致正文为空。
+        // 这是可恢复的预算问题，不是链路级故障：换一种结构化策略并放宽预算再试一次。
+        attemptTarget = expandTargetForEmptyResponse(attemptTarget);
+        logStructuredInvokeEvent({
+          event: "invoke_retry_empty_response",
+          label: input.baseInput.label,
+          provider: attemptTarget.provider,
+          model: attemptTarget.model,
+          taskType: input.baseInput.taskType,
+          strategy,
+          errorCategory: lastError.category,
+          maxTokens: attemptTarget.maxTokens,
+        });
+        continue;
+      }
       if (lastError.category === "transport_error") {
         break;
       }

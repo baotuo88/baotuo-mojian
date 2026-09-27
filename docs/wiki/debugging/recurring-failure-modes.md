@@ -17,6 +17,7 @@
 - RAG 不命中先查显式文档、绑定文档、全局启用文档和 context resolver。
 - 数据破坏风险操作必须先备份、验证备份，再取得明确批准。
 - 本地启动失败先确认依赖是否换了原生模块解析方式，不要只按旧的产物路径判断。
+- 自动导演反复停在同一规划节点时，先查模型通道的原始返回内容与输出预算，再决定是通道问题还是内容问题，不要先改前端重试入口。
 
 ## 示例
 
@@ -30,6 +31,7 @@
 - 重新生成候选没有进入新一轮：检查 batch reuse、command idempotency 和候选阶段运行态。
 - 生成没有使用知识库资料：检查 `knowledgeDocumentIds`、小说/世界绑定、启用状态和 prompt context requirement。
 - 本地 dev 提示 `better-sqlite3 binding missing or incompatible` 并尝试联网下载：先用 `node -e "new (require('better-sqlite3'))(':memory:')"` 确认原生模块能否打开内存库；能打开说明模块可用，问题在于启动守卫仍按 `build/Release/*.node` 判断，而 better-sqlite3 v13 起改为 `prebuilds/<platform>-<arch>.node`，此时应以运行期探针结果为准。
+- 自动导演每次都在"卷战略 / 卷骨架"等同一节点失败并提示"模型没有返回可用内容"：先对照容器日志里的 `[structured.invoke]` 事件，确认 `rawChars=0` 时 `completionTokens` 是否等于该步骤的输出预算（如卷骨架为 `min(6000, 800 + 卷数 × 520)`）。两者相等说明推理型通道把整个预算消耗在思考上，属于预算与传输问题，应按通道瞬时故障与空内容约定处理，而不是判定为规划能力不足。
 
 ## 失败模式
 

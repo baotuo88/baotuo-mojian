@@ -251,6 +251,9 @@ export function logStructuredInvokeEvent(input: {
   taskType?: TaskType;
   latencyMs?: number;
   rawChars?: number;
+  maxTokens?: number;
+  retryAttempt?: number;
+  delayMs?: number;
   repairAttempt?: number;
   strategy?: StructuredOutputStrategy;
   errorCategory?: StructuredOutputErrorCategory | null;
@@ -270,6 +273,9 @@ export function logStructuredInvokeEvent(input: {
       typeof input.repairAttempt === "number" ? `repairAttempt=${input.repairAttempt}` : "",
       typeof input.latencyMs === "number" ? `latencyMs=${input.latencyMs}` : "",
       typeof input.rawChars === "number" ? `rawChars=${input.rawChars}` : "",
+      typeof input.maxTokens === "number" ? `maxTokens=${input.maxTokens}` : "",
+      typeof input.retryAttempt === "number" ? `retryAttempt=${input.retryAttempt}` : "",
+      typeof input.delayMs === "number" ? `delayMs=${input.delayMs}` : "",
       input.fallbackUsed ? "fallbackUsed=true" : "",
       input.reasoningForcedOff ? "reasoningForcedOff=true" : "",
     ].filter(Boolean).join(" "),
@@ -284,10 +290,12 @@ export function buildStructuredError(input: {
   reasoningForcedOff?: boolean;
   fallbackAvailable?: boolean;
   fallbackUsed?: boolean;
+  emptyResponse?: boolean;
 }): StructuredOutputError {
   return new StructuredOutputError({
     message: input.message,
     category: input.category,
+    emptyResponse: input.emptyResponse,
     diagnostics: buildDiagnostics({
       strategy: input.strategy,
       profile: input.profile,
@@ -372,6 +380,7 @@ export async function parseStructuredLlmRawContentDetailed<T>(
     throw buildStructuredError({
       message: `[${input.label}] 模型没有返回可用内容，无法执行结构校验或 JSON 修复。`,
       category: "transport_error",
+      emptyResponse: true,
       strategy: input.strategy,
       profile: input.profile,
       reasoningForcedOff: input.reasoningForcedOff,

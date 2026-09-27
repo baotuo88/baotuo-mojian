@@ -673,3 +673,86 @@ test("buildStructuredResponseFormat keeps string length limits in json schema se
   assert.equal(serializedSchema.includes("maxLength"), true);
   assert.equal(serializedSchema.includes("maxItems"), true);
 });
+
+test("invokeStructuredLlmDetailed retries with a larger output budget when the model returns empty content", async () => {
+  const originalResolveOptions = factory.resolveLLMClientOptions;
+  const originalCreateLLM = factory.createLLMFromResolvedOptions;
+  const attempts = [];
+
+  factory.resolveLLMClientOptions = async (provider, options = {}) => {
+    const resolvedProvider = provider ?? "ollama";
+    const resolvedModel = options.model ?? "deepseek-v4.1-flash";
+    const baseURL = options.baseURL ?? "https://relay.example/v1";
+    const structuredProfile = options.executionMode === "structured"
+      ? resolveStructuredOutputProfile({
+        provider: resolvedProvider,
+        model: resolvedModel,
+        baseURL,
+        executionMode: "structured",
+      })
+      : null;
+    return {
+      provider: resolvedProvider,
+      providerName: resolvedProvider,
+      model: resolvedModel,
+      temperature: options.temperature ?? 0.3,
+      apiKey: "test-key",
+      baseURL,
+      maxTokens: options.maxTokens,
+      reasoningEnabled: true,
+      modelKwargs: undefined,
+      includeRawResponse: false,
+      executionMode: options.executionMode ?? "plain",
+      structuredProfile,
+      structuredStrategy: options.structuredStrategy ?? null,
+      reasoningForcedOff: false,
+      taskType: options.taskType,
+      promptMeta: options.promptMeta,
+    };
+  };
+
+  factory.createLLMFromResolvedOptions = (resolved) => ({
+    stream: async function* () {
+      attempts.push({
+        strategy: resolved.structuredStrategy,
+        maxTokens: resolved.maxTokens,
+      });
+      if (attempts.length === 1) {
+        // 推理型通道把整个预算花在思考上：有完成 token，但正文为空。
+        yield { content: "" };
+        return;
+      }
+      yield { content: "{\"value\":\"retried\"}" };
+    },
+  });
+
+  try {
+    const result = await structuredInvoke.invokeStructuredLlmDetailed({
+      provider: "ollama",
+      model: "deepseek-v4.1-flash",
+      baseURL: "https://relay.example/v1",
+      label: "structured.invoke.empty.retry",
+      taskType: "planner",
+      maxTokens: 1320,
+      disableFallbackModel: true,
+      schema: z.object({
+        value: z.string(),
+      }),
+      systemPrompt: "只返回 JSON。",
+      userPrompt: "给我一个 value。",
+    });
+
+    assert.deepEqual(result.data, { value: "retried" });
+    assert.equal(attempts.length, 2);
+    assert.equal(attempts[0].strategy, "json_object");
+    assert.equal(attempts[0].maxTokens, 1320);
+    assert.equal(attempts[1].strategy, "prompt_json");
+    assert.ok(
+      attempts[1].maxTokens >= 2640,
+      `expected expanded output budget, got ${attempts[1].maxTokens}`,
+    );
+  } finally {
+    factory.resolveLLMClientOptions = originalResolveOptions;
+    factory.createLLMFromResolvedOptions = originalCreateLLM;
+  }
+});
