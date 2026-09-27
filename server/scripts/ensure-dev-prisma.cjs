@@ -146,12 +146,9 @@ function ensureBetterSqlite3Binding() {
     return;
   }
 
-  const bindingCandidates = [
-    path.join(betterSqlite3Dir, "build", "Release", "better_sqlite3.node"),
-    path.join(betterSqlite3Dir, "build", "Debug", "better_sqlite3.node"),
-  ];
-  const hasBinding = bindingCandidates.some((candidate) => fs.existsSync(candidate));
-  if (hasBinding && canLoadBetterSqlite3Binding(betterSqlite3Dir)) {
+  // better-sqlite3 v13 起通过 prebuilds/<platform>-<arch>.node 解析原生模块，
+  // 不再保证存在 build/Release 产物，因此以「能否真正打开内存库」作为唯一判据。
+  if (canLoadBetterSqlite3Binding(betterSqlite3Dir)) {
     return;
   }
 
