@@ -196,6 +196,7 @@ export class NovelDirectorService {
     ensurePrimaryNovelStyleBinding: (novelId, styleProfileId) => this.ensurePrimaryNovelStyleBinding(novelId, styleProfileId),
     withWorkflowTaskUsage: (workflowTaskId, runner) => this.withWorkflowTaskUsage(workflowTaskId, runner),
     scheduleBackgroundRun: (taskId, runner) => this.scheduleBackgroundRun(taskId, runner),
+    runBackgroundRun: (taskId, runner) => this.runBackgroundRun(taskId, runner),
     resolveRiskPolicy: (novelId) => this.resolveDirectorRiskPolicy(novelId),
   });
   private readonly chapterTitleRepairRuntime = new NovelDirectorChapterTitleRepairRuntime({
@@ -671,6 +672,7 @@ export class NovelDirectorService {
 
   async startTakeover(input: DirectorTakeoverRequest, options: {
     workflowTaskId?: string | null;
+    awaitBackgroundRun?: boolean;
   } = {}): Promise<DirectorTakeoverResponse> {
     const commandTaskId = options.workflowTaskId?.trim() || null;
     const takeoverState = await loadDirectorTakeoverState({
@@ -750,6 +752,22 @@ export class NovelDirectorService {
     const takeoverWorkspaceAnalysis = await this.directorRuntime.analyzeWorkspace({
       novelId: input.novelId,
     });
+    const runTakeover = (taskId: string, runner: () => Promise<void>) => async () => {
+      await this.directorRuntime.initializeRun({
+        taskId,
+        novelId: input.novelId,
+        entrypoint: "takeover",
+        policyMode: isFullBookAutopilot ? "auto_safe_scope" : "run_until_gate",
+        summary: "AI 自动导演接管已并入统一运行时。",
+      });
+      await this.directorRuntime.recordWorkspaceAnalysis({
+        taskId,
+        analysis: takeoverWorkspaceAnalysis,
+      });
+      // Runtime initialization makes the takeover bookkeeping module complete.
+      // Run the scheduled continuation directly so phase/chapter execution is not skipped.
+      await runner();
+    };
     const response = await startDirectorTakeoverExecution({
       request: input,
       takeoverState,
@@ -760,22 +778,9 @@ export class NovelDirectorService {
         runFromReady: (payload) => this.directorRuntimeOrchestrator.runChapterExecutionNode(payload),
       },
       buildDirectorSeedPayload: (request, novelId, extra) => buildDirectorWorkflowSeedPayload(request, novelId, extra),
-      scheduleBackgroundRun: (taskId, runner) => this.scheduleBackgroundRun(taskId, async () => {
-        await this.directorRuntime.initializeRun({
-          taskId,
-          novelId: input.novelId,
-          entrypoint: "takeover",
-          policyMode: isFullBookAutopilot ? "auto_safe_scope" : "run_until_gate",
-          summary: "AI 自动导演接管已并入统一运行时。",
-        });
-        await this.directorRuntime.recordWorkspaceAnalysis({
-          taskId,
-          analysis: takeoverWorkspaceAnalysis,
-        });
-        // Runtime initialization makes the takeover bookkeeping module complete.
-        // Run the scheduled continuation directly so phase/chapter execution is not skipped.
-        await runner();
-      }),
+      scheduleBackgroundRun: (taskId, runner) => this.scheduleBackgroundRun(taskId, runTakeover(taskId, runner)),
+      awaitBackgroundRun: options.awaitBackgroundRun,
+      runBackgroundRun: (taskId, runner) => this.runBackgroundRun(taskId, runTakeover(taskId, runner)),
       runDirectorPipeline: (payload) => this.directorPipelineRuntime.runPipeline(payload),
       assertHighMemoryStartAllowed: (payload) => this.assertHighMemoryDirectorStartAllowed(payload),
       createRewriteSnapshot: async ({ novelId, label }) => {
@@ -875,14 +880,16 @@ export class NovelDirectorService {
     );
   }
 
-  async confirmCandidate(input: DirectorConfirmRequest): Promise<DirectorConfirmApiResponse> {
+  async confirmCandidate(input: DirectorConfirmRequest, options: {
+    awaitBackgroundRun?: boolean;
+  } = {}): Promise<DirectorConfirmApiResponse> {
     const issuePolicy = await directorIssuePolicyService.getGlobalPolicy();
     return this.confirmRuntime.confirmCandidate({
       ...input,
       issueGovernanceVersion: DIRECTOR_ISSUE_GOVERNANCE_VERSION,
       issuePolicy,
       issuePolicySource: "global",
-    });
+    }, options);
   }
 
 }

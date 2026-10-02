@@ -86,7 +86,9 @@ export function buildRestoreTaskToCheckpointResult(input: {
         checkpointType,
         status: input.existing.status,
       }) ?? input.existing.currentItemLabel ?? null,
-      progress: Math.max(input.existing.progress ?? 0, defaultProgressForStage(checkpointStage)),
+      progress: checkpointType === "workflow_completed"
+        ? 1
+        : Math.max(input.existing.progress ?? 0, defaultProgressForStage(checkpointStage)),
       resumeTargetJson: JSON.stringify(resumeTarget),
       lastError: null,
     },

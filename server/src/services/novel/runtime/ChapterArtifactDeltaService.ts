@@ -4,6 +4,7 @@ import type {
 } from "@ai-novel/shared/types/canonicalState";
 import { createHash } from "node:crypto";
 import { prisma } from "../../../db/prisma";
+import { withSqliteRetry } from "../../../db/sqliteRetry";
 import { runStructuredPrompt } from "../../../prompting/core/promptRunner";
 import {
   chapterArtifactDeltaPrompt,
@@ -1076,29 +1077,46 @@ export class ChapterArtifactDeltaService {
         if (!character || !boundaryLine) {
           return null;
         }
-        const nextCurrentState = mergeKnowledgeBoundaryState(character.currentState, boundaryLine);
-        if (nextCurrentState === (character.currentState ?? "")) {
-          return null;
-        }
         return {
           characterId: character.id,
-          currentState: nextCurrentState,
+          boundaryLine,
         };
       })
-      .filter((item): item is { characterId: string; currentState: string } => Boolean(item));
+      .filter((item): item is { characterId: string; boundaryLine: string } => Boolean(item));
     if (updates.length === 0) {
       return 0;
     }
 
-    await prisma.$transaction(async (tx) => {
-      for (const update of updates) {
-        await tx.character.update({
-          where: { id: update.characterId },
-          data: { currentState: update.currentState },
-        });
+    let appliedCount = 0;
+    for (const update of updates) {
+      let applied = false;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const result = await withSqliteRetry(() => prisma.$transaction(async (tx) => {
+          // The roster predates this chapter's state commit. Merge against the
+          // current row, and retry if a concurrent writer wins after this read.
+          const character = await tx.character.findUnique({
+            where: { id: update.characterId },
+            select: { currentState: true },
+          });
+          if (!character) return "unchanged";
+          const currentState = mergeKnowledgeBoundaryState(character.currentState, update.boundaryLine);
+          if (currentState === character.currentState) return "unchanged";
+          const changed = await tx.character.updateMany({
+            where: { id: update.characterId, currentState: character.currentState },
+            data: { currentState },
+          });
+          return changed.count === 1 ? "updated" : "retry";
+        }), { label: "chapterArtifactDelta.knowledgeState" });
+        if (result === "retry") continue;
+        if (result === "updated") appliedCount++;
+        applied = true;
+        break;
       }
-    });
-    return updates.length;
+      if (!applied) {
+        throw new Error("角色状态正在更新，信息边界同步需要重试。");
+      }
+    }
+    return appliedCount;
   }
 
   private queueRagUpsert(ownerType: RagOwnerType, ownerId: string): void {

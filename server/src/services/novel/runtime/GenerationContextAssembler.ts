@@ -18,6 +18,7 @@ import {
   buildRuntimeStateSnapshotFromCanonical,
 } from "../state/CanonicalStateService";
 import { contextAssemblyService } from "../production/ContextAssemblyService";
+import { chapterPayoffPlanningService } from "../production/payoff";
 import type { ChapterRuntimeRequestInput } from "./chapterRuntimeSchema";
 import {
   buildPreviousChaptersSummary,
@@ -413,6 +414,26 @@ export class GenerationContextAssembler {
       }),
     ].filter(Boolean).join("\n\n");
     const mappedPlan = mapPlan(ensuredPlan);
+    const chapterStateGoal = resolvedStateDrivenContext.chapterStateGoal;
+    if (chapterStateGoal) {
+      chapterStateGoal.targetPayoffDirectives = await chapterPayoffPlanningService.plan({
+        chapter,
+        plan: mappedPlan,
+        snapshot: canonicalState,
+        protectedSecrets: resolvedStateDrivenContext.protectedSecrets,
+        previousChaptersSummary,
+        previousChapterTail: extractChapterTail(recentChapters[0]?.content),
+        forbiddenEvents: (timelineContext?.forbiddenEvents ?? []).map((event) => ({
+          title: event.title,
+          reason: event.reason,
+        })),
+      }, {
+        provider: request.provider,
+        model: request.model,
+        temperature: request.temperature,
+        taskId: request.workflowTaskId,
+      });
+    }
     const mappedStateSnapshot = buildRuntimeStateSnapshotFromCanonical(canonicalState);
     const canonicalCharacterMap = new Map(
       canonicalState.characters.map((item) => [item.characterId, item]),
@@ -423,6 +444,7 @@ export class GenerationContextAssembler {
         id: item.id,
         name: item.name,
         role: item.role,
+        gender: item.gender ?? null,
         personality: item.personality ?? null,
         background: item.background ?? null,
         development: item.development ?? null,
@@ -562,7 +584,7 @@ export class GenerationContextAssembler {
       ),
       canonicalState,
       nextAction: resolvedStateDrivenContext.nextAction,
-      chapterStateGoal: resolvedStateDrivenContext.chapterStateGoal,
+      chapterStateGoal,
       protectedSecrets: resolvedStateDrivenContext.protectedSecrets,
       pendingReviewProposalCount,
       stateSnapshot: mappedStateSnapshot,

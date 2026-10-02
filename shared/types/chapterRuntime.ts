@@ -2,20 +2,20 @@ import { z } from "zod";
 import {
   chapterScenePlanSchema,
   lengthBudgetContractSchema,
-} from "./chapterLengthControl";
+} from "./chapterLengthControl.js";
 import {
   canonicalStateSnapshotSchema,
   chapterStateGoalSchema,
   chapterPayoffDirectiveSchema,
   generationNextActionSchema,
-} from "./canonicalState";
-import { characterResourceContextSchema } from "./characterResource";
-import { storyWorldSliceSchema } from "./storyWorldSlice";
-import { timelineCheckResultSchema, timelineContextForChapterSchema } from "./timeline";
+} from "./canonicalState.js";
+import { characterResourceContextSchema } from "./characterResource.js";
+import { storyWorldSliceSchema } from "./storyWorldSlice.js";
+import { timelineCheckResultSchema, timelineContextForChapterSchema } from "./timeline.js";
 import {
   EMPTY_READER_EXPERIENCE_CONTRACT,
   readerExperienceContractSchema,
-} from "./novel/readerExperience";
+} from "./novel/readerExperience.js";
 import type { LLMProvider } from "./llm";
 import {
   dynamicCharacterRiskLevelSchema,
@@ -109,6 +109,7 @@ export const runtimeCharacterSchema = z.object({
   id: z.string(),
   name: z.string(),
   role: z.string(),
+  gender: z.string().nullable().optional(),
   personality: z.string().nullable().optional(),
   background: z.string().nullable().optional(),
   development: z.string().nullable().optional(),
@@ -455,6 +456,7 @@ export const chapterCharacterHardFactSchema = z.object({
   characterId: z.string(),
   name: z.string(),
   role: z.string().nullable().optional(),
+  gender: z.string().nullable().optional(),
   identityLabel: z.string().nullable().optional(),
   factionLabel: z.string().nullable().optional(),
   stanceLabel: z.string().nullable().optional(),

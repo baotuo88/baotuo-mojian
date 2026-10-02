@@ -226,6 +226,15 @@ function createHarness(task = createTask()) {
       if (where?.leaseOwner && row.leaseOwner !== where.leaseOwner) {
         continue;
       }
+      if (where?.leaseExpiresAt && row.leaseExpiresAt?.getTime() !== where.leaseExpiresAt.getTime()) {
+        continue;
+      }
+      if (where?.task?.is && Object.entries(where.task.is).some(([key, value]) => {
+        if (value === undefined) return false;
+        return value instanceof Date ? task[key]?.getTime() !== value.getTime() : (task[key] ?? null) !== value;
+      })) {
+        continue;
+      }
       if (where?.status) {
         if (typeof where.status === "string" && row.status !== where.status) {
           continue;
@@ -656,6 +665,54 @@ test("director command service marks exhausted expired leases stale and requeues
     assert.equal(harness.stepUpdates[0].where.status, "running");
     assert.equal(harness.stepUpdates[0].data.status, "failed");
     assert.match(harness.stepUpdates[0].data.error, /\u79df\u7ea6\u8fc7\u671f/);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("expired continue lease cannot reopen a completed book", async () => {
+  const harness = createHarness();
+  try {
+    await harness.service.enqueueContinueCommand("task-1");
+    Object.assign(harness.task, {
+      status: "succeeded", checkpointType: "workflow_completed",
+      pendingManualRecovery: false, lastError: null, progress: 1,
+    });
+    Object.assign(harness.commands[0], {
+      status: "running", leaseOwner: "worker-a", attempt: 1,
+      leaseExpiresAt: new Date("2026-04-29T12:00:00.000Z"),
+    });
+    await harness.service.recoverStaleLeases(new Date("2026-04-29T12:01:00.000Z"));
+    assert.equal(harness.task.status, "succeeded");
+    assert.equal(harness.task.lastError, null);
+    assert.equal(harness.commands[0].status, "succeeded");
+    assert.equal(harness.commands[0].activeSlot, null);
+    assert.equal(harness.requeued.length, 0);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("completion lease cleanup loses to a new task run committed after its read", async () => {
+  const harness = createHarness();
+  try {
+    await harness.service.enqueueContinueCommand("task-1");
+    Object.assign(harness.task, { status: "succeeded", checkpointType: "workflow_completed" });
+    Object.assign(harness.commands[0], {
+      status: "running", leaseOwner: "worker-a", attempt: 1,
+      leaseExpiresAt: new Date("2026-04-29T12:00:00.000Z"),
+    });
+    const updateMany = prisma.directorRunCommand.updateMany;
+    prisma.directorRunCommand.updateMany = async (args) => {
+      if (args.where.task?.is) {
+        Object.assign(harness.task, { status: "running", checkpointType: null, updatedAt: new Date() });
+      }
+      return updateMany(args);
+    };
+    await harness.service.recoverStaleLeases(new Date("2026-04-29T12:01:00.000Z"));
+    assert.equal(harness.task.status, "running");
+    assert.equal(harness.commands[0].status, "running");
+    assert.equal(harness.commands[0].leaseOwner, "worker-a");
   } finally {
     harness.restore();
   }

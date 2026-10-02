@@ -171,8 +171,8 @@ export function resolvePayoffLedgerSyncLedgerKey(
     if (!existing) {
       throw new Error(`伏笔 ${item.ledgerKey} 引用了不存在的既有账本项。`);
     }
-    if (!isUnfinishedPayoffStatus(existing.currentStatus)) {
-      throw new Error(`伏笔 ${item.ledgerKey} 不能复用已终态账本项 ${claimedKey}。`);
+    if (!isUnfinishedPayoffStatus(existing.currentStatus) && item.currentStatus !== existing.currentStatus) {
+      throw new Error(`伏笔 ${item.ledgerKey} 不能重新打开已终态账本项 ${claimedKey}。`);
     }
     return existing.ledgerKey;
   }

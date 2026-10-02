@@ -490,6 +490,7 @@ const CHAPTER_ARTIFACT_DELTA_EXAMPLE: ChapterArtifactDeltaOutput = {
   payoffDeltas: [
     {
       ledgerKey: "ku_fang_hou_men",
+      sourceReplacements: [],
       identityDecision: {
         action: "create",
         existingLedgerKey: null,

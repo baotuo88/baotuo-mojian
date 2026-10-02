@@ -61,10 +61,13 @@ export class NovelDirectorConfirmRuntime {
     ensurePrimaryNovelStyleBinding: (novelId: string, styleProfileId: string | null | undefined) => Promise<void>;
     withWorkflowTaskUsage: <T>(workflowTaskId: string | null | undefined, runner: () => Promise<T>) => Promise<T>;
     scheduleBackgroundRun: (taskId: string, runner: () => Promise<void>) => void;
+    runBackgroundRun: (taskId: string, runner: () => Promise<void>) => Promise<void>;
     resolveRiskPolicy: (novelId: string) => Promise<DirectorRiskPolicy>;
   }) {}
 
-  async confirmCandidate(input: DirectorConfirmRequest): Promise<DirectorConfirmApiResponse> {
+  async confirmCandidate(input: DirectorConfirmRequest, options: {
+    awaitBackgroundRun?: boolean;
+  } = {}): Promise<DirectorConfirmApiResponse> {
     const resolvedInput = applyDirectorRunModeContract({
       ...await this.deps.enrichDirectorStyleContext(input),
       runMode: "full_book_autopilot" as const,
@@ -101,49 +104,40 @@ export class NovelDirectorConfirmRuntime {
       summary: "自动导演确认方案后进入统一运行时。",
     });
 
-    if (workflowTask.novelId) {
-      await this.deps.ensurePrimaryNovelStyleBinding(workflowTask.novelId, resolvedInput.styleProfileId);
+    let attachedNovelId = workflowTask.novelId;
+    if (attachedNovelId && !options.awaitBackgroundRun) {
+      await this.deps.ensurePrimaryNovelStyleBinding(attachedNovelId, resolvedInput.styleProfileId);
       return this.buildExistingConfirmResponse(workflowTask, resolvedInput, bookSpec);
     }
 
-    const novelCreationClaim = await this.deps.workflowService.claimAutoDirectorNovelCreation(workflowTask.id, {
-      itemLabel: "正在创建小说项目",
-      progress: DIRECTOR_PROGRESS.novelCreate,
-    });
-    if (novelCreationClaim.status === "attached") {
-      const attachedTask = novelCreationClaim.task;
-      if (!attachedTask) {
-        throw new Error("自动导演确认链缺少已附着的任务快照。");
-      }
-      if (attachedTask.novelId) {
+    if (!attachedNovelId) {
+      const novelCreationClaim = await this.deps.workflowService.claimAutoDirectorNovelCreation(workflowTask.id, {
+        itemLabel: "正在创建小说项目",
+        progress: DIRECTOR_PROGRESS.novelCreate,
+      });
+      if (novelCreationClaim.status !== "claimed") {
+        const existingTask = novelCreationClaim.status === "attached"
+          ? novelCreationClaim.task
+          : await this.waitForExistingConfirmedNovel(workflowTask.id);
+        if (!existingTask?.novelId) {
+          if (existingTask?.status === "failed" || existingTask?.status === "cancelled") {
+            throw new Error(existingTask.lastError?.trim() || "当前导演建书流程已中断，请重新尝试。");
+          }
+          throw new Error("当前导演方案正在创建小说，请勿重复提交。");
+        }
+        attachedNovelId = existingTask.novelId;
         await this.deps.directorRuntime.initializeRun({
           taskId: workflowTask.id,
-          novelId: attachedTask.novelId,
+          novelId: attachedNovelId,
           entrypoint: "candidate_confirm",
           policyMode: this.resolveInitialPolicyMode(runMode),
           summary: "自动导演复用已创建的小说项目并进入统一运行时。",
         });
-        await this.deps.ensurePrimaryNovelStyleBinding(attachedTask.novelId, resolvedInput.styleProfileId);
+        if (!options.awaitBackgroundRun) {
+          await this.deps.ensurePrimaryNovelStyleBinding(attachedNovelId, resolvedInput.styleProfileId);
+          return this.buildExistingConfirmResponse(existingTask, resolvedInput, bookSpec);
+        }
       }
-      return this.buildExistingConfirmResponse(attachedTask, resolvedInput, bookSpec);
-    }
-    if (novelCreationClaim.status === "in_progress") {
-      const existingTask = await this.waitForExistingConfirmedNovel(workflowTask.id);
-      if (existingTask?.novelId) {
-        await this.deps.directorRuntime.initializeRun({
-          taskId: workflowTask.id,
-          novelId: existingTask.novelId,
-          entrypoint: "candidate_confirm",
-          policyMode: this.resolveInitialPolicyMode(runMode),
-          summary: "自动导演复用正在创建完成的小说项目并进入统一运行时。",
-        });
-        await this.deps.ensurePrimaryNovelStyleBinding(existingTask.novelId, resolvedInput.styleProfileId);
-        return this.buildExistingConfirmResponse(existingTask, resolvedInput, bookSpec);
-      }
-      if (existingTask?.status === "failed" || existingTask?.status === "cancelled") {
-        throw new Error(existingTask.lastError?.trim() || "当前导演建书流程已中断，请重新尝试。");
-      }
-      throw new Error("当前导演方案正在创建小说，请勿重复提交。");
     }
 
     try {
@@ -217,7 +211,9 @@ export class NovelDirectorConfirmRuntime {
         const platformSnapshot = await writingPlatformProfileService.snapshot(selectedPlatform, "long_novel");
 
         const novelCreateModule = getDirectorConfirmNovelCreateStepModule();
-        const createdNovel = await this.deps.runtimeOrchestrator.runStepModule({
+        // The project can already be attached when a command fails between
+        // creation and execution setup. Reuse it while completing required setup.
+        const createdNovel = attachedNovelId ? { id: attachedNovelId } : await this.deps.runtimeOrchestrator.runStepModule({
           module: novelCreateModule,
           taskId: workflowTask.id,
           targetId: workflowTask.id,
@@ -325,7 +321,7 @@ export class NovelDirectorConfirmRuntime {
           "正在准备 Book Contract 与故事宏观规划",
           DIRECTOR_PROGRESS.bookContract,
         );
-        this.deps.scheduleBackgroundRun(workflowTask.id, async () => {
+        const runPipeline = async () => {
           await this.deps.pipelineRuntime.runPipeline({
             taskId: workflowTask.id,
             novelId: createdNovel.id,
@@ -335,7 +331,12 @@ export class NovelDirectorConfirmRuntime {
             approveCurrentGate: isFullBookAutopilotRunMode(runMode),
             approveAutoExecutionScope: isFullBookAutopilotRunMode(runMode),
           });
-        });
+        };
+        if (options.awaitBackgroundRun) {
+          await this.deps.runBackgroundRun(workflowTask.id, runPipeline);
+        } else {
+          this.deps.scheduleBackgroundRun(workflowTask.id, runPipeline);
+        }
         const novel = await this.deps.novelContextService.getNovelById(createdNovel.id) as unknown as DirectorConfirmApiResponse["novel"];
         const seededPlanDigests = {
           book: null,
@@ -362,9 +363,31 @@ export class NovelDirectorConfirmRuntime {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "自动导演确认链执行失败。";
-      await this.deps.workflowService.markTaskFailed(workflowTask.id, message);
+      // Awaited execution is owned by the command worker: its error handler
+      // decides retry/recovery and the background runner preserves gates/cancellation.
+      if (!options.awaitBackgroundRun) {
+        await this.deps.workflowService.markTaskFailed(workflowTask.id, message);
+      } else {
+        await this.releaseUnfinishedCreationClaim(workflowTask.id).catch(() => null);
+      }
       throw error;
     }
+  }
+
+  private async releaseUnfinishedCreationClaim(taskId: string): Promise<void> {
+    const task = await this.deps.workflowService.getTaskByIdWithoutHealing(taskId);
+    if (!task || task.novelId || task.currentItemKey !== "novel_create"
+      || task.status !== "running" || task.cancelRequestedAt) {
+      return;
+    }
+    // Command backoff keeps the task running. Release only the unfinished
+    // creation claim so the next attempt can retry preparation without duplicating a novel.
+    await this.deps.workflowService.markTaskRunning(taskId, {
+      stage: "auto_director",
+      itemKey: "candidate_confirm",
+      itemLabel: "等待重试小说创建",
+      progress: DIRECTOR_PROGRESS.novelCreate,
+    });
   }
 
   private resolveInitialPolicyMode(runMode: DirectorConfirmRequest["runMode"]) {

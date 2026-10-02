@@ -1068,3 +1068,57 @@ test("chapter context only supplies mind and active dialogue guidance to actual 
   assert.doesNotMatch(guidanceBlock.content, /暂时避开冲突/);
   assert.ok(writeContext.characterHardFacts.some((fact) => fact.characterId === "char-1"));
 });
+
+test("registered gender survives runtime hard facts and all chapter prompt modes", () => {
+  const { buildRuntimeCharacterHardFactsList } = require("../dist/services/novel/characters/characterHardFacts.js");
+  const contextPackage = createContextPackage();
+  // No other hard fact: gender alone must be sufficient to keep a character.
+  contextPackage.characterRoster = [{ id: "gender-only", name: "林见夏", role: "protagonist", gender: "male" }];
+  contextPackage.characterDynamics = null;
+  contextPackage.characterHardFacts = buildRuntimeCharacterHardFactsList(contextPackage.characterRoster);
+  assert.equal(contextPackage.characterHardFacts.length, 1);
+  assert.equal(contextPackage.characterHardFacts[0].gender, "male");
+  const writeContext = buildChapterWriteContext({
+    bookContract: contextPackage.bookContract,
+    macroConstraints: contextPackage.macroConstraints,
+    volumeWindow: contextPackage.volumeWindow,
+    contextPackage,
+  });
+  for (const mode of ["full", "incremental", "review", "repair"]) {
+    const block = assertNonEmptyBlock(buildChapterWriterContextBlocks(writeContext, { mode }), "character_hard_facts");
+    assert.match(block.content, /林见夏.*性别=male/);
+    assert.equal(block.required, true);
+    assert.equal(block.allowSummary, false);
+  }
+});
+
+test("current canonical state cannot be summarized away in any chapter prompt mode", () => {
+  const contextPackage = createContextPackage();
+  const writeContext = buildChapterWriteContext({
+    bookContract: contextPackage.bookContract,
+    macroConstraints: contextPackage.macroConstraints,
+    volumeWindow: contextPackage.volumeWindow,
+    contextPackage,
+  });
+  writeContext.localStateSummary = "挑战已启动，倒计时暂停冻结；并非待启动。";
+  for (const mode of ["full", "incremental", "review", "repair"]) {
+    const block = assertNonEmptyBlock(buildChapterWriterContextBlocks(writeContext, { mode }), "local_state");
+    assert.match(block.content, /挑战已启动，倒计时暂停冻结/);
+    assert.equal(block.required, true);
+    assert.equal(block.allowSummary, false);
+  }
+});
+
+test("runtime schemas preserve registered gender and accept historical contexts without it", async () => {
+  const { runtimeCharacterSchema, chapterCharacterHardFactSchema } = await import("../../shared/dist/types/chapterRuntime.js");
+  const { buildRuntimeCharacterHardFactsList } = require("../dist/services/novel/characters/characterHardFacts.js");
+  for (const gender of ["male", "female", "other", "unknown", null]) {
+    const character = runtimeCharacterSchema.parse({ id: "char-1", name: "角色", role: "protagonist", gender });
+    assert.equal(character.gender, gender);
+    const fact = chapterCharacterHardFactSchema.parse({ characterId: character.id, name: character.name, gender });
+    assert.equal(fact.gender, gender);
+  }
+  const historical = runtimeCharacterSchema.parse({ id: "legacy", name: "未设性别", role: "supporting" });
+  assert.equal(historical.gender, undefined);
+  assert.deepEqual(buildRuntimeCharacterHardFactsList([historical]), []);
+});

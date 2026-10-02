@@ -9,6 +9,7 @@ const {
 const { prisma } = require("../dist/db/prisma.js");
 const { plannerService } = require("../dist/services/planner/PlannerService.js");
 const { contextAssemblyService } = require("../dist/services/novel/production/ContextAssemblyService.js");
+const { chapterPayoffPlanningService } = require("../dist/services/novel/production/payoff/index.js");
 const { ragServices } = require("../dist/services/rag/index.js");
 const { novelReferenceService } = require("../dist/services/novel/NovelReferenceService.js");
 const { characterDynamicsQueryService } = require("../dist/services/novel/dynamics/CharacterDynamicsQueryService.js");
@@ -152,6 +153,7 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     novelBibleFindUnique: prisma.novelBible.findUnique,
     chapterSummaryFindMany: prisma.chapterSummary.findMany,
     consistencyFactFindMany: prisma.consistencyFact.findMany,
+    novelFactEntryFindMany: prisma.novelFactEntry.findMany,
     chapterFindMany: prisma.chapter.findMany,
     creativeDecisionFindMany: prisma.creativeDecision.findMany,
     characterMindSnapshotFindMany: prisma.characterMindSnapshot.findMany,
@@ -159,6 +161,7 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     ensureChapterPlan: plannerService.ensureChapterPlan,
     buildPlanPromptBlock: plannerService.buildPlanPromptBlock,
     buildStateContext: contextAssemblyService.build,
+    planPayoffs: chapterPayoffPlanningService.plan,
     buildReferenceForStage: novelReferenceService.buildReferenceForStage,
     getCharacterDynamics: characterDynamicsQueryService.getOverview,
     buildRagContext: ragServices.hybridRetrievalService.buildContextBlock,
@@ -168,12 +171,13 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
   };
 
   try {
+    prisma.novelFactEntry.findMany = async () => [];
     prisma.novel.findUnique = async () => ({
       id: "novel-1",
       title: "测试小说",
       world: null,
       genre: { name: "玄幻" },
-      characters: [],
+      characters: [{ id: "gender-only", name: "林见夏", role: "protagonist", gender: "male" }],
       storyMacroPlan: null,
       volumePlans: [],
       primaryStoryMode: null,
@@ -239,9 +243,15 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     contextAssemblyService.build = async () => ({
       snapshot: createCanonicalSnapshot(),
       nextAction: "write_chapter",
-      chapterStateGoal: null,
+      chapterStateGoal: { chapterId: "chapter-1", chapterOrder: 1, summary: "本章推进", targetConflicts: [], targetRelationships: [], targetPayoffs: [], targetPayoffDirectives: [], protectedSecrets: [] },
       protectedSecrets: [],
     });
+    chapterPayoffPlanningService.plan = async (input) => {
+      assert.equal(input.chapter.taskSheet, "新任务单");
+      assert.equal(input.chapter.sceneCards, freshSceneCards);
+      assert.equal(input.forbiddenEvents[0].title, "未来揭示");
+      return [{ ledgerKey: "reward", title: "阶段回报", operation: "payoff", reason: "遵循本章合同", forbiddenReveal: null }];
+    };
     novelReferenceService.buildReferenceForStage = async () => "";
     characterDynamicsQueryService.getOverview = async () => null;
     ragServices.hybridRetrievalService.buildContextBlock = async () => "";
@@ -300,6 +310,10 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
 
     const assembled = await assembler.assemble("novel-1", "chapter-1", {});
 
+    assert.equal(assembled.contextPackage.characterRoster[0].gender, "male");
+    assert.equal(assembled.contextPackage.characterHardFacts[0].gender, "male");
+    assert.equal(assembled.contextPackage.chapterWriteContext.characterHardFacts[0].gender, "male");
+    assert.equal(assembled.contextPackage.chapterWriteContext.payoffDirectives[0].operation, "payoff");
     assert.equal(chapterFindFirstCalls, 2);
     assert.equal(assembled.chapter.taskSheet, "新任务单");
     assert.equal(assembled.contextPackage.chapter.sceneCards, freshSceneCards);
@@ -320,6 +334,7 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     prisma.novelBible.findUnique = originals.novelBibleFindUnique;
     prisma.chapterSummary.findMany = originals.chapterSummaryFindMany;
     prisma.consistencyFact.findMany = originals.consistencyFactFindMany;
+    prisma.novelFactEntry.findMany = originals.novelFactEntryFindMany;
     prisma.chapter.findMany = originals.chapterFindMany;
     prisma.creativeDecision.findMany = originals.creativeDecisionFindMany;
     prisma.characterMindSnapshot.findMany = originals.characterMindSnapshotFindMany;
@@ -327,6 +342,7 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     plannerService.ensureChapterPlan = originals.ensureChapterPlan;
     plannerService.buildPlanPromptBlock = originals.buildPlanPromptBlock;
     contextAssemblyService.build = originals.buildStateContext;
+    chapterPayoffPlanningService.plan = originals.planPayoffs;
     novelReferenceService.buildReferenceForStage = originals.buildReferenceForStage;
     characterDynamicsQueryService.getOverview = originals.getCharacterDynamics;
     ragServices.hybridRetrievalService.buildContextBlock = originals.buildRagContext;

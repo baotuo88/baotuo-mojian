@@ -67,6 +67,11 @@ export const payoffLedgerIdentityDecisionSchema = z.object({
 export const payoffLedgerSyncItemSchema = z.object({
   ledgerKey: z.string().trim().min(1),
   identityDecision: payoffLedgerIdentityDecisionSchema,
+  sourceReplacements: z.array(z.object({
+    refId: z.string().trim().min(1),
+    previousLedgerKey: z.string().trim().min(1),
+    reason: z.string().trim().min(1),
+  })).default([]),
   title: z.string().trim().min(1),
   summary: z.string().trim().min(1),
   scopeType: z.enum(["book", "volume", "chapter"]),

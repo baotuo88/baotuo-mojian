@@ -82,6 +82,7 @@ export function buildRuntimeCharacterHardFacts(
     characterId: character.id,
     name: character.name,
     role: character.role ?? null,
+    gender: compactText(character.gender),
     identityLabel: compactText(character.identityLabel),
     factionLabel: compactText(character.factionLabel),
     stanceLabel: compactText(character.stanceLabel),
@@ -110,7 +111,8 @@ export function buildRuntimeCharacterHardFactsList(
       pendingReviewByCharacterId.get(character.id),
     ))
     .filter((item) => (
-      Boolean(item.identityLabel)
+      Boolean(item.gender)
+      || Boolean(item.identityLabel)
       || Boolean(item.factionLabel)
       || Boolean(item.stanceLabel)
       || Boolean(item.powerLevel)

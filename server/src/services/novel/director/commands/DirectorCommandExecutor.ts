@@ -136,19 +136,32 @@ export class DirectorCommandExecutor {
         if (!pipelineCommand.payload.confirmRequest) {
           throw new AppError("Director confirm command payload is missing.", 400);
         }
-        await this.directorService.confirmCandidate({
-          ...pipelineCommand.payload.confirmRequest,
-          workflowTaskId: pipelineCommand.taskId,
-        });
+        // Novel attachment precedes platform/style setup. Only a persisted execution
+        // session means confirmation is ready to resume through the normal checkpoint path.
+        if (state.task.novelId && this.hasStartedExecution(state.seedPayload)) {
+          await this.resumeStartedExecution(pipelineCommand.taskId, state.task);
+        } else {
+          await this.directorService.confirmCandidate({
+            ...pipelineCommand.payload.confirmRequest,
+            workflowTaskId: pipelineCommand.taskId,
+          }, { awaitBackgroundRun: true });
+        }
         return this.resolveCommandOutcome(pipelineCommand.taskId);
       case "takeover": {
         const request = pipelineCommand.takeoverRequest;
         if (!request) {
           throw new AppError("Director takeover command payload is missing.", 400);
         }
-        await this.directorService.startTakeover(request, {
-          workflowTaskId: pipelineCommand.taskId,
-        });
+        // A retried takeover must not repeat restart_current_step and erase the
+        // chapter work already persisted by the previous command attempt.
+        if (this.hasStartedExecution(state.seedPayload)) {
+          await this.resumeStartedExecution(pipelineCommand.taskId, state.task);
+        } else {
+          await this.directorService.startTakeover(request, {
+            workflowTaskId: pipelineCommand.taskId,
+            awaitBackgroundRun: true,
+          });
+        }
         return this.resolveCommandOutcome(pipelineCommand.taskId);
       }
       case "repair_chapter_titles":
@@ -215,6 +228,7 @@ export class DirectorCommandExecutor {
         if (takeoverRequest) {
           await this.directorService.startTakeover(takeoverRequest, {
             workflowTaskId: pipelineCommand.taskId,
+            awaitBackgroundRun: true,
           });
           return this.resolveCommandOutcome(pipelineCommand.taskId);
         }
@@ -229,6 +243,27 @@ export class DirectorCommandExecutor {
       default:
         throw new AppError(`Unsupported director command type: ${pipelineCommand.intent}`, 400);
     }
+  }
+
+  private hasStartedExecution(seed: DirectorWorkflowSeedPayload): boolean {
+    return Boolean(getDirectorInputFromSeedPayload(seed)
+      && seed.directorSession
+      && seed.directorSession.phase !== "candidate_selection");
+  }
+
+  private async resumeStartedExecution(taskId: string, task: {
+    status: string;
+    cancelRequestedAt?: Date | null;
+  }): Promise<void> {
+    // Retrying an entry command is not approval of a later explicit runtime gate.
+    if (task.status === "waiting_approval" || task.status === "cancelled" || task.cancelRequestedAt) {
+      return;
+    }
+    await this.directorService.executeContinueTask(taskId, {
+      continuationMode: "resume",
+      forceResume: true,
+      awaitBackgroundRun: true,
+    });
   }
 
   private async resolveCommandOutcome(taskId: string): Promise<DirectorCommandExecutionOutcome> {

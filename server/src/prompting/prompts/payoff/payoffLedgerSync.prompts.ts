@@ -1,5 +1,6 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
+import type { PayoffLedgerSourceRef, PayoffLedgerEvidence } from "@ai-novel/shared/types/payoffLedger";
 import type { PromptAsset } from "../../core/promptTypes";
 import { payoffLedgerSyncOutputSchema } from "./payoffLedgerSync.promptSchemas";
 
@@ -56,6 +57,10 @@ export interface PayoffLedgerSyncPromptInput {
     title: string;
     summary: string;
     currentStatus: string;
+    sourceRefs?: PayoffLedgerSourceRef[];
+    evidence?: PayoffLedgerEvidence[];
+    payoffChapterId?: string | null;
+    statusReason?: string | null;
     scopeType: string;
     targetStartChapterOrder: number | null;
     targetEndChapterOrder: number | null;
@@ -90,6 +95,10 @@ function formatExistingLedgerItems(items: PayoffLedgerSyncPromptInput["existingL
       ? `窗口=${item.targetStartChapterOrder ?? "?"}-${item.targetEndChapterOrder ?? "?"}`
       : "",
     `摘要=${item.summary}`,
+    `来源=${JSON.stringify(item.sourceRefs ?? [])}`,
+    `历史证据=${JSON.stringify(item.evidence ?? [])}`,
+    item.payoffChapterId ? `兑现章节ID=${item.payoffChapterId}` : "",
+    item.statusReason ? `状态依据=${item.statusReason}` : "",
   ].filter(Boolean).join(" | ")).join("\n");
 }
 
@@ -98,7 +107,7 @@ export const payoffLedgerSyncPrompt: PromptAsset<
   z.infer<typeof payoffLedgerSyncOutputSchema>
 > = {
   id: "novel.payoff_ledger.sync",
-  version: "v7",
+  version: "v8",
   taskType: "planner",
   mode: "structured",
   language: "zh",
@@ -141,6 +150,8 @@ export const payoffLedgerSyncPrompt: PromptAsset<
       "2. 避免把同义重复项拆成多个 ledger item，也不要把明显不同的伏笔强行合并。",
       "3. 对每个输出项先判断其是否与既有账本中的同一线索语义等价：等价时 reuse 并填写该既有 ledgerKey；不等价时 create。不得仅因词面相似合并不同线索。",
       "4. 账本项必须保守、稳定，不能编造输入中不存在的新剧情。",
+      "5. 已兑现或失效的同一承诺仍须 reuse 原 ledgerKey 并保留终态；不得因当前章节窗口看不到早期正文就新建同源逾期账项，也不得重新打开终态。历史兑现证据必须纳入判断。",
+      "6. 同一 Book Contract refId 在本轮只能归属一个账项。只有输入明确显示承诺内容被改写、产生不同义务时，才允许新建或转移来源；必须输出 sourceReplacements:[{refId,previousLedgerKey,reason}]，逐条说明旧来源为何被替换。仅换名、换卷、到期或未在本章出现，不是替换理由。",
       "",
       "状态定义：",
       "- setup：刚建立，还未形成明确兑现窗口。",
@@ -165,7 +176,7 @@ export const payoffLedgerSyncPrompt: PromptAsset<
       "0. Book Contract 第 3/10/30 章回报是稳定书级承诺。每个非空来源都必须出现在某个账项的 sourceRefs 中，kind=major_payoff，refId 必须原样保留；允许与语义相同的其他承诺合并，但不得遗漏来源或放宽其截止章。",
       "1. major payoffs 是书级提示源，但只有映射到卷/章窗口后，才允许进入 pending_payoff 或 overdue。",
       "2. 同一 canonical payoff 若同时有卷级窗口和章节窗口，以章节窗口为更强约束。",
-      "3. 如果已经有明确兑现证据，应优先标成 paid_off。",
+      "3. 如果已经有明确兑现证据，应优先标成 paid_off。阶段回报须提供可见成果（获得并使用能力、完成任务、改变关系或取得有效信息），申请、审批、受限入口本身不能冒充承诺中更强的成长回报；最终以具体承诺和正文证据为准。",
       "4. 如果没有足够铺垫就直接兑现，要保留该项并输出风险信号。",
       "5. 如果已经过了明确目标窗口仍未兑现，要标成 overdue；没有 targetStartChapterOrder / targetEndChapterOrder / payoffChapterOrder / payoffChapterId 时，不要标成 overdue，只能用 pending_payoff 加 riskSignals 提醒。",
       "6. 如果输入里只有提示和铺垫，没有明确兑现证据，不要误判为 paid_off。",
@@ -232,8 +243,11 @@ export const payoffLedgerSyncPrompt: PromptAsset<
         if (!existing || !existingLedgerKey) {
           throw new Error(`伏笔 ${item.ledgerKey} 引用了不存在的既有账本项。`);
         }
-        if (existing.currentStatus === "paid_off" || existing.currentStatus === "failed") {
-          throw new Error(`伏笔 ${item.ledgerKey} 不能复用已终态账本项 ${existingLedgerKey}。`);
+        if (
+          (existing.currentStatus === "paid_off" || existing.currentStatus === "failed")
+          && item.currentStatus !== existing.currentStatus
+        ) {
+          throw new Error(`伏笔 ${item.ledgerKey} 不能重新打开已终态账本项 ${existingLedgerKey}。`);
         }
         if (claimedExistingLedgerKeys.has(existingLedgerKey)) {
           throw new Error(`多个伏笔项重复复用既有账本项：${existingLedgerKey}`);
@@ -241,6 +255,18 @@ export const payoffLedgerSyncPrompt: PromptAsset<
         claimedExistingLedgerKeys.add(existingLedgerKey);
       } else if (item.identityDecision.existingLedgerKey) {
         throw new Error(`新建伏笔 ${item.ledgerKey} 不应引用既有账本项。`);
+      } else if (existingByKey.has(item.ledgerKey)) {
+        throw new Error(`新建伏笔 ${item.ledgerKey} 与既有账本 key 冲突。`);
+      }
+      for (const replacement of item.sourceReplacements ?? []) {
+        const previous = existingByKey.get(replacement.previousLedgerKey);
+        if (!replacement.reason?.trim() || !previous || !(previous.sourceRefs ?? []).some((source) => (
+          source.kind === "major_payoff" && source.refId === replacement.refId
+        )) || !item.sourceRefs.some((source) => (
+          source.kind === "major_payoff" && source.refId === replacement.refId
+        ))) {
+          throw new Error(`来源替换 ${replacement.refId} 必须引用输入中的真实旧账项及相同固定来源，并提供原因。`);
+        }
       }
       if (
         item.targetStartChapterOrder
@@ -254,11 +280,32 @@ export const payoffLedgerSyncPrompt: PromptAsset<
       }
     }
     for (const requiredSource of input?.bookContractPayoffs ?? []) {
-      const coveringItem = output.items.find((item) => item.sourceRefs.some((source) => (
+      const coveringItems = output.items.filter((item) => item.sourceRefs.some((source) => (
         source.kind === "major_payoff" && source.refId === requiredSource.refId
       )));
-      if (!coveringItem) {
+      if (coveringItems.length === 0) {
         throw new Error(`缺少 Book Contract 承诺来源：${requiredSource.refId}`);
+      }
+      if (coveringItems.length !== 1) {
+        throw new Error(`Book Contract 来源 ${requiredSource.refId} 不得归属多个账本项。`);
+      }
+      const coveringItem = coveringItems[0]!;
+      const ownerKey = coveringItem.identityDecision.action === "reuse"
+        ? coveringItem.identityDecision.existingLedgerKey
+        : coveringItem.ledgerKey;
+      const retainsSource = ownerKey && (existingByKey.get(ownerKey)?.sourceRefs ?? []).some((source) => (
+        source.kind === "major_payoff" && source.refId === requiredSource.refId
+      ));
+      for (const existing of existingByKey.values()) {
+        if (retainsSource || existing.ledgerKey === ownerKey || !(existing.sourceRefs ?? []).some((source) => (
+          source.kind === "major_payoff" && source.refId === requiredSource.refId
+        ))) continue;
+        const replacement = (coveringItem.sourceReplacements ?? []).find((item) => (
+          item.refId === requiredSource.refId && item.previousLedgerKey === existing.ledgerKey
+        ));
+        if (!replacement) {
+          throw new Error(`来源 ${requiredSource.refId} 已属于 ${existing.ledgerKey}；请复用原账项，或通过 sourceReplacements 明确说明承诺发生了何种变化。`);
+        }
       }
       if (
         coveringItem.scopeType !== "book"

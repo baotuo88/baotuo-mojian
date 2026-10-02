@@ -157,10 +157,11 @@ export class NovelWorkflowStoreService {
   }>(input: {
     before: T;
     data: NovelWorkflowTaskUpdateArgs["data"];
+    guard?: NovelWorkflowTaskUpdateArgs["where"];
   }): Promise<T> {
     const next = await withSqliteRetry(
       () => prisma.novelWorkflowTask.update({
-        where: { id: input.before.id },
+        where: { ...input.guard, id: input.before.id },
         data: input.data,
         include: {
           novel: {
@@ -171,12 +172,21 @@ export class NovelWorkflowStoreService {
         },
       }),
       { label: "novelWorkflowTask.update" },
-    ) as unknown as T;
+    ).catch(async (error: unknown) => {
+      if (input.guard && (error as { code?: string })?.code === "P2025") {
+        // Another transition won. Return the current row without overwriting it
+        // or emitting a notification for the transition that did not occur.
+        const current = await this.getTaskByIdWithoutHealing(input.before.id);
+        if (current) return { unchanged: current };
+      }
+      throw error;
+    });
+    if ("unchanged" in next) return next.unchanged as unknown as T;
     await this.notifyAutoDirectorTaskTransition({
       before: input.before,
-      after: next,
+      after: next as unknown as T,
     });
-    return next;
+    return next as unknown as T;
   }
 
   public async getVisibleRowsByNovelIdRaw(novelId: string, lane?: NovelWorkflowLane) {

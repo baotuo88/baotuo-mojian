@@ -248,8 +248,8 @@ export class NovelWorkflowApplicationService {
         currentItemKey: input.itemKey ?? input.stage,
         currentItemLabel: input.itemLabel,
         progress: Math.max(existing.progress, input.progress ?? defaultProgressForStage(input.stage)),
-        checkpointType: input.clearCheckpoint ? null : existing.checkpointType,
-        checkpointSummary: input.clearCheckpoint ? null : existing.checkpointSummary,
+        checkpointType: input.clearCheckpoint || existing.checkpointType === "workflow_completed" ? null : existing.checkpointType,
+        checkpointSummary: input.clearCheckpoint || existing.checkpointType === "workflow_completed" ? null : existing.checkpointSummary,
         resumeTargetJson: stringifyResumeTarget(resumeTarget),
         seedPayloadJson: input.seedPayload
           ? mergeSeedPayload(existing.seedPayloadJson, input.seedPayload)
@@ -400,6 +400,13 @@ export class NovelWorkflowApplicationService {
     return this.workflow.updateWorkflowTaskWithNotifications({
       before: existing,
       data: restored.data,
+      guard: {
+        id: taskId,
+        updatedAt: existing.updatedAt,
+        checkpointType: existing.checkpointType,
+        status: existing.status,
+        cancelRequestedAt: existing.cancelRequestedAt,
+      },
     });
   }
 
@@ -451,8 +458,20 @@ export class NovelWorkflowApplicationService {
     if (!existing) {
       throw new AppError("Task not found.", 404);
     }
+    if (isTaskCancellationRequested(existing)) {
+      return existing;
+    }
+    if (existing.checkpointType === "workflow_completed") {
+      return this.restoreTaskToCheckpoint(taskId, existing);
+    }
     return this.workflow.updateWorkflowTaskWithNotifications({
       before: existing,
+      guard: {
+        id: taskId,
+        updatedAt: existing.updatedAt,
+        status: { notIn: ["succeeded", "cancelled"] },
+        cancelRequestedAt: null,
+      },
       data: {
         status: "queued",
         pendingManualRecovery: true,
@@ -550,7 +569,7 @@ export class NovelWorkflowApplicationService {
       before: existing,
       data: {
         status: input.checkpointType === "workflow_completed" ? "succeeded" : "waiting_approval",
-        progress: input.progress ?? defaultProgressForStage(input.stage),
+        progress: input.checkpointType === "workflow_completed" ? 1 : input.progress ?? defaultProgressForStage(input.stage),
         currentStage: stageLabel(input.stage),
         currentItemKey: input.stage,
         currentItemLabel: input.itemLabel,
@@ -559,6 +578,7 @@ export class NovelWorkflowApplicationService {
         resumeTargetJson: stringifyResumeTarget(resumeTarget),
         heartbeatAt: new Date(),
         finishedAt: input.checkpointType === "workflow_completed" ? new Date() : null,
+        pendingManualRecovery: false,
         seedPayloadJson: input.seedPayload
           ? mergeSeedPayload(existing.seedPayloadJson, input.seedPayload)
           : existing.seedPayloadJson,

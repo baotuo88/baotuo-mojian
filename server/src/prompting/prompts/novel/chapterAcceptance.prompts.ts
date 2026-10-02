@@ -189,6 +189,7 @@ export const chapterAcceptanceAssessmentSchema = z.object({
     mode: z.preprocess(normalizeRepairMode, z.enum(["patch", "rewrite", "manual"])),
     target: z.preprocess(normalizeRepairTarget, z.enum(["continuity", "character", "plot", "ending", "voice"])),
     instruction: z.string().trim().min(1),
+    issueCodes: z.array(z.string().trim().min(1)).optional(),
   })).default([]),
   missingObligations: z.array(z.preprocess(normalizeMissingObligation, z.object({
     kind: z.preprocess(normalizeMissingObligationKind, z.enum([
@@ -253,6 +254,7 @@ const CHAPTER_ACCEPTANCE_EXAMPLE: ChapterAcceptanceAssessmentOutput = {
       mode: "patch",
       target: "ending",
       instruction: "保留正文主体，只补强结尾 300 字以内的钩子和压力。",
+      issueCodes: ["ending_hook_soft"],
     },
   ],
   missingObligations: [
@@ -283,7 +285,7 @@ export const chapterAcceptanceAssessmentPrompt: PromptAsset<
   ChapterAcceptanceAssessmentOutput
 > = {
   id: "novel.chapter.acceptance_assessment",
-  version: "v2",
+  version: "v3",
   taskType: "review",
   mode: "structured",
   language: "zh",
@@ -344,6 +346,8 @@ export const chapterAcceptanceAssessmentPrompt: PromptAsset<
       "15. status 只能使用 accepted、repairable、needs_manual_review、continue_with_risk；不得输出 acceptable、pass、passed、ok、approved 等别名。",
       "16. reader_experience 是本章读者体验合同。检查 promisedReward 是否在正文中可见、主角是否围绕 protagonistWant 主动行动并遭遇 primaryResistance、keyTurn 与 netChange 是否成立、inheritedHookResponsibilities 是否得到回应，以及 endingHook 是否产生追读力。",
       "17. 普通读者体验缺口应输出可执行的 blockingIssues / repairDirectives，并优先使用 repairable 或 continue_with_risk；不得仅因爽点、钩子或情绪强度不足升级为 needs_manual_review 或全局重规划。",
+      "18. 只有正文总字数低于目标下限时才使用 code=length_insufficient，高于目标上限时才使用 code=length_excessive；这两个 code 仅表示字数问题，对应 riskTags 也使用同名 code。人物动机不足、战力超过设定、剧情铺垫不足等内容问题必须使用各自的业务 code，不得归为字数问题。",
+      "19. 每条 repairDirectives 使用 issueCodes 数组关联它要解决的全部 blockingIssues.code；独立义务或没有对应问题时填 []。字数调整与人物、剧情修复尽量分成不同指令；不得把包含独立内容修复的指令只关联到字数问题。",
     ].join("\n")),
     new HumanMessage([
       `小说：${input.novelTitle}`,

@@ -599,3 +599,48 @@ test("takeover startup failure after bootstrap marks the replacement task failed
     ["mark_failed", "workflow_takeover_demo", "已有自动导演任务正在处理同一范围"],
   ]);
 });
+
+for (const outcome of ["success", "transient_failure"]) {
+  test(`worker takeover awaits pipeline and preserves command failure handling (${outcome})`, async () => {
+    const calls = [];
+    let release;
+    const pendingPipeline = new Promise((resolve) => { release = resolve; });
+    const pipelineError = new Error("503 Service Unavailable");
+    let settled = false;
+    const execution = startDirectorTakeoverExecution({
+      request: { novelId: "novel_takeover_demo", entryStep: "structured", strategy: "continue_existing" },
+      takeoverState: buildTakeoverState(),
+      directorInput: { candidate: { workingTitle: "Neon Archive" }, runMode: "full_book_autopilot" },
+      workflowTaskId: "task-worker",
+      awaitBackgroundRun: true,
+      workflowService: {
+        async bootstrapTask() { return { id: "task-worker" }; },
+        async markTaskRunning() {},
+        async markTaskFailed() { calls.push("failed"); },
+      },
+      autoExecutionRuntime: {},
+      buildDirectorSeedPayload: () => ({}),
+      scheduleBackgroundRun() { calls.push("scheduled"); },
+      async runBackgroundRun(_taskId, runner) { await runner(); },
+      async runDirectorPipeline() {
+        calls.push("pipeline_started");
+        await pendingPipeline;
+        if (outcome === "transient_failure") throw pipelineError;
+        calls.push("pipeline_finished");
+      },
+    });
+    execution.then(() => { settled = true; }, () => { settled = true; });
+    await new Promise(setImmediate);
+    const prematurelySettled = settled;
+    release();
+    if (outcome === "transient_failure") {
+      await assert.rejects(execution, (error) => error === pipelineError);
+    } else {
+      await execution;
+      assert.ok(calls.includes("pipeline_finished"));
+    }
+    assert.equal(prematurelySettled, false);
+    assert.equal(calls.includes("scheduled"), false);
+    assert.equal(calls.includes("failed"), false);
+  });
+}

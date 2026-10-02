@@ -45,6 +45,7 @@ export const SUPPORTED_PROMPT_ADDENDUM_IDS = [
 const SUPPORTED_PROMPT_ADDENDUM_ID_SET = new Set<string>(SUPPORTED_PROMPT_ADDENDUM_IDS);
 
 const PROMPT_ADDENDUM_DESCRIPTIONS: Record<string, string> = {
+  "novel.chapter.payoff_decision": "结合章节任务和保密边界，安排伏笔铺垫、阶段回报与最终兑现。",
   "novel.chapter.writer": "根据章节任务、角色状态、世界规则和风格约束生成章节正文。",
   "audit.chapter.full": "完整检查章节质量，输出结构化问题、评分和修复建议。",
   "audit.chapter.light": "快速检查章节是否适合继续推进，识别明显风险。",
@@ -61,6 +62,7 @@ const PROMPT_ADDENDUM_DESCRIPTIONS: Record<string, string> = {
 };
 
 const PROMPT_CATALOG_SHORT_DESCRIPTIONS: Record<string, string> = {
+  "novel.chapter.payoff_decision": "本章伏笔推进",
   "novel.chapter.writer": "章节正文生成",
   "novel.short_story.segment.write": "短篇正文生成",
   "novel.short_story.full.audit": "短篇全文审校",

@@ -59,6 +59,36 @@ export class DirectorCommandLeaseService {
       },
     });
     for (const command of staleCommands) {
+      const task = await this.workflowService.getTaskByIdWithoutHealing(command.taskId);
+      if (task?.checkpointType === "workflow_completed" && task.status === "succeeded" && !task.cancelRequestedAt) {
+        // Completion was persisted before the worker acknowledged the command.
+        // Retire only the expired lease we observed; never reopen finished work.
+        await prisma.directorRunCommand.updateMany({
+          where: {
+            id: command.id,
+            status: command.status,
+            leaseOwner: command.leaseOwner,
+            leaseExpiresAt: command.leaseExpiresAt,
+            task: {
+              is: {
+                status: "succeeded",
+                checkpointType: "workflow_completed",
+                cancelRequestedAt: null,
+                updatedAt: task.updatedAt,
+              },
+            },
+          },
+          data: {
+            status: "succeeded",
+            finishedAt: now,
+            errorMessage: null,
+            activeSlot: null,
+            leaseOwner: null,
+            leaseExpiresAt: null,
+          },
+        });
+        continue;
+      }
       const autoRecoverable = isAutoRecoverableStaleCommand(command);
       const governance = await loadDirectorIssueTaskContext(command.taskId);
       const policyAction = governance?.policy.issueActions["runtime.worker_stale"];
@@ -87,7 +117,11 @@ export class DirectorCommandLeaseService {
             return;
           }
           await prisma.novelWorkflowTask.updateMany({
-            where: { id: command.taskId },
+            where: {
+              id: command.taskId,
+              status: { notIn: ["succeeded", "cancelled"] },
+              cancelRequestedAt: null,
+            },
             data: {
               status: "queued",
               pendingManualRecovery: false,

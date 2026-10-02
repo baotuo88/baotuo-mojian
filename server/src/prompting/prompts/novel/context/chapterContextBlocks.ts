@@ -86,7 +86,7 @@ function buildCharacterHardFactsText(writeContext: ChapterWriteContext): string 
 
   return [
     "【角色硬事实】",
-    "以下内容是正文生成前的不可违背写作约束，优先级高于软性人物简介。",
+    "以下内容是正文生成前的不可违背写作约束，优先级高于软性人物简介。性别与人称必须一致；male 使用他，female 使用她；其他或未知性别不得根据姓名、声音或外貌推断。",
     hasPendingReviewFields
       ? "标记为待确认的当前状态/当前目标只作参考；如与最新剧情冲突，可按合理逻辑调整。"
       : "",
@@ -94,6 +94,7 @@ function buildCharacterHardFactsText(writeContext: ChapterWriteContext): string 
       const pendingReviewFields = new Set(fact.pendingReviewFields ?? []);
       const parts = takeUnique([
         fact.role ? `角色定位=${fact.role}` : "",
+        fact.gender ? `性别=${fact.gender}` : "",
         fact.identityLabel ? `身份=${fact.identityLabel}` : "",
         fact.factionLabel ? `阵营=${fact.factionLabel}` : "",
         fact.stanceLabel ? `立场=${fact.stanceLabel}` : "",
@@ -112,7 +113,7 @@ function buildCharacterHardFactsText(writeContext: ChapterWriteContext): string 
             : `当前目标=${fact.currentGoal}`
           : "",
         fact.prohibitions.length > 0 ? `禁止误写=${fact.prohibitions.join(" / ")}` : "",
-      ], 12);
+      ], 13);
       return `- ${fact.name}: ${parts.join(" | ")}`;
     }),
   ].filter(Boolean).join("\n");
@@ -478,6 +479,7 @@ export function buildChapterWriterContextBlocks(
       group: "local_state",
       priority: 89,
       required: true,
+      allowSummary: false,
       content: `写作前当前局面：\n${writeContext.localStateSummary}`,
     }),
     includeOpenConflicts

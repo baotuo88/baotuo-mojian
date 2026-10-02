@@ -23,7 +23,12 @@ Book Contract 的 `chapter3Payoff / chapter10Payoff / chapter30Payoff` 是 Payof
 - 每个非空 Book Contract 阶段回报都必须在 AI 输出的某个账项中保留固定来源引用。
 - Book Contract 来源使用现有 `major_payoff` 类型，`refId` 用于区分来源，不增加数据库枚举或迁移。
 - 合并后的账项必须保持 `book` scope，且截止章不得晚于 Book Contract 的承诺章。
-- AI 输出遗漏固定来源或放宽截止窗口时，`postValidate` 必须失败并进入 semantic retry；不得由代码静默伪造账项。
+- AI 输出遗漏固定来源、同一固定来源被分配给多个账项或放宽截止窗口时，`postValidate` 必须失败并进入 semantic retry；不得由代码静默伪造账项。
+- 既有账本输入必须携带固定来源、历史证据、兑现章节及状态原因。有限章节窗口只限制近期计划读取，不得抹掉早期承诺的兑现事实。
+- AI 判断仍是同一承诺时，`paid_off / failed` 允许 `reuse` 原身份，但必须保持原终态。禁止把“本轮正文未出现”解释为终态重新打开；保留历史兑现章节和证据。
+- 每轮强制覆盖 Book Contract 来源与终态复用必须同时成立。若禁止复用终态却要求再次输出来源，模型只能新建重复义务，造成早期承诺在后期反复逾期。
+- 只有 AI 判断书契约实际改写为不同承诺时，才允许将已有固定来源转移给新身份。输出 `sourceReplacements` 必须包含真实 `previousLedgerKey`、相同 `refId` 和语义替换原因；名称变化、章节窗口变化或证据不在本轮窗口内都不是替换理由。代码只验证结构与来源归属，不用标题、关键词推断语义。
+- 已建立来源归属的身份在后续同步中直接 `reuse`，无需重复声明来源替换；历史已兑现项继续保留。不得仅因为旧历史仍带相同来源，就反复创建新项或撤销既有兑现证据。
 - Book Contract 保存时只比较三个阶段回报。格式化空白变化不触发同步，语义文本变化通过持久副作用队列触发同步。
 - 同步任务使用现有 `NovelSideEffectJob` 的幂等、租约、重试和 dead 状态，不在保存请求中等待 LLM。
 - 同步失败时保留上次成功账本和 stale 风险信号，不删除已有内容。
@@ -31,6 +36,15 @@ Book Contract 的 `chapter3Payoff / chapter10Payoff / chapter30Payoff` 是 Payof
 - AI 对账完成后必须执行 Book Contract 固定来源的生命周期收口。尚未终结、未被本轮输出复用且来源全部属于 `book_contract.*` 的旧账项，在来源被移除或被新账项接管时退出当前正文义务。
 - 退出义务的旧账项复用 `failed / 已失效` 状态，并记录 `source_superseded` 风险原因。原始标题、来源引用和兑现证据必须保留；`paid_off` 永不退役，混合其他有效来源的账项保守保留。
 - `source_superseded` 账项跳过 `sync_stale` 标记，并且后续重复同步不得反复改变其终态。它们不进入 pending、urgent、overdue 分类，也不生成开放 Payoff 冲突。
+
+## 写前动作与审校复用
+
+- 账本状态描述承诺的生命周期，不是正文动作。`pending_payoff / overdue` 不能固定映射成“只施压”，也不能按逾期距离强制兑现。
+- `novel.chapter.payoff_decision` 根据当前章节任务单、场景卡、近期摘要与前章尾段、账本身份和保密约束输出结构化动作。代码只校验身份唯一、覆盖完整和动作字段自洽；不得按标题或秘密文本匹配替代语义判断。
+- 明确支持 `partial_reveal / payoff`，让符合章节计划的回报得到交付。受保护信息仍由 AI 结合语境选择 `forbid` 或带保留边界的部分揭示。
+- 每次仅处理最多 5 个去重的开放账项；无开放账项不调用 AI。决策保存在当前章节计划元数据，写作、审校和修复共享同一合同，避免本章兑现后账本变化导致审核目标漂移。
+- 复用指纹包含 Prompt 版本、章节任务和规划要求，不包含正文及本章生成后的账本状态。修改任务单、场景卡或规划要求后重新决策；并发期间计划变化必须拒绝保存旧决策。
+- AI 决策失败使用 Prompt 的语义重试及已有恢复链处理，不能退回关键词分支或默认施压来掩盖错误。该步骤只规划动作，不直接提交“已兑现”事实。
 
 ## Replan Gate
 
@@ -53,7 +67,7 @@ Book Contract 的 `chapter3Payoff / chapter10Payoff / chapter30Payoff` 是 Payof
 ## Failure Modes
 
 - **Book Contract 已修改但账本不变**：检查 `book-contract:updated` 是否带有 `payoffChanged=true`，以及 `payoff.bookContractSync` 副作用任务状态。
-- **同一承诺出现多个账项**：检查固定 `refId` 是否原样保留，以及账本身份归并是否复用未完成的同名项。
+- **同一承诺出现多个账项**：检查固定 `refId` 是否原样保留、同轮是否具有唯一归属、AI 是否复用语义相同的既有身份（包括保持终态的已兑现项），以及来源转移是否有明确结构化决策。不得按标题相同自动合并。
 - **Book Contract 改写后旧承诺仍进入正文**：检查旧账项是否只有 `book_contract.*` 来源、AI 新输出是否接管固定 `refId`，以及旧账项是否收敛为带 `source_superseded` 的 `failed`。
 - **AI 漏掉阶段承诺**：检查 Prompt 版本、Registry 版本和 `postValidate` 的固定来源覆盖校验。
 - **保存 Book Contract 很慢**：同步不应在保存请求中直接调用 LLM；检查是否绕过持久副作用队列。

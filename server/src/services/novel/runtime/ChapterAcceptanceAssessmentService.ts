@@ -38,35 +38,6 @@ export interface ChapterAcceptanceAssessmentResult {
 }
 
 type AcceptanceIssue = ChapterAcceptanceAssessmentOutput["blockingIssues"][number];
-type AcceptanceRepairDirective = ChapterAcceptanceAssessmentOutput["repairDirectives"][number];
-
-const UNDER_LENGTH_MARKERS = [
-  "length_insufficient",
-  "length_under",
-  "under_soft",
-  "too short",
-  "insufficient length",
-  "word count",
-  "正文估算",
-  "目标长度",
-  "字数",
-  "低于",
-  "不足",
-  "过短",
-  "未达",
-];
-
-const OVER_LENGTH_MARKERS = [
-  "length_over",
-  "over_soft",
-  "over_hard",
-  "too long",
-  "exceeds",
-  "超出",
-  "超过",
-  "过长",
-  "冗长",
-];
 
 function categoryToAuditType(category: AcceptanceIssue["category"]): AuditType {
   if (category === "continuity") return "continuity";
@@ -102,25 +73,6 @@ function countChapterCharacters(content: string): number {
   return content.replace(/\s+/g, "").trim().length;
 }
 
-function includesAnyMarker(text: string, markers: string[]): boolean {
-  const normalized = text.toLowerCase();
-  return markers.some((marker) => normalized.includes(marker));
-}
-
-function isUnderLengthIssue(issue: AcceptanceIssue): boolean {
-  const text = [issue.code, issue.evidence, issue.fixSuggestion].join("\n");
-  return includesAnyMarker(text, UNDER_LENGTH_MARKERS) && !includesAnyMarker(text, OVER_LENGTH_MARKERS);
-}
-
-function isOverLengthIssue(issue: AcceptanceIssue): boolean {
-  const text = [issue.code, issue.evidence, issue.fixSuggestion].join("\n");
-  return includesAnyMarker(text, OVER_LENGTH_MARKERS);
-}
-
-function isLengthDirective(directive: AcceptanceRepairDirective): boolean {
-  return includesAnyMarker(directive.instruction, [...UNDER_LENGTH_MARKERS, ...OVER_LENGTH_MARKERS]);
-}
-
 function isHardMissingObligation(obligation: ChapterExecutionMissingObligation): boolean {
   return obligation.kind === "must_hit_now" || obligation.kind === "forbidden_crossing";
 }
@@ -131,10 +83,10 @@ function shouldDropLengthIssue(input: {
   minWordCount: number | null;
   maxWordCount: number | null;
 }): boolean {
-  if (input.minWordCount != null && input.actualWordCount >= input.minWordCount && isUnderLengthIssue(input.issue)) {
+  if (input.issue.code === "length_insufficient" && input.minWordCount != null && input.actualWordCount >= input.minWordCount) {
     return true;
   }
-  if (input.maxWordCount != null && input.actualWordCount <= input.maxWordCount && isOverLengthIssue(input.issue)) {
+  if (input.issue.code === "length_excessive" && input.maxWordCount != null && input.actualWordCount <= input.maxWordCount) {
     return true;
   }
   return false;
@@ -150,20 +102,25 @@ function reconcileLengthAssessment(
     return output;
   }
   const actualWordCount = countChapterCharacters(content);
-  const blockingIssues = output.blockingIssues.filter((issue) => !shouldDropLengthIssue({
+  const resolvedLengthCodes = new Set(output.blockingIssues.filter((issue) => shouldDropLengthIssue({
     issue,
     actualWordCount,
     minWordCount: range.minWordCount,
     maxWordCount: range.maxWordCount,
-  }));
-  if (blockingIssues.length === output.blockingIssues.length) {
+  })).map((issue) => issue.code));
+  if (resolvedLengthCodes.size === 0) {
     return output;
   }
   return {
     ...output,
-    blockingIssues,
-    repairDirectives: output.repairDirectives.filter((directive) => !isLengthDirective(directive)),
-    riskTags: output.riskTags.filter((tag) => !includesAnyMarker(tag, [...UNDER_LENGTH_MARKERS, ...OVER_LENGTH_MARKERS])),
+    blockingIssues: output.blockingIssues.filter((issue) => !resolvedLengthCodes.has(issue.code)),
+    // Unlinked directives can contain independent obligations. Only discard a
+    // directive when every explicitly referenced issue was a resolved length issue.
+    repairDirectives: output.repairDirectives.filter((directive) => (
+      !directive.issueCodes?.length
+      || !directive.issueCodes.every((code) => resolvedLengthCodes.has(code))
+    )),
+    riskTags: output.riskTags.filter((tag) => !resolvedLengthCodes.has(tag)),
   };
 }
 
@@ -208,7 +165,7 @@ export function normalizeAssessment(
     ? "pause"
     : status === "repairable"
       ? "repair_once"
-      : status === "continue_with_risk" && reconciled.continuePolicy === "pause"
+      : status === "continue_with_risk" && (reconciled.continuePolicy === "pause" || !hasRepairWork)
         ? "continue"
         : reconciled.continuePolicy;
   return {

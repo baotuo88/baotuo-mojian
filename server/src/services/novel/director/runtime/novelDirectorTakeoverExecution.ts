@@ -100,6 +100,8 @@ interface StartDirectorTakeoverExecutionInput {
     extra?: Record<string, unknown>,
   ) => Record<string, unknown>;
   scheduleBackgroundRun: (taskId: string, runner: () => Promise<void>) => void;
+  awaitBackgroundRun?: boolean;
+  runBackgroundRun?: (taskId: string, runner: () => Promise<void>) => Promise<void>;
   runDirectorPipeline: (input: {
     taskId: string;
     novelId: string;
@@ -462,7 +464,7 @@ export async function startDirectorTakeoverExecution(
         });
       }
       await input.workflowService.markTaskRunning(workflowTask.id, resolveDirectorRunningStateForPhase(plan.phase ?? plan.startPhase));
-      input.scheduleBackgroundRun(workflowTask.id, async () => {
+      const runPipeline = async () => {
         await input.runDirectorPipeline({
           taskId: workflowTask.id,
           novelId: request.novelId,
@@ -471,7 +473,15 @@ export async function startDirectorTakeoverExecution(
           approveCurrentGate: isFullBookAutopilot,
           approveAutoExecutionScope: isFullBookAutopilot,
         });
-      });
+      };
+      if (input.awaitBackgroundRun) {
+        if (!input.runBackgroundRun) {
+          throw new Error("自动导演命令缺少等待后台执行的运行接口。");
+        }
+        await input.runBackgroundRun(workflowTask.id, runPipeline);
+      } else {
+        input.scheduleBackgroundRun(workflowTask.id, runPipeline);
+      }
     } else {
       await input.workflowService.recordCheckpoint(workflowTask.id, {
         stage: "chapter_execution",
@@ -506,7 +516,9 @@ export async function startDirectorTakeoverExecution(
       },
     };
   } catch (error) {
-    await input.workflowService.markTaskFailed?.(workflowTask.id, getErrorMessage(error)).catch(() => null);
+    if (!input.awaitBackgroundRun) {
+      await input.workflowService.markTaskFailed?.(workflowTask.id, getErrorMessage(error)).catch(() => null);
+    }
     throw error;
   }
 }

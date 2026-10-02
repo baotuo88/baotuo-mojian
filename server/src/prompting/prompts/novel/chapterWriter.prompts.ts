@@ -16,7 +16,7 @@ export interface ChapterWriterPromptInput {
 
 export const chapterWriterPrompt: PromptAsset<ChapterWriterPromptInput, string, string> = {
   id: "novel.chapter.writer",
-  version: "v6",
+  version: "v7",
   taskType: "writer",
   mode: "text",
   language: "zh",
@@ -232,7 +232,7 @@ export const chapterWriterPrompt: PromptAsset<ChapterWriterPromptInput, string, 
         "1b. inheritedHookResponsibilities 必须优先得到回应、触达或部分兑现；不得只制造新钩子而不给旧问题任何回报。",
         "2. 必须严格服从 chapter mission、mustAdvance、mustPreserve 与 ending hook。",
         "3. obligation contract 中的 must hit now、required payoff touches、required character appearances、required goal changes 都是本章必达项，必须在正文中让读者可见。",
-      "4. character_hard_facts 是不可违背的人物硬事实，角色身份、阵营、立场、境界/战力、当前位置和可出场状态不得写反。",
+      "4. character_hard_facts 是不可违背的人物硬事实，角色性别与人称、身份、阵营、立场、境界/战力、当前位置和可出场状态不得写反。",
       "4a. 角色行为指导中的主观倾向、以及作者与角色对话后确认的软性行为倾向，都只用于塑造角色的选择、误判和情绪反应，不是客观真相或强制剧情命令；不得把角色的猜测、误判、隐藏意图或对话影响写成旁白确认的事实，也不得覆盖 character_hard_facts。",
         "5. payoff directives 只能按 operation 执行：seed/touch 只铺垫或轻触，pressure 只施压，partial_reveal/payoff 才允许揭示或兑现，forbid 必须避开。",
         "6. 不得引入新的核心角色、世界规则或与上下文冲突的重大设定。",

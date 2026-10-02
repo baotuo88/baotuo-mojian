@@ -255,6 +255,12 @@ export class NovelDirectorContinueRuntime {
       await this.deps.workflowService.continueTask(taskId);
       return;
     }
+    // A duplicate continue or a late worker recovery must not start another run
+    // after completion. Restore all terminal fields, including stale recovery UI.
+    if (row.checkpointType === "workflow_completed" && row.status !== "cancelled" && !row.cancelRequestedAt) {
+      await this.deps.workflowService.restoreTaskToCheckpoint(taskId, row);
+      return;
+    }
     const continuationMode = normalizeDirectorContinuationMode(input?.continuationMode);
     if (row.status === "running" && !row.pendingManualRecovery && input?.forceResume !== true) {
       return;

@@ -5,6 +5,7 @@ const { NovelDirectorService } = require("../dist/services/novel/director/NovelD
 const { NovelDirectorConfirmRuntime } = require("../dist/services/novel/director/runtime/novelDirectorConfirmRuntime.js");
 const { NovelCreateResourceRecommendationService } = require("../dist/services/novel/NovelCreateResourceRecommendationService.js");
 const { prisma } = require("../dist/db/prisma.js");
+const { directorIssuePolicyService } = require("../dist/services/novel/director/issues/DirectorIssuePolicyService.js");
 const { WritingPlatformProfileService } = require("../dist/modules/novel/writing-platform/application/WritingPlatformProfileService.js");
 
 function buildDirectorInput(overrides = {}) {
@@ -69,7 +70,8 @@ function buildResumeTargetJson(novelId, taskId) {
   });
 }
 
-test("confirmCandidate reuses an already attached novel instead of creating a duplicate", async () => {
+test("confirmCandidate reuses an already attached novel instead of creating a duplicate", async (t) => {
+  t.mock.method(directorIssuePolicyService, "getGlobalPolicy", async () => ({}));
   const service = new NovelDirectorService();
   const originals = {
     bootstrapTask: service.workflowService.bootstrapTask,
@@ -116,7 +118,8 @@ test("confirmCandidate reuses an already attached novel instead of creating a du
   }
 });
 
-test("confirmCandidate returns the in-flight novel instead of creating a second project", async () => {
+test("confirmCandidate returns the in-flight novel instead of creating a second project", async (t) => {
+  t.mock.method(directorIssuePolicyService, "getGlobalPolicy", async () => ({}));
   const service = new NovelDirectorService();
   const originals = {
     bootstrapTask: service.workflowService.bootstrapTask,
@@ -183,7 +186,12 @@ test("confirmCandidate returns the in-flight novel instead of creating a second 
   }
 });
 
-test("confirm runtime creates the novel through the standard runtime node", async () => {
+for (const executionMode of ["background", "await", "await_failure", "await_attached_setup", "await_preparation_retry"]) {
+test(`confirm runtime creates the novel through the standard runtime node (${executionMode})`, async () => {
+  const pipelineError = new Error("503 Service Unavailable");
+  const attachedSetup = executionMode === "await_attached_setup";
+  let preparationCalls = 0;
+  let currentItemKey = "candidate_confirm";
   const calls = [];
   const backgroundRuns = [];
   const builtSeeds = [];
@@ -197,11 +205,11 @@ test("confirm runtime creates the novel through the standard runtime node", asyn
     source: "official",
     guidance: { tone: "clear", pacing: "steady" },
   });
-  NovelCreateResourceRecommendationService.prototype.resolveRequired = async () => ({
-    genreId: null,
-    primaryStoryModeId: null,
-    secondaryStoryModeId: null,
-  });
+  NovelCreateResourceRecommendationService.prototype.resolveRequired = async () => {
+    preparationCalls += 1;
+    if (executionMode === "await_preparation_retry" && preparationCalls === 1) throw pipelineError;
+    return { genreId: null, primaryStoryModeId: null, secondaryStoryModeId: null };
+  };
   const input = buildDirectorInput({
     targetAudience: "新手作者",
     bookSellingPoint: "低门槛完成整本书",
@@ -215,16 +223,19 @@ test("confirm runtime creates the novel through the standard runtime node", asyn
         calls.push(["bootstrapTask", novelId ?? null]);
         return {
           id: "task_dedup_demo",
-          novelId: novelId ?? null,
+          novelId: novelId ?? (attachedSetup ? "novel_created_demo" : null),
           seedPayloadJson: buildSeedPayloadJson(),
           resumeTargetJson: novelId ? buildResumeTargetJson(novelId, "task_dedup_demo") : null,
         };
       },
       claimAutoDirectorNovelCreation: async () => {
+        assert.notEqual(currentItemKey, "novel_create", "an abandoned creation claim must not block command retry");
+        currentItemKey = "novel_create";
         calls.push(["claim"]);
         return { status: "claimed" };
       },
       markTaskRunning: async (_taskId, state) => {
+        currentItemKey = state.itemKey;
         calls.push(["markTaskRunning", state.stage, state.itemKey]);
       },
       attachNovelToTask: async (_taskId, novelId, stage) => {
@@ -233,7 +244,9 @@ test("confirm runtime creates the novel through the standard runtime node", asyn
       markTaskFailed: async (_taskId, message) => {
         calls.push(["markTaskFailed", message]);
       },
-      getTaskByIdWithoutHealing: async () => null,
+      getTaskByIdWithoutHealing: async () => executionMode === "await_preparation_retry"
+        ? { id: "task_dedup_demo", novelId: null, status: "running", currentItemKey }
+        : null,
     },
     novelContextService: {
       createNovel: async (payload) => {
@@ -267,6 +280,7 @@ test("confirm runtime creates the novel through the standard runtime node", asyn
     pipelineRuntime: {
       runPipeline: async (payload) => {
         calls.push(["runPipeline", payload]);
+        if (executionMode === "await_failure") throw pipelineError;
       },
     },
     buildDirectorSeedPayload: (directorInput, novelId, extra) => {
@@ -284,6 +298,7 @@ test("confirm runtime creates the novel through the standard runtime node", asyn
     scheduleBackgroundRun: (_taskId, runner) => {
       backgroundRuns.push(runner);
     },
+    runBackgroundRun: async (_taskId, runner) => runner(),
     resolveRiskPolicy: async () => ({ noticeThreshold: 5, pauseThreshold: 8 }),
   });
   const originalNovelUpdate = prisma.novel.update;
@@ -293,9 +308,19 @@ test("confirm runtime creates the novel through the standard runtime node", asyn
   };
   let result;
   try {
-    result = await runtime.confirmCandidate(input);
-    assert.equal(backgroundRuns.length, 1);
-    await backgroundRuns[0]();
+    if (executionMode === "await_failure") {
+      await assert.rejects(runtime.confirmCandidate(input, { awaitBackgroundRun: true }), (error) => error === pipelineError);
+      assert.equal(calls.some((call) => call[0] === "markTaskFailed"), false);
+      return;
+    }
+    if (executionMode === "await_preparation_retry") {
+      await assert.rejects(runtime.confirmCandidate(input, { awaitBackgroundRun: true }), (error) => error === pipelineError);
+      assert.equal(calls.some((call) => call[0] === "markTaskFailed"), false);
+      assert.equal(currentItemKey, "candidate_confirm");
+    }
+    result = await runtime.confirmCandidate(input, { awaitBackgroundRun: executionMode !== "background" });
+    assert.equal(backgroundRuns.length, executionMode === "background" ? 1 : 0);
+    if (executionMode === "background") await backgroundRuns[0]();
   } finally {
     NovelCreateResourceRecommendationService.prototype.resolveRequired = originalResolveRequired;
     WritingPlatformProfileService.prototype.snapshot = originalSnapshot;
@@ -303,7 +328,7 @@ test("confirm runtime creates the novel through the standard runtime node", asyn
   }
 
   assert.equal(result.novel.id, "novel_created_demo");
-  assert.equal(backgroundRuns.length, 1);
+  assert.equal(backgroundRuns.length, executionMode === "background" ? 1 : 0);
   const pipelineCall = calls.find((call) => call[0] === "runPipeline");
   assert.equal(pipelineCall?.[1].taskId, "task_dedup_demo");
   assert.equal(pipelineCall?.[1].novelId, "novel_created_demo");
@@ -319,6 +344,11 @@ test("confirm runtime creates the novel through the standard runtime node", asyn
     routeWindow: { min: 3, target: 5, detailAhead: 1 },
     backgroundEnrichment: "after_first_draft",
   });
+  if (attachedSetup) {
+    assert.equal(calls.some((call) => call[0] === "createNovel" || call[0] === "claim"), false);
+    assert.ok(calls.some((call) => call[0] === "ensureStyleBinding"));
+    return;
+  }
   assert.ok(calls.some((call) => (
     call[0] === "runStepModule"
     && call[1] === "novel_create"
@@ -332,3 +362,4 @@ test("confirm runtime creates the novel through the standard runtime node", asyn
   assert.ok(calls.some((call) => call[0] === "analyzeWorkspace" && call[1] === "novel_created_demo"));
   assert.ok(calls.some((call) => call[0] === "attachNovelToTask" && call[1] === "novel_created_demo"));
 });
+}

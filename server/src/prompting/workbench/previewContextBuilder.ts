@@ -68,6 +68,7 @@ async function loadPreviewNovelAndChapter(input: {
             id: true,
             name: true,
             role: true,
+            gender: true,
             personality: true,
             background: true,
             development: true,

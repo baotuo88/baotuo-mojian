@@ -18,6 +18,7 @@ export type PreviewCharacterRow = {
   id: string;
   name: string;
   role: string;
+  gender?: string | null;
   personality?: string | null;
   background?: string | null;
   development?: string | null;

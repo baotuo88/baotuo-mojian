@@ -79,7 +79,7 @@ test("prompt workbench catalog exposes registered prompts without override execu
   assert.ok(planner.lockedFields.includes("approvalBoundary"));
 
   const chapterWriter = service.listCatalog({ keyword: "novel.chapter.writer" })
-    .find((item) => item.key === "novel.chapter.writer@v6");
+    .find((item) => item.key === "novel.chapter.writer@v7");
   assert.ok(chapterWriter);
   assert.equal(chapterWriter.slotSupported, true);
   assert.equal(chapterWriter.managementStatus, "complete");
@@ -104,6 +104,31 @@ test("prompt workbench catalog lists slot-supported prompts first", () => {
   assert.ok(lastSupportedIndex >= 0);
   assert.ok(lastSupportedIndex < firstUnsupportedIndex);
   assert.ok(catalog.slice(0, lastSupportedIndex + 1).every((item) => item.slotSupported));
+});
+
+test("payoff decision is managed and previews the same chapter contract used for writing", async () => {
+  const { buildChapterPayoffDecisionContextBlocks } = require("../dist/prompting/prompts/payoff/chapterPayoffDecision.prompts.js");
+  const service = new PromptWorkbenchService();
+  const catalog = service.listCatalog({ keyword: "novel.chapter.payoff_decision" });
+  assert.equal(catalog[0].key, "novel.chapter.payoff_decision@v1");
+  assert.equal(catalog[0].capabilities.isProductPrompt, true);
+  assert.equal(catalog[0].capabilities.hasOutputSchema, true);
+  const promptInput = {
+    chapter: { id: "ch4", order: 4, title: "阶段反击", taskSheet: "本章交付首次反击成果" },
+    plan: null,
+    payoffs: [{ ledgerKey: "first-win", title: "首次反击", summary: "取得可使用的权限", currentStatus: "overdue" }],
+    protectedSecrets: ["保留幕后身份"],
+    forbiddenEvents: [],
+    previousChaptersSummary: ["第三章取得反击线索"],
+  };
+  const preview = await service.preview({
+    promptKey: catalog[0].key,
+    promptInput,
+    executionContext: { entrypoint: "prompt_workbench", metadata: { extraContextBlocks: buildChapterPayoffDecisionContextBlocks(promptInput) } },
+  });
+  assert.deepEqual(preview.diagnostics.missingRequiredGroups, []);
+  assert.ok(preview.messages.some((message) => message.content.includes("本章交付首次反击成果")));
+  assert.ok(preview.messages.some((message) => message.content.includes("保留幕后身份")));
 });
 
 test("context broker resolves creative hub bindings and supplied recent messages", async () => {
@@ -377,7 +402,7 @@ test("prompt preview assembles selected novel chapter write context for chapter 
   });
 
   const preview = await service.preview({
-    promptKey: "novel.chapter.writer@v6",
+    promptKey: "novel.chapter.writer@v7",
     promptInput: {
       novelTitle: "当代码开始杀人",
       chapterOrder: 3,
@@ -452,6 +477,7 @@ test("prompt preview renders unsaved advanced template draft without reading act
           id: "char-1",
           name: "林序",
           role: "主角",
+          gender: "male",
           personality: "谨慎",
           background: "工程师",
           development: "主动追查",
@@ -501,7 +527,7 @@ test("prompt preview renders unsaved advanced template draft without reading act
 
   try {
     const preview = await service.preview({
-      promptKey: "novel.chapter.writer@v6",
+      promptKey: "novel.chapter.writer@v7",
       promptInput: {
         novelTitle: "模板测试书",
         chapterOrder: 2,
@@ -528,6 +554,7 @@ test("prompt preview renders unsaved advanced template draft without reading act
 
     assert.ok(preview.messages.some((message) => message.content.includes("DRAFT SYSTEM")));
     assert.ok(preview.messages.some((message) => message.content.includes("DRAFT HUMAN 异常日志")));
+    assert.ok(preview.messages.some((message) => message.content.includes("性别=male")));
     assert.ok(preview.diagnostics.template);
     assert.equal(preview.diagnostics.template.mode, "draft");
     assert.ok(preview.diagnostics.template.diagnostics.fallbackRequiredGroups.includes("book_contract"));
