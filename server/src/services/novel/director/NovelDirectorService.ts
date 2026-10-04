@@ -1,5 +1,6 @@
 import { buildStyleIntentSummary } from "@ai-novel/shared/types/styleEngine";
 import { AppError } from "../../../middleware/errorHandler";
+import { withoutExecutionScope } from "../../../platform/execution";
 import {
   runWithLlmUsageTracking,
   type LlmUsageTrackingContext,
@@ -301,7 +302,7 @@ export class NovelDirectorService {
         throw error;
       }
     } finally {
-      await releaseHighMemoryDirectorReservations(taskId);
+      await withoutExecutionScope(() => releaseHighMemoryDirectorReservations(taskId));
     }
   }
 

@@ -32,3 +32,14 @@ Worker 并发度通过 `RAG_WORKER_CONCURRENCY` 配置，范围为 1 到 8，默
 - `server/src/services/rag/RagWorker.ts`
 - `server/src/config/rag.ts`
 - `server/src/routes/rag.ts`
+
+## 同一来源的更新、删除和恢复
+
+同一 `(tenantId, ownerType, ownerId)` 的任务必须串行执行；不同来源可以并行。入队与认领由 `rag/queue` 模块通过可串行化事务完成，数据库写竞争使用既有重试机制。
+
+- 只有尚未认领的 `queued` 任务可合并。`running` 任务可能已读完来源，后来的修改必须创建持久化后继任务。
+- 合并按最新请求更新操作类型，包含 `upsert` 与 `delete` 的相互覆盖。删除不能越过正在运行的旧写入，否则旧任务可能重新写回已删除资料。
+- 同一来源的较早重试仍占据顺序，即使退避时间未到，也不能先执行后面的删除；其他来源不受该等待影响。
+- 章节事实和角色时间线删除重建时，旧来源 ID 的删除任务与来源记录删除属于同一个事务。队列写入失败则不删除来源，向量服务失败则由任务正常重试。
+- 必须等待索引请求持久化后才结束其所属执行命令，不能用未等待的 Promise 掩盖排队失败。
+- 版本恢复的索引屏障见 `docs/wiki/workflows/novel-snapshot-restoration.md`。

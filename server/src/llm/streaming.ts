@@ -1,6 +1,8 @@
 import type { Request, Response } from "express";
 import type { BaseMessageChunk } from "@langchain/core/messages";
 import type { SSEFrame } from "@ai-novel/shared/types/api";
+import { guardStreamStall } from "./streamStallGuard";
+import { runWithExecutionScope } from "../platform/execution";
 
 export type WritableSSEFrame = Extract<
   SSEFrame,
@@ -30,7 +32,7 @@ export interface StreamDoneHelpers {
 }
 
 export function writeSSEFrame(res: Response, payload: WritableSSEFrame): void {
-  if (res.writableEnded) {
+  if (res.writableEnded || res.destroyed) {
     return;
   }
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
@@ -80,7 +82,8 @@ export interface ClientAbort {
 // so in-flight LLM work that reads the signal (LangChain `.stream`/`.invoke`, LangGraph
 // `.invoke`) stops burning provider tokens instead of running to completion into a dead
 // socket. A normal end (response already finished) does NOT abort. Always call dispose()
-// in a finally to detach the listener from the (potentially long-lived) request.
+// in a finally to detach listeners. Request close denotes completed POST input;
+// response close denotes the lifetime of the output connection.
 export function attachClientAbort(req: Request, res: Response): ClientAbort {
   const controller = new AbortController();
   const onClose = () => {
@@ -88,13 +91,37 @@ export function attachClientAbort(req: Request, res: Response): ClientAbort {
       controller.abort();
     }
   };
-  req.on("close", onClose);
+  res.on("close", onClose);
+  req.on("aborted", onClose);
+  if (res.destroyed || req.aborted) onClose();
   return {
     signal: controller.signal,
     dispose: () => {
-      req.off("close", onClose);
+      res.off("close", onClose);
+      req.off("aborted", onClose);
     },
   };
+}
+
+/** Keep model setup, streaming, and final persistence under the HTTP lifetime. */
+export async function runClientSSE(
+  req: Request,
+  res: Response,
+  prepare: () => Promise<{
+    stream: AsyncIterable<BaseMessageChunk>;
+    onDone?: Parameters<typeof streamToSSE>[2];
+  }>,
+): Promise<void> {
+  const client = attachClientAbort(req, res);
+  try {
+    await runWithExecutionScope({ signal: client.signal }, async () => {
+      client.signal.throwIfAborted();
+      const { stream, onDone } = await prepare();
+      await streamToSSE(res, stream, onDone, client.signal);
+    });
+  } finally {
+    client.dispose();
+  }
 }
 
 export async function streamToSSE(
@@ -106,12 +133,13 @@ export async function streamToSSE(
   ) => void | StreamDonePayload | Promise<void | StreamDonePayload>,
   signal?: AbortSignal,
 ): Promise<void> {
+  if (res.destroyed || signal?.aborted) return;
   const disposeHeartbeat = initSSE(res);
   let fullContent = "";
 
   try {
-    for await (const chunk of stream) {
-      if (res.writableEnded || signal?.aborted) {
+    for await (const chunk of guardStreamStall(stream, { signal })) {
+      if (res.writableEnded || res.destroyed || signal?.aborted) {
         break;
       }
       const text = normalizeChunkContent(chunk.content);
@@ -122,6 +150,7 @@ export async function streamToSSE(
       writeSSEFrame(res, { type: "chunk", content: text });
     }
 
+    if (signal?.aborted || res.destroyed || res.writableEnded) return;
     const donePayload = await onDone?.(fullContent, {
       writeFrame: (payload) => writeSSEFrame(res, payload),
     });
@@ -141,7 +170,7 @@ export async function streamToSSE(
     });
   } finally {
     disposeHeartbeat();
-    if (!res.writableEnded) {
+    if (!res.writableEnded && !res.destroyed) {
       res.end();
     }
   }

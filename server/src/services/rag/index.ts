@@ -29,3 +29,5 @@ export const ragServices = {
   hybridRetrievalService,
   ragWorker,
 };
+
+export { enqueueRagOwnerJob } from "./queue";

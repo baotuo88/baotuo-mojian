@@ -17,7 +17,7 @@ import {
 } from "@/api/novel";
 import { queryKeys } from "@/api/queryKeys";
 import { buildNovelUpdatePayload, type NovelBasicFormState } from "../novelBasicInfo.shared";
-import type { ChapterReviewResult } from "../chapterPlanning.shared";
+import { bindChapterReview, type BoundChapterReview } from "../chapterProduction";
 import type { StructuredSyncOptions } from "../novelEdit.utils";
 import { syncNovelWorkflowStageSilently } from "../novelWorkflow.client";
 
@@ -65,7 +65,7 @@ interface UseNovelEditMutationsArgs {
   setPipelineMessage: (value: string) => void;
   invalidateActivePipelineJob: () => Promise<void>;
   setStructuredMessage: (value: string) => void;
-  setReviewResult: (value: ChapterReviewResult | null) => void;
+  setReviewResult: (value: BoundChapterReview | null) => void;
   queryClient: QueryClient;
   invalidateNovelDetail: () => Promise<void>;
 }
@@ -293,14 +293,18 @@ export function useNovelEditMutations({
   });
 
   const reviewMutation = useMutation({
-    mutationFn: () =>
-      reviewNovelChapter(id, selectedChapterId, {
+    mutationFn: async () => {
+      const source = { novelId: id, chapterId: selectedChapterId, content: chapters.find((chapter) => chapter.id === selectedChapterId)?.content ?? null };
+      const response = await reviewNovelChapter(source.novelId, source.chapterId, {
         provider: llm.provider,
         model: llm.model,
         temperature: 0.1,
-      }),
+      });
+      return { ...response, data: bindChapterReview(response.data, source) };
+    },
     onSuccess: async (response) => {
       setReviewResult(response.data ?? null);
+      await invalidateNovelDetail();
       setPipelineMessage("Chapter reviewed.");
       await syncNovelWorkflowStageSilently({
         novelId: id,

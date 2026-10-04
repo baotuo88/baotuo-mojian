@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ChapterRuntimePackage, GenerationContextPackage } from "@ai-novel/shared/types/chapterRuntime";
 import { prisma } from "../../../db/prisma";
+import { ExecutionStoppedError, isExecutionStoppedError, runWithExecutionScope } from "../../../platform/execution";
 import { novelEventBus } from "../../../events";
 import { openConflictService } from "../../state/OpenConflictService";
 import { directorAutomationLedgerEventService } from "../director/runtime/DirectorAutomationLedgerEventService";
@@ -63,6 +64,12 @@ export class ChapterContentFinalizationService {
   }
 
   async finalizeChapterContent(input: FinalizeChapterContentInput): Promise<FinalizeChapterContentResult> {
+    return runWithExecutionScope({
+      fence: { kind: "chapter_content", novelId: input.novelId, chapterId: input.chapterId, content: input.content },
+    }, () => this.finalizeCurrentChapterContent(input));
+  }
+
+  private async finalizeCurrentChapterContent(input: FinalizeChapterContentInput): Promise<FinalizeChapterContentResult> {
     const finalContent = input.content;
     const { acceptance, timelineGate } = await this.qualityGateService.runAcceptanceGateOnly({
       novelId: input.novelId,
@@ -115,7 +122,9 @@ export class ChapterContentFinalizationService {
       || acceptance.assessment.status === "needs_manual_review"
       || timelineCheck.status === "failed"
       || runtimePackage.audit.hasBlockingIssues;
-    await this.markChapterStatus(input.chapterId, needsRepair ? "needs_repair" : "pending_review");
+    await this.markChapterStatus(input.chapterId, needsRepair ? "needs_repair" : "pending_review", {
+      novelId: input.novelId, content: finalContent,
+    });
     if (!needsRepair) {
       // 保证义务账本在下一章 JIT 上下文组装前完成；失败只告警，不阻断定稿返回。
       try {
@@ -127,6 +136,7 @@ export class ChapterContentFinalizationService {
           runtimePackage,
         );
       } catch (error) {
+        if (isExecutionStoppedError(error)) throw error;
         console.warn("[chapter-runtime] fact ledger write failed", {
           novelId: input.novelId,
           chapterId: input.chapterId,
@@ -183,7 +193,8 @@ export class ChapterContentFinalizationService {
         `chapter draft generated, ${contentLength} chars`,
         Date.now() - startMs,
       );
-    } catch {
+    } catch (error) {
+      if (isExecutionStoppedError(error)) throw error;
       // Ignore trace failures so chapter generation still completes.
     }
   }
@@ -191,7 +202,18 @@ export class ChapterContentFinalizationService {
   async markChapterStatus(
     chapterId: string,
     chapterStatus: "pending_generation" | "generating" | "pending_review" | "needs_repair",
+    source?: { novelId: string; content: string | null },
   ): Promise<void> {
+    if (source) {
+      await runWithExecutionScope({ fence: { kind: "chapter_content", chapterId, ...source } }, async () => {
+        const result = await prisma.chapter.updateMany({
+          where: { id: chapterId, novelId: source.novelId, content: source.content },
+          data: { chapterStatus },
+        });
+        if (result.count !== 1) throw new ExecutionStoppedError("章节正文发生了变化，旧稿处理结果未应用。");
+      });
+      return;
+    }
     await prisma.chapter.update({
       where: { id: chapterId },
       data: { chapterStatus },
@@ -296,6 +318,7 @@ export class ChapterContentFinalizationService {
         excludedObligations: input.excluded,
       },
     }).catch((error) => {
+      if (isExecutionStoppedError(error)) throw error;
       console.warn("[fact-ledger] skipped obligation exclusion event failed", {
         novelId: input.novelId,
         chapterId: input.chapterId,

@@ -29,47 +29,40 @@ test("listJobs requests the most recently updated jobs first for UI polling", as
   }
 });
 
-test("claimNextRunnableJob lets only one concurrent worker claim a queued job", async () => {
+test("claimNextRunnableJob retains the conditional claim inside a serializable transaction", async () => {
   const service = new RagIndexService({}, {});
-  const originalFindFirst = prisma.ragIndexJob.findFirst;
+  const originalTransaction = prisma.$transaction;
+  const originalFindMany = prisma.ragIndexJob.findMany;
   const originalUpdateMany = prisma.ragIndexJob.updateMany;
   const originalFindUnique = prisma.ragIndexJob.findUnique;
   const originalUpdate = prisma.ragIndexJob.update;
   let updateManyCalls = 0;
-  let findUniqueCalls = 0;
-
   const job = {
-    id: "rag-job-race",
-    payloadJson: null,
-    status: "running",
-    attempts: 1,
+    id: "rag-job-race", tenantId: "default", ownerType: "chapter", ownerId: "one",
+    payloadJson: null, status: "queued", attempts: 0, runAfter: new Date(0),
   };
-  prisma.ragIndexJob.findFirst = async () => ({ id: job.id });
+  prisma.$transaction = async (run, options) => {
+    assert.equal(options.isolationLevel, "Serializable");
+    return run(prisma);
+  };
+  prisma.ragIndexJob.findMany = async () => [job];
   prisma.ragIndexJob.updateMany = async (args) => {
     updateManyCalls += 1;
-    assert.deepEqual(args.where, {
-      id: job.id,
-      status: "queued",
-      runAfter: args.where.runAfter,
-    });
+    assert.equal(args.where.id, job.id);
+    assert.equal(args.where.status, "queued");
+    assert.ok(args.where.runAfter.lte instanceof Date);
+    assert.deepEqual(args.data.attempts, { increment: 1 });
     return { count: updateManyCalls === 1 ? 1 : 0 };
   };
-  prisma.ragIndexJob.findUnique = async () => {
-    findUniqueCalls += 1;
-    return findUniqueCalls % 2 === 1 ? job : { payloadJson: null };
-  };
+  prisma.ragIndexJob.findUnique = async () => ({...job, status: "running", attempts: 1});
   prisma.ragIndexJob.update = async () => job;
-
   try {
-    const results = await Promise.all([
-      service.claimNextRunnableJob("worker-a"),
-      service.claimNextRunnableJob("worker-b"),
-    ]);
-
+    const results = await Promise.all([service.claimNextRunnableJob("worker-a"), service.claimNextRunnableJob("worker-b")]);
     assert.equal(updateManyCalls, 2);
     assert.equal(results.filter(Boolean).length, 1);
   } finally {
-    prisma.ragIndexJob.findFirst = originalFindFirst;
+    prisma.$transaction = originalTransaction;
+    prisma.ragIndexJob.findMany = originalFindMany;
     prisma.ragIndexJob.updateMany = originalUpdateMany;
     prisma.ragIndexJob.findUnique = originalFindUnique;
     prisma.ragIndexJob.update = originalUpdate;

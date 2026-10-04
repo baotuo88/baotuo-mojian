@@ -129,6 +129,8 @@ function toAgentApproval(row: {
 }
 
 export class AgentTraceStore {
+  constructor(private readonly db = prisma) {}
+
   async createRun(input: {
     sessionId: string;
     goal: string;
@@ -137,7 +139,7 @@ export class AgentTraceStore {
     entryAgent: string;
     metadataJson?: string;
   }): Promise<AgentRun> {
-    const row = await prisma.agentRun.create({
+    const row = await this.db.agentRun.create({
       data: {
         sessionId: input.sessionId,
         goal: input.goal,
@@ -152,7 +154,7 @@ export class AgentTraceStore {
   }
 
   async getRun(runId: string): Promise<AgentRun | null> {
-    const row = await prisma.agentRun.findUnique({
+    const row = await this.db.agentRun.findUnique({
       where: { id: runId },
     });
     return row ? toAgentRun(row) : null;
@@ -165,7 +167,7 @@ export class AgentTraceStore {
     sessionId?: string;
     limit?: number;
   }): Promise<AgentRun[]> {
-    const rows = await prisma.agentRun.findMany({
+    const rows = await this.db.agentRun.findMany({
       where: {
         ...(filters.status ? { status: filters.status } : {}),
         ...(filters.novelId ? { novelId: filters.novelId } : {}),
@@ -179,7 +181,7 @@ export class AgentTraceStore {
   }
 
   async getRunDetail(runId: string): Promise<AgentRunDetail | null> {
-    const row = await prisma.agentRun.findUnique({
+    const row = await this.db.agentRun.findUnique({
       where: { id: runId },
       include: {
         steps: {
@@ -212,15 +214,20 @@ export class AgentTraceStore {
     finishedAt?: Date | null;
     metadataJson?: string | null;
   }): Promise<AgentRun> {
-    const row = await prisma.agentRun.update({
-      where: { id: runId },
+    await this.db.agentRun.updateMany({
+      where: {
+        id: runId,
+        ...(patch.status && patch.status !== "cancelled" ? { status: { not: "cancelled" as const } } : {}),
+      },
       data: patch,
     });
+    const row = await this.db.agentRun.findUnique({ where: { id: runId } });
+    if (!row) throw new Error("Run not found.");
     return toAgentRun(row);
   }
 
   async nextStepSeq(runId: string): Promise<number> {
-    const row = await prisma.agentStep.findFirst({
+    const row = await this.db.agentStep.findFirst({
       where: { runId },
       orderBy: { seq: "desc" },
       select: { seq: true },
@@ -232,7 +239,7 @@ export class AgentTraceStore {
     if (!idempotencyKey.trim()) {
       return null;
     }
-    const row = await prisma.agentStep.findFirst({
+    const row = await this.db.agentStep.findFirst({
       where: {
         runId,
         idempotencyKey,
@@ -263,7 +270,7 @@ export class AgentTraceStore {
     durationMs?: number;
   }): Promise<AgentStep> {
     const seq = typeof input.seq === "number" ? input.seq : await this.nextStepSeq(input.runId);
-    const row = await prisma.agentStep.create({
+    const row = await this.db.agentStep.create({
       data: {
         runId: input.runId,
         seq,
@@ -296,7 +303,7 @@ export class AgentTraceStore {
     expiresAt?: Date;
     payloadJson?: string;
   }): Promise<AgentApproval> {
-    const row = await prisma.agentApproval.create({
+    const row = await this.db.agentApproval.create({
       data: {
         runId: input.runId,
         stepId: input.stepId ?? null,
@@ -318,7 +325,7 @@ export class AgentTraceStore {
     note?: string;
     decider?: string;
   }): Promise<AgentApproval> {
-    const current = await prisma.agentApproval.findFirst({
+    const current = await this.db.agentApproval.findFirst({
       where: {
         id: input.approvalId,
         runId: input.runId,
@@ -331,7 +338,7 @@ export class AgentTraceStore {
       throw new Error(`Approval already ${current.status}.`);
     }
     const now = new Date();
-    const result = await prisma.agentApproval.updateMany({
+    const result = await this.db.agentApproval.updateMany({
       where: {
         id: input.approvalId,
         runId: input.runId,
@@ -347,7 +354,7 @@ export class AgentTraceStore {
     if (result.count === 0) {
       throw new Error("Approval conflict: already processed.");
     }
-    const row = await prisma.agentApproval.findUnique({
+    const row = await this.db.agentApproval.findUnique({
       where: { id: input.approvalId },
     });
     if (!row) {
@@ -357,7 +364,7 @@ export class AgentTraceStore {
   }
 
   async expirePendingApprovals(runId: string, now = new Date()): Promise<number> {
-    const result = await prisma.agentApproval.updateMany({
+    const result = await this.db.agentApproval.updateMany({
       where: {
         runId,
         status: "pending",
@@ -376,7 +383,7 @@ export class AgentTraceStore {
   }
 
   async findPendingApproval(runId: string, approvalId: string): Promise<AgentApproval | null> {
-    const row = await prisma.agentApproval.findFirst({
+    const row = await this.db.agentApproval.findFirst({
       where: {
         runId,
         id: approvalId,
@@ -388,7 +395,7 @@ export class AgentTraceStore {
 
   async expireAllPendingApprovals(runId: string, note: string): Promise<number> {
     const now = new Date();
-    const result = await prisma.agentApproval.updateMany({
+    const result = await this.db.agentApproval.updateMany({
       where: {
         runId,
         status: "pending",
@@ -403,7 +410,7 @@ export class AgentTraceStore {
   }
 
   async listStepsAfter(runId: string, fromSeq: number): Promise<AgentStep[]> {
-    const rows = await prisma.agentStep.findMany({
+    const rows = await this.db.agentStep.findMany({
       where: {
         runId,
         seq: { gt: fromSeq },

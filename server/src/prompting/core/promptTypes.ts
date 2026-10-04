@@ -170,6 +170,8 @@ export interface PromptRunResult<T> {
 
 export interface PromptStreamRunResult<T> {
   stream: AsyncIterable<BaseMessageChunk>;
+  cancel?: (reason?: unknown) => void;
+  signal?: AbortSignal;
   complete: Promise<PromptRunResult<T>>;
   context: PromptRenderContext;
   invocation: PromptInvocationMeta;

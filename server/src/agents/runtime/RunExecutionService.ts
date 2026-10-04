@@ -1,6 +1,8 @@
 import type { AgentRuntimeCallbacks, AgentRuntimeResult, PlannedAction, StructuredIntent, ToolCall, ToolExecutionContext } from "../types";
 import { canAgentUseTool, evaluateApprovalRequirement } from "../approvalPolicy";
 import { AgentTraceStore } from "../traceStore";
+import { runWithAgentExecution } from "./agentExecution";
+import { isExecutionStoppedError, throwIfExecutionAborted } from "../../platform/execution";
 import { getAgentToolDefinition } from "../toolRegistry";
 import { composeAssistantMessage } from "./answerComposer";
 import { applyToolResultContext, resolveToolInput } from "./executionContext";
@@ -112,6 +114,7 @@ export class RunExecutionService {
 
     try {
       const parsedInput = definition.inputSchema.parse(call.input);
+      throwIfExecutionAborted();
       const rawOutput = await definition.execute(
         {
           ...context,
@@ -119,6 +122,7 @@ export class RunExecutionService {
         },
         parsedInput,
       );
+      throwIfExecutionAborted();
       const parsedOutput = definition.outputSchema.parse(rawOutput);
       const summary = summarizeOutput(call.tool, parsedOutput);
       const resultStep = await this.store.addStep({
@@ -154,6 +158,7 @@ export class RunExecutionService {
         stepId: resultStep.id,
       };
     } catch (error) {
+      if (isExecutionStoppedError(error)) throw error;
       const code = extractErrorCode(error);
       const message = summarizeFailure(call.tool, error);
       const resultStep = await this.store.addStep({
@@ -260,10 +265,26 @@ export class RunExecutionService {
     failRun: (runId: string, message: string, agentName: string, callbacks?: AgentRuntimeCallbacks) => Promise<void>,
     callbacks?: AgentRuntimeCallbacks,
   ): Promise<AgentRuntimeResult> {
+    return runWithAgentExecution(runId, () => this.executeActionPlan(
+      runId, goal, plannedActions, context, structuredIntent, failRun, callbacks,
+    ));
+  }
+
+  private async executeActionPlan(
+    runId: string,
+    goal: string,
+    plannedActions: PlannedAction[],
+    context: Omit<ToolExecutionContext, "runId" | "agentName">,
+    structuredIntent: StructuredIntent | undefined,
+    failRun: (runId: string, message: string, agentName: string, callbacks?: AgentRuntimeCallbacks) => Promise<void>,
+    callbacks?: AgentRuntimeCallbacks,
+  ): Promise<AgentRuntimeResult> {
+    throwIfExecutionAborted();
     const allResults: ToolExecutionResult[] = [];
     let currentContext = { ...context };
     let waitingForApproval = false;
     for (let actionIndex = 0; actionIndex < plannedActions.length; actionIndex += 1) {
+      throwIfExecutionAborted();
       const action = plannedActions[actionIndex];
       await this.store.updateRun(runId, {
         status: "running",
@@ -285,6 +306,7 @@ export class RunExecutionService {
       callbacks?.onReasoning?.(action.reasoning);
 
       for (let callIndex = 0; callIndex < action.calls.length; callIndex += 1) {
+        throwIfExecutionAborted();
         const call = action.calls[callIndex];
         const resolvedInput = resolveToolInput(currentContext, call.input);
         if (!canAgentUseTool(action.agent, call.tool)) {
@@ -426,6 +448,7 @@ export class RunExecutionService {
       }
     }
 
+    throwIfExecutionAborted();
     if (!waitingForApproval) {
       await this.store.updateRun(runId, {
         status: "succeeded",
@@ -443,6 +466,7 @@ export class RunExecutionService {
 
     const summary = buildFinalMessage(allResults, waitingForApproval);
     const assistantOutput = await composeAssistantMessage(goal, summary, allResults, waitingForApproval, currentContext, structuredIntent);
+    throwIfExecutionAborted();
     await this.store.addStep({
       runId,
       agentName: "Planner",

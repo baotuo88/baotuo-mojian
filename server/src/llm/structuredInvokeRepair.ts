@@ -3,7 +3,7 @@ import { toJSONSchema, type ZodError, type ZodType } from "zod";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import type { ModelRouteRequestProtocol } from "@ai-novel/shared/types/novel";
 import { getLLM } from "./factory";
-import { runWithEnforcedTimeout } from "./invokeTimeout";
+import { runWithEnforcedTimeout, throwIfInvocationAborted } from "./invokeTimeout";
 import { logStructuredRepairSession } from "./repairLogging";
 import type { TaskType } from "./modelRouter";
 import type { StructuredOutputStrategy } from "./structuredOutput";
@@ -155,6 +155,7 @@ export async function repairWithLlm<T>(
   repairAttempt: number,
   helpers: RepairHelpers<T>,
 ): Promise<T> {
+  throwIfInvocationAborted(input.signal);
   helpers.logStructuredInvokeEvent({
     event: "repair_start",
     label: input.label,

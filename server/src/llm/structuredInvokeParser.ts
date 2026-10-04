@@ -4,6 +4,7 @@ import type { ModelRouteRequestProtocol } from "@ai-novel/shared/types/novel";
 import type { TaskType } from "./modelRouter";
 import { relaxGeneratedContentSchema } from "./generatedContentSchema";
 import { repairWithLlm } from "./structuredInvokeRepair";
+import { throwIfInvocationAborted } from "./invokeTimeout";
 import {
   classifyStructuredOutputFailure,
   resolveStructuredOutputProfile,
@@ -368,6 +369,7 @@ export function shouldUseJsonObjectResponseFormat<T>(
 export async function parseStructuredLlmRawContentDetailed<T>(
   input: StructuredInvokeRawParseInput<T>,
 ): Promise<StructuredInvokeResult<T>> {
+  throwIfInvocationAborted(input.signal);
   const runtimeSchema: ZodType<T> = relaxGeneratedContentSchema(input.schema);
   const diagnostics = buildDiagnostics({
     strategy: input.strategy,
@@ -407,6 +409,7 @@ export async function parseStructuredLlmRawContentDetailed<T>(
           tokenUsage: input.tokenUsage ?? null,
         };
       } catch (repairError) {
+        throwIfInvocationAborted(input.signal);
         if (attempt >= maxRepairAttempts) {
           throw buildStructuredError({
             message: `[${input.label}] JSON 解析失败且修复未成功。错误：${repairError instanceof Error ? repairError.message : String(repairError)}`,
@@ -492,6 +495,7 @@ export async function parseStructuredLlmRawContentDetailed<T>(
         tokenUsage: input.tokenUsage ?? null,
       };
     } catch (error) {
+      throwIfInvocationAborted(input.signal);
       if (attempt >= maxRepairAttempts) {
         throw buildStructuredError({
           message: `[${input.label}] LLM 输出经修复后仍未通过 Schema 校验。错误：${error instanceof Error ? error.message : String(error)}`,

@@ -5,6 +5,8 @@ import { qualityDebtSettingsService } from "../services/settings/QualityDebtSett
 import { DirectorCommandExecutor } from "../services/novel/director/commands/DirectorCommandExecutor";
 import { DirectorTaskQueue, type DirectorTaskQueueOptions } from "./DirectorTaskQueue";
 import { taskDispatcher } from "./TaskDispatcher";
+import { assertExecutionWriteAllowed, runWithExecutionScope } from "../platform/execution";
+import { prisma } from "../db/prisma";
 
 // DirectorWorker 通常由 app.ts 的 initializeBackgroundServices() 在同进程内启动。
 // 此文件保留独立进程入口（`require.main === module`），仅供需要分离部署时使用。
@@ -77,7 +79,9 @@ export class DirectorWorker {
     const stopRenewal = this.queue.startLeaseRenewal(command.id, slotId);
 
     try {
-      await this.queue.acquireResourceGate(command.novelId, command.commandType);
+      await stopRenewal.ready;
+      this.queue.assertLeaseActive(stopRenewal);
+      await this.queue.acquireResourceGate(command.novelId, command.commandType, stopRenewal.signal);
       try {
         await this.queue.markRunning(command.id, slotId);
         this.queue.assertLeaseActive(stopRenewal);
@@ -86,7 +90,21 @@ export class DirectorWorker {
           `[director.worker] executing commandId=${command.id} type=${command.commandType} taskId=${command.taskId} novelId=${command.novelId} slot=${slotId}`,
         );
 
-        const outcome = await this.commandExecutor.execute(command.id);
+        const outcome = await runWithExecutionScope({
+          signal: stopRenewal.signal,
+          fence: {
+            kind: "director",
+            commandId: command.id,
+            leaseOwner: `${this.queue.workerId}:${slotId}`,
+            attempt: command.attempt,
+            controlAction: command.commandType === "cancel" ? "cancel" : undefined,
+          },
+        }, async () => {
+          // A cancellation command may operate on a cancelled task, but only
+          // while its own persisted lease and command type still authorize it.
+          if (command.commandType === "cancel") await assertExecutionWriteAllowed(prisma);
+          return this.commandExecutor.execute(command.id);
+        });
         this.queue.assertLeaseActive(stopRenewal);
 
         if (outcome === "cancelled") {

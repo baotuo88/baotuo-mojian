@@ -1,14 +1,18 @@
 import type { RagOwnerType } from "../../rag/types";
 import { prisma } from "../../../db/prisma";
 import { withSqliteRetry } from "../../../db/sqliteRetry";
-import { ragServices } from "../../rag";
+import { enqueueRagOwnerJob } from "../../rag";
+import { getExecutionScope } from "../../../platform/execution";
+import { assertChapterArtifactSource } from "./persistence";
 import { briefSummary, extractFacts } from "../novelP0Utils";
 import { chapterArtifactBackgroundSyncService } from "./ChapterArtifactBackgroundSyncService";
 import { assertChapterContentNotEmpty } from "./chapterEmptyContentError";
 import type { ArtifactSyncMode } from "../novelCoreShared";
 import type { ContentProvenance } from "@ai-novel/shared/types/canonicalState";
+import { commitGeneratedChapter } from "./persistence";
 
 export interface ChapterArtifactSyncOptions {
+  expectedContent?: string | null;
   scheduleBackgroundSync?: boolean;
   artifactSyncMode?: ArtifactSyncMode;
   syncArtifacts?: boolean;
@@ -33,19 +37,7 @@ export class ChapterArtifactSyncService {
       chapterId,
       source: "chapter_artifact_save",
     });
-    await withSqliteRetry(
-      () => prisma.$transaction(async (tx) => {
-        await tx.chapter.update({
-          where: { id: chapterId },
-          data: {
-            content: safeContent,
-            generationState,
-            chapterStatus: "generating",
-          },
-        });
-      }),
-      { label: "chapterArtifactSync.chapter.update" },
-    );
+    await commitGeneratedChapter({ novelId, chapterId, content: safeContent, generationState, expectedContent: options.expectedContent });
     if (options.syncArtifacts === false) {
       return;
     }
@@ -64,6 +56,7 @@ export class ChapterArtifactSyncService {
 
       await withSqliteRetry(
         () => prisma.$transaction(async (tx) => {
+          await assertChapterArtifactSource(tx, novelId, chapterId, content);
           await tx.chapterSummary.upsert({
             where: { chapterId },
             update: {
@@ -80,6 +73,12 @@ export class ChapterArtifactSyncService {
             },
           });
 
+          const previousFacts = await tx.consistencyFact.findMany({
+            where: { novelId, chapterId }, select: { id: true },
+          });
+          for (const fact of previousFacts) {
+            await enqueueRagOwnerJob({ jobType: "delete", ownerType: "consistency_fact", ownerId: fact.id }, tx);
+          }
           await tx.consistencyFact.deleteMany({ where: { novelId, chapterId } });
           if (facts.length > 0) {
             await tx.consistencyFact.createMany({
@@ -100,7 +99,7 @@ export class ChapterArtifactSyncService {
     await this.syncCharacterTimelineForChapter(novelId, chapterId, content);
     if (options.scheduleBackgroundSync !== false) {
       const artifactSyncMode = options.artifactSyncMode ?? "adaptive";
-      if (options.awaitArtifactDelta || artifactSyncMode === "strict") {
+      if (getExecutionScope() || options.awaitArtifactDelta || artifactSyncMode === "strict") {
         await chapterArtifactBackgroundSyncService.runChapterSyncNow(novelId, chapterId, content, {
           artifactSyncMode,
           provider: options.provider,
@@ -118,16 +117,16 @@ export class ChapterArtifactSyncService {
         });
       }
     }
-    this.queueRagUpsert("chapter", chapterId);
-    this.queueRagUpsert("chapter_summary", chapterId);
-    this.queueRagUpsert("novel", novelId);
+    await this.queueRagUpsert("chapter", chapterId);
+    await this.queueRagUpsert("chapter_summary", chapterId);
+    await this.queueRagUpsert("novel", novelId);
 
     const factRows = await prisma.consistencyFact.findMany({
       where: { novelId, chapterId },
       select: { id: true },
     });
     for (const fact of factRows) {
-      this.queueRagUpsert("consistency_fact", fact.id);
+      await this.queueRagUpsert("consistency_fact", fact.id);
     }
 
   }
@@ -179,6 +178,13 @@ export class ChapterArtifactSyncService {
 
     await withSqliteRetry(
       () => prisma.$transaction(async (tx) => {
+          await assertChapterArtifactSource(tx, novelId, chapterId, content);
+        const previousTimelines = await tx.characterTimeline.findMany({
+          where: { novelId, chapterId, source: "chapter_extract" }, select: { id: true },
+        });
+        for (const timeline of previousTimelines) {
+          await enqueueRagOwnerJob({ jobType: "delete", ownerType: "character_timeline", ownerId: timeline.id }, tx);
+        }
         await tx.characterTimeline.deleteMany({
           where: {
             novelId,
@@ -202,11 +208,11 @@ export class ChapterArtifactSyncService {
       select: { id: true },
     });
     for (const timeline of timelines) {
-      this.queueRagUpsert("character_timeline", timeline.id);
+      await this.queueRagUpsert("character_timeline", timeline.id);
     }
   }
 
-  private queueRagUpsert(ownerType: RagOwnerType, ownerId: string): void {
-    void ragServices.ragIndexService.enqueueUpsert(ownerType, ownerId).catch(() => {});
+  private async queueRagUpsert(ownerType: RagOwnerType, ownerId: string): Promise<void> {
+    await enqueueRagOwnerJob({ jobType: "upsert", ownerType, ownerId });
   }
 }

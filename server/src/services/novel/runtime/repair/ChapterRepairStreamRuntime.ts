@@ -4,6 +4,8 @@ import type { StreamDoneHelpers } from "../../../../llm/streaming";
 import { deriveWriterOutputTokens } from "../../../../llm/outputBudget";
 import { guardStreamStall } from "../../../../llm/streamStallGuard";
 import { prisma } from "../../../../db/prisma";
+import { commitGeneratedChapter } from "../persistence";
+import { isExecutionStoppedError, runWithExecutionScope } from "../../../../platform/execution";
 import { streamTextPrompt } from "../../../../prompting/core/promptRunner";
 import { withChapterRepairContext } from "../../../../prompting/prompts/novel/chapterLayeredContext";
 import { auditService } from "../../../audit/AuditService";
@@ -109,6 +111,7 @@ export class ChapterRepairStreamRuntime {
             chapterId,
             options,
             content: prepared.content.trim() || fullContent,
+            expectedContent: chapter.content,
             helpers,
           });
         },
@@ -119,6 +122,8 @@ export class ChapterRepairStreamRuntime {
     return {
       stream: guardStreamStall(streamed.stream as AsyncIterable<BaseMessageChunk>, {
         label: "chapter heavy repair",
+        signal: streamed.signal,
+        onStall: streamed.cancel,
       }),
       onDone: async (fullContent: string, helpers: StreamDoneHelpers) => {
         const completed = await streamed.complete;
@@ -127,6 +132,7 @@ export class ChapterRepairStreamRuntime {
           chapterId,
           options,
           content: completed.output.trim() || fullContent,
+          expectedContent: chapter.content,
           helpers,
         });
       },
@@ -144,7 +150,7 @@ export class ChapterRepairStreamRuntime {
 
     const auditIssues = options.auditIssueIds?.length
       ? await prisma.auditIssue.findMany({
-        where: { id: { in: options.auditIssueIds } },
+        where: { id: { in: options.auditIssueIds }, report: { novelId, chapterId } },
         orderBy: { createdAt: "asc" },
       })
       : [];
@@ -170,6 +176,7 @@ export class ChapterRepairStreamRuntime {
     chapterId: string;
     options: RepairOptions;
     content: string;
+    expectedContent: string | null;
     helpers: StreamDoneHelpers;
   }): Promise<void> {
     const runId = `chapter-repair:${input.chapterId}`;
@@ -186,49 +193,55 @@ export class ChapterRepairStreamRuntime {
       throw new ChapterPatchRepairFailedError("修复结果为空，未保存章节正文。");
     }
 
-    await prisma.chapter.update({
-      where: { id: input.chapterId },
-      data: { content: repairedContent, generationState: "repaired" },
+    await commitGeneratedChapter({
+      novelId: input.novelId, chapterId: input.chapterId, content: repairedContent,
+      expectedContent: input.expectedContent, generationState: "repaired",
     });
-    await this.deps.artifactSyncService.syncChapterArtifacts(
-      input.novelId,
-      input.chapterId,
-      repairedContent,
-      {
-        scheduleBackgroundSync: true,
-        awaitArtifactDelta: true,
-        skipLegacySummaryAndFacts: true,
+    await runWithExecutionScope({
+      fence: { kind: "chapter_content", novelId: input.novelId, chapterId: input.chapterId, content: repairedContent },
+    }, async () => {
+      await this.deps.artifactSyncService.syncChapterArtifacts(
+        input.novelId,
+        input.chapterId,
+        repairedContent,
+        {
+          scheduleBackgroundSync: true,
+          awaitArtifactDelta: true,
+          skipLegacySummaryAndFacts: true,
+          provider: input.options.provider,
+          model: input.options.model,
+        },
+      );
+
+      const review = await this.deps.reviewChapterAfterRepair(input.novelId, input.chapterId, {
         provider: input.options.provider,
         model: input.options.model,
-      },
-    );
-
-    const review = await this.deps.reviewChapterAfterRepair(input.novelId, input.chapterId, {
-      provider: input.options.provider,
-      model: input.options.model,
-      temperature: input.options.temperature,
-      content: repairedContent,
-    });
-    if (isPass(review.score)) {
-      await prisma.chapter.update({
-        where: { id: input.chapterId },
-        data: { generationState: "approved" },
+        temperature: input.options.temperature,
+        content: repairedContent,
       });
-      if (input.options.auditIssueIds?.length) {
-        const resolveAuditIssues = this.deps.resolveAuditIssues
-          ?? ((novelId: string, issueIds: string[]) => auditService.resolveIssues(novelId, issueIds));
-        await resolveAuditIssues(input.novelId, input.options.auditIssueIds).catch(() => null);
+      if (isPass(review.score)) {
+        await prisma.chapter.update({
+          where: { id: input.chapterId, content: repairedContent },
+          data: { generationState: "approved" },
+        });
+        if (input.options.auditIssueIds?.length) {
+          const resolveAuditIssues = this.deps.resolveAuditIssues
+            ?? ((novelId: string, issueIds: string[]) => auditService.resolveIssues(novelId, issueIds));
+          await resolveAuditIssues(input.novelId, input.options.auditIssueIds).catch((error) => {
+            if (isExecutionStoppedError(error)) throw error;
+          });
+        }
       }
-    }
 
-    input.helpers.writeFrame({
-      type: "run_status",
-      runId,
-      status: "succeeded",
-      phase: "completed",
-      message: isPass(review.score)
-        ? "章节修复已完成，本章已达到可继续推进状态。"
-        : "修复稿已保存，但仍有问题待继续处理。",
+      input.helpers.writeFrame({
+        type: "run_status",
+        runId,
+        status: "succeeded",
+        phase: "completed",
+        message: isPass(review.score)
+          ? "章节修复已完成，本章已达到可继续推进状态。"
+          : "修复稿已保存，但仍有问题待继续处理。",
+      });
     });
   }
 }

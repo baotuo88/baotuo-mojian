@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import { getDatabaseUrl } from "../config/database";
 import { resolveDatabaseFilePath } from "../runtime/appPaths";
 import { configureSqliteRuntimePragmas } from "./sqlitePragmas";
+import { guardPrismaExecutionWrites } from "../platform/execution";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -45,10 +46,10 @@ const adapter = databaseUrl.startsWith("file:")
 
 export const prisma =
   global.prisma ??
-  new PrismaClient({
+  guardPrismaExecutionWrites(new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-  });
+  }));
 
 if (process.env.NODE_ENV !== "production") {
   global.prisma = prisma;

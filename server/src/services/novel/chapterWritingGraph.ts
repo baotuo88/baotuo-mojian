@@ -72,7 +72,7 @@ interface ChapterGraphDeps {
     chapterId: string,
     content: string,
     generationState: "drafted" | "repaired",
-    options?: { scheduleBackgroundSync?: boolean; syncArtifacts?: boolean },
+    options?: { scheduleBackgroundSync?: boolean; syncArtifacts?: boolean; expectedContent?: string | null },
   ) => Promise<void>;
   logInfo: (message: string, meta?: Record<string, unknown>) => void;
   logWarn: (message: string, meta?: Record<string, unknown>) => void;
@@ -348,9 +348,11 @@ export class ChapterWritingGraph {
     return {
       stream: guardStreamStall(streamed.stream as AsyncIterable<BaseMessageChunk>, {
         label: "chapter writer draft",
+        signal: streamed.signal,
+        onStall: streamed.cancel,
       }),
       onDone: async (fullContent: string) => {
-        const completed = await streamed.complete.catch(() => null);
+        const completed = await streamed.complete;
         const rawContent = completed?.output ?? fullContent;
         const normalized = await this.continuityNode(
           input.novelId,
@@ -381,6 +383,7 @@ export class ChapterWritingGraph {
           {
             scheduleBackgroundSync: !input.options.deferArtifactBackgroundSync,
             syncArtifacts: false,
+            expectedContent: input.chapter.content ?? null,
           },
         );
         return {

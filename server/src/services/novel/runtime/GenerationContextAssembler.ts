@@ -2,6 +2,7 @@ import type { GenerationContextPackage } from "@ai-novel/shared/types/chapterRun
 import { buildCompressionLog } from "../../../prompting/core/contextBudget";
 import { prisma } from "../../../db/prisma";
 import { ragServices } from "../../rag";
+import { ensureSnapshotRestoreReady } from "../snapshots";
 import { plannerService } from "../../planner/PlannerService";
 import { buildChapterRagQuery } from "../NovelReferenceService";
 import { NovelContinuationService } from "../NovelContinuationService";
@@ -141,6 +142,7 @@ export class GenerationContextAssembler {
     };
     contextPackage: GenerationContextPackage;
   }> {
+    await ensureSnapshotRestoreReady(novelId);
     // Phase 2：novel 稳定层从缓存获取，避免每章重复全量查询
     let [novel, chapter] = await Promise.all([
       batchContextCache.getNovelRow(novelId),

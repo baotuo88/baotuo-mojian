@@ -32,6 +32,12 @@
 - 严格相等断言在 schema 上失败（`operator: 'strictEqual'`，`actual/expected` 都显示为 `[ZodObject]` 且结构看起来一致）时，用 `require.resolve` 分别解析两条 import 路径：一条指向 `node_modules/.pnpm/@ai-novel+shared@file+shared/...`、另一条指向 `shared/dist/...`，即可确认是注入副本造成的双实例。不要把它放宽成 `deepEqual` 掩盖问题，应改为契约断言或统一 import 路径。
 - 2026-09-27 已按该规则处理 `server/tests/directorRiskContracts.test.js`：跨包身份断言改为“注册资产与 shared 契约行为一致 + 严格性验证”，fast 套件恢复全绿。后续新增跨包契约测试直接按此写法，不要再引入对象身份比较。
 
+## 客户端测试发现边界
+
+客户端运行器递归收集 `src/` 与 `tests/` 下的 `.test.js` 和 `.test.mjs`。不要依赖 shell 对 `**` 的展开行为，否则深层编辑器测试与顶层 `.mjs` 回归可能没有执行却显示命令成功。
+
+仅当当前检出根本没有桌面包时，桌面专属合同测试允许显式跳过；存在桌面包但缺少组件时仍须失败。报告测试结果时分别列出通过和跳过数量。
+
 ## Related Modules
 
 - `server/scripts/run-tests.cjs`

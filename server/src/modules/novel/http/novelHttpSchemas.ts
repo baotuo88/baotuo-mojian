@@ -220,6 +220,7 @@ export const updateChapterSchema = z.object({
   title: z.string().trim().min(1).optional(),
   order: z.number().int().nonnegative().optional(),
   content: z.string().optional(),
+  expectedContent: z.string().nullable().optional(),
   expectation: z.string().optional(),
   chapterStatus: z.enum(["unplanned", "pending_generation", "generating", "pending_review", "needs_repair", "completed"]).optional(),
   targetWordCount: z.number().int().min(200).max(20000).nullable().optional(),
@@ -234,6 +235,10 @@ export const updateChapterSchema = z.object({
   characterScore: z.number().int().min(0).max(100).nullable().optional(),
   pacingScore: z.number().int().min(0).max(100).nullable().optional(),
   riskFlags: z.string().nullable().optional(),
+}).superRefine((input, context) => {
+  if (typeof input.content === "string" && input.expectedContent === undefined) {
+    context.addIssue({ code: "custom", path: ["expectedContent"], message: "保存正文需要原稿版本，请重新加载章节后重试。" });
+  }
 });
 
 export const characterSchema = z.object({

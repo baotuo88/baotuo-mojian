@@ -13,6 +13,8 @@ import type {
 import { ApprovalContinuationService } from "./ApprovalContinuationService";
 import { RunExecutionService } from "./RunExecutionService";
 import { withSharedRunLock } from "./runLocks";
+import { cancelAgentExecution, runWithAgentExecution } from "./agentExecution";
+import { isExecutionStoppedError, withoutExecutionScope } from "../../platform/execution";
 import { normalizeAgent, parseRunMetadata, safeJson, TERMINAL_STATUSES, isRecord, asObject, type RunMetadata } from "./runtimeHelpers";
 
 export class AgentRuntime {
@@ -23,7 +25,18 @@ export class AgentRuntime {
   private readonly approvals = new ApprovalContinuationService(this.store, this.executor);
 
   private async withRunLock<T>(runId: string, fn: () => Promise<T>): Promise<T> {
-    return withSharedRunLock(runId, fn);
+    return withSharedRunLock(runId, () => runWithAgentExecution(runId, async () => {
+      try {
+        return await fn();
+      } catch (error) {
+        if (isExecutionStoppedError(error)) {
+          await withoutExecutionScope(() => this.store.updateRun(runId, {
+            status: "cancelled", currentStep: "cancelled", finishedAt: new Date(), error: null,
+          }));
+        }
+        throw error;
+      }
+    }));
   }
 
   private async failRun(
@@ -158,6 +171,7 @@ export class AgentRuntime {
           currentStep: "planning",
         });
       } catch (error) {
+        if (isExecutionStoppedError(error)) throw error;
         const message = error instanceof Error ? error.message : "LLM 意图识别失败。";
         await this.store.addStep({
           runId: run.id,
@@ -323,14 +337,16 @@ export class AgentRuntime {
   }
 
   async cancelRun(runId: string): Promise<void> {
-    await this.withRunLock(runId, async () => {
-      await this.store.expireAllPendingApprovals(runId, "Run cancelled.");
+    cancelAgentExecution(runId);
+    // Cancellation is a control action; it must not wait behind the executing plan.
+    await withoutExecutionScope(async () => {
       await this.store.updateRun(runId, {
         status: "cancelled",
         error: null,
         finishedAt: new Date(),
         currentStep: "cancelled",
       });
+      await this.store.expireAllPendingApprovals(runId, "Run cancelled.");
     });
   }
 

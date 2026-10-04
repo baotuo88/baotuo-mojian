@@ -332,6 +332,13 @@ export function parseApprovalPayload(payloadJson: string | null | undefined): Se
     temperature: typeof contextRecord.temperature === "number" ? contextRecord.temperature : undefined,
     maxTokens: typeof contextRecord.maxTokens === "number" ? contextRecord.maxTokens : undefined,
   };
+  const source = contextRecord.chapterDraftSource;
+  if (isRecord(source) && typeof source.novelId === "string" && typeof source.chapterId === "string"
+    && typeof source.chapterOrder === "number" && (typeof source.expectedContent === "string" || source.expectedContent === null)) {
+    context.chapterDraftSource = {
+      novelId: source.novelId, chapterId: source.chapterId, chapterOrder: source.chapterOrder, expectedContent: source.expectedContent,
+    };
+  }
   const plannedActions: PlannedAction[] = raw.plannedActions
     .filter((item): item is Record<string, unknown> => isRecord(item))
     .map((item) => {
@@ -384,16 +391,14 @@ export function buildAlternativePathFromRejectedApproval(
     if (novelId && chapterId && content.trim()) {
       return [{
         agent: "Writer",
-        reasoning: "审批拒绝后改为草稿保存，避免直接覆盖正文。",
+        reasoning: "审批拒绝后展示修改预览。",
         calls: [{
-          tool: "save_chapter_draft",
-          reason: `审批拒绝，转草稿保存。${note ? `备注: ${note}` : ""}`.trim(),
-          idempotencyKey: `fallback_draft_${chapterId}_${Date.now()}`,
+          tool: "diff_chapter_patch",
+          reason: `查看未应用的修改。${note ? `备注: ${note}` : ""}`.trim(),
+          idempotencyKey: `rejected_patch_preview_${chapterId}_${Date.now()}`,
           input: {
-            novelId,
-            chapterId,
-            content,
-            dryRun: false,
+            ...firstCall.input,
+            novelId, chapterId, content,
           },
         }],
       }];

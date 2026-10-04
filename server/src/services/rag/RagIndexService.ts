@@ -18,6 +18,7 @@ import {
 } from "./chunkFacets";
 import { runWithConcurrency } from "./utils";
 import { loadRagSourceDocuments } from "./RagSourceLoader";
+import { claimRagOwnerJob, enqueueRagOwnerJob } from "./queue";
 
 type ReindexScope = "novel" | "world" | "all";
 
@@ -636,55 +637,7 @@ export class RagIndexService {
       maxAttempts?: number;
     },
   ) {
-    const tenantId = options?.tenantId ?? ragConfig.defaultTenantId;
-    const existing = await prisma.ragIndexJob.findFirst({
-      where: {
-        tenantId,
-        jobType,
-        ownerType,
-        ownerId,
-        status: { in: ["queued", "running"] as RagJobStatus[] },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    if (existing) {
-      if (options?.payload && existing.status === "queued") {
-        const currentPayload = this.parseJobPayload(existing.payloadJson);
-        await prisma.ragIndexJob.update({
-          where: { id: existing.id },
-          data: {
-            payloadJson: JSON.stringify({
-              ...currentPayload,
-              ...options.payload,
-              progress: currentPayload.progress,
-            } satisfies RagJobPayloadRecord),
-          },
-        });
-      }
-      return existing;
-    }
-    const created = await prisma.ragIndexJob.create({
-      data: {
-        tenantId,
-        jobType,
-        ownerType,
-        ownerId,
-        status: "queued",
-        attempts: 0,
-        maxAttempts: options?.maxAttempts ?? ragConfig.workerMaxAttempts,
-        runAfter: options?.runAfter ?? new Date(),
-        payloadJson: JSON.stringify({
-          ...(options?.payload ?? {}),
-          progress: this.createProgressSnapshot({
-            stage: "queued",
-            label: "等待执行",
-            detail: "索引任务已进入队列。",
-            percent: 0,
-          }),
-        } satisfies RagJobPayloadRecord),
-      },
-    });
-    return created;
+    return enqueueRagOwnerJob({ jobType, ownerType, ownerId, ...options });
   }
 
   async enqueueUpsert(ownerType: RagOwnerType, ownerId: string, tenantId?: string) {
@@ -788,39 +741,8 @@ export class RagIndexService {
   }
 
   async claimNextRunnableJob(workerId: string): Promise<RagIndexJob | null> {
-    const now = new Date();
-    const candidate = await prisma.ragIndexJob.findFirst({
-      where: {
-        status: "queued",
-        runAfter: { lte: now },
-      },
-      orderBy: [{ runAfter: "asc" }, { createdAt: "asc" }],
-      select: { id: true },
-    });
-    if (!candidate) {
-      return null;
-    }
-
-    const claimed = await prisma.ragIndexJob.updateMany({
-      where: {
-        id: candidate.id,
-        status: "queued",
-        runAfter: { lte: now },
-      },
-      data: {
-        status: "running",
-        attempts: { increment: 1 },
-        lastError: null,
-      },
-    });
-    if (claimed.count === 0) {
-      return null;
-    }
-
-    const job = await prisma.ragIndexJob.findUnique({ where: { id: candidate.id } });
-    if (!job) {
-      return null;
-    }
+    const job = await claimRagOwnerJob();
+    if (!job) return null;
     await this.updateJobProgress(job.id, {
       stage: "loading_source",
       label: "开始处理",

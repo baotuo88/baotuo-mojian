@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { Chapter, ReviewIssue } from "@ai-novel/shared/types/novel";
-import { updateNovelChapter } from "@/api/novel";
+import { createNovelSnapshot, updateNovelChapter } from "@/api/novel";
+import { rewriteChapterWithBackup } from "../chapterProduction";
 import { generateChapterExecutionContract } from "@/api/novel/chapters";
 import { generateNovelChapterSummary } from "@/api/novelChapterSummary";
 import {
@@ -57,6 +58,7 @@ export function useChapterExecutionActions({
   const [executionContractActionKind, setExecutionContractActionKind] = useState<ExecutionContractActionKind>(null);
   const [repairActionKind, setRepairActionKind] = useState<RepairActionKind>(null);
   const [generationActionKind, setGenerationActionKind] = useState<GenerationActionKind>(null);
+  const rewritePending = useRef(false);
 
   const patchChapterMutation = useMutation({
     mutationFn: (payload: Parameters<typeof updateNovelChapter>[2]) => updateNovelChapter(novelId, selectedChapterId, payload),
@@ -145,26 +147,25 @@ export function useChapterExecutionActions({
     onMessage("生成策略已应用到当前章节。");
   };
 
-  const rewriteChapter = () => {
+  const rewriteChapter = async () => {
     const chapter = ensureChapter();
-    if (!chapter) {
+    if (!chapter || rewritePending.current || isGeneratingChapter) {
       return;
     }
+    rewritePending.current = true;
     setGenerationActionKind("rewrite");
-    patchChapterMutation.mutate({
-      content: "",
-      chapterStatus: "pending_generation",
-      repairHistory: `${chapter.repairHistory ?? ""}\n[rewrite] ${new Date().toISOString()}`.trim(),
-    });
-    void syncNovelWorkflowStageSilently({
-      novelId,
-      stage: "chapter_execution",
-      itemLabel: "本章已重置并准备重写",
-      chapterId: chapter.id,
-      status: "waiting_approval",
-    });
-    onGenerateChapter();
-    onMessage("已触发重写流程。");
+    try {
+      onMessage("正在备份原稿，备份完成后开始重写。");
+      await rewriteChapterWithBackup({
+        backup: () => createNovelSnapshot(novelId, { triggerType: "manual", label: `before-chapter-rewrite-${chapter.id}-${Date.now()}` }),
+        generate: onGenerateChapter,
+      });
+    } catch (error) {
+      setGenerationActionKind(null);
+      onMessage(error instanceof Error ? error.message : "重写未完成，原稿已保留。");
+    } finally {
+      rewritePending.current = false;
+    }
   };
 
   const expandChapter = () => {

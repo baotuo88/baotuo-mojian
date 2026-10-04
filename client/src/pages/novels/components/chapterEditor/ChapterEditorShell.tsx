@@ -7,10 +7,11 @@ import type {
   ChapterEditorRevisionScope,
   ChapterEditorTargetRange,
 } from "@ai-novel/shared/types/novel";
-import { createNovelSnapshot, previewChapterAiRevision, updateNovelChapter } from "@/api/novel";
+import { createNovelSnapshot, previewChapterAiRevision } from "@/api/novel";
 import { queryKeys } from "@/api/queryKeys";
 import { toast } from "@/components/ui/toast";
 import { useLLMStore } from "@/store/llmStore";
+import { useChapterSaveSession } from "./application";
 import ChapterEditorDirectorPanel from "./ChapterEditorDirectorPanel";
 import ChapterEditorSidebar from "./ChapterEditorSidebar";
 import ChapterTextEditor from "./ChapterTextEditor";
@@ -66,33 +67,6 @@ function toSelectionFromRange(
 }
 
 
-const chapterDraftStorageKey = (novelId: string, chapterId: string) =>
-  `dsh:chapter-draft:${novelId}:${chapterId}`;
-
-function readChapterDraftCache(novelId: string, chapterId: string): string | null {
-  try {
-    return window.localStorage.getItem(chapterDraftStorageKey(novelId, chapterId));
-  } catch {
-    return null;
-  }
-}
-
-function writeChapterDraftCache(novelId: string, chapterId: string, content: string): void {
-  try {
-    window.localStorage.setItem(chapterDraftStorageKey(novelId, chapterId), content);
-  } catch {
-    // 隐私模式/配额满时静默降级：本地缓存只是兜底，不是唯一保存路径。
-  }
-}
-
-function clearChapterDraftCache(novelId: string, chapterId: string): void {
-  try {
-    window.localStorage.removeItem(chapterDraftStorageKey(novelId, chapterId));
-  } catch {
-    // 忽略清理失败。
-  }
-}
-
 export default function ChapterEditorShell(props: ChapterEditorShellProps) {
   const {
     novelId,
@@ -105,45 +79,15 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
   const llm = useLLMStore();
   const queryClient = useQueryClient();
   const lastPreviewRequestRef = useRef<ReturnType<typeof buildAiRevisionRequest> | null>(null);
-  const normalizedChapterContent = useMemo(() => normalizeChapterContent(chapter?.content ?? ""), [chapter?.content]);
-
-  const [contentDraft, setContentDraft] = useState(normalizedChapterContent);
-  const [savedContent, setSavedContent] = useState(normalizedChapterContent);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveSession = useChapterSaveSession(novelId, chapter?.id ?? "", chapter?.content ?? null);
+  const contentDraft = saveSession.draft;
+  const saveStatus = saveSession.status;
   const [selection, setSelection] = useState<ChapterEditorSelectionRange | null>(null);
   const [selectionToolbarPosition, setSelectionToolbarPosition] = useState<SelectionToolbarPosition | null>(null);
   const [session, setSession] = useState<ChapterEditorSessionState>(EMPTY_SESSION);
   const [revisionScope, setRevisionScope] = useState<ChapterEditorRevisionScope>("selection");
   const [revisionInstruction, setRevisionInstruction] = useState("");
   const [selectedDiagnosticId, setSelectedDiagnosticId] = useState<string | null>(null);
-  const contentDraftRef = useRef(normalizedChapterContent);
-
-  // 章节切换或服务端内容更新时切换草稿底稿；
-  // 有未保存修改的草稿先落入本地缓存，切换后若本地缓存更新则恢复，避免手稿静默丢失。
-  useEffect(() => {
-    const chapterId = chapter?.id;
-    if (!chapterId || !novelId) {
-      return;
-    }
-    const previousDraft = contentDraftRef.current;
-    if (previousDraft !== normalizedChapterContent && previousDraft.trim().length > 0) {
-      writeChapterDraftCache(novelId, chapterId, previousDraft);
-    }
-    const cachedDraft = readChapterDraftCache(novelId, chapterId);
-    const hasCachedDraft = cachedDraft != null && cachedDraft !== normalizedChapterContent;
-    const nextContent = hasCachedDraft ? cachedDraft : normalizedChapterContent;
-    contentDraftRef.current = nextContent;
-    setContentDraft(nextContent);
-    setSavedContent(normalizedChapterContent);
-    setSaveStatus(hasCachedDraft ? "error" : "idle");
-    setSelection(null);
-    setSelectionToolbarPosition(null);
-    setSession(EMPTY_SESSION);
-    setRevisionInstruction("");
-    setRevisionScope("selection");
-    lastPreviewRequestRef.current = null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapter?.id, normalizedChapterContent]);
 
   useEffect(() => {
     if (!workspace) {
@@ -155,7 +99,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
     }
   }, [selectedDiagnosticId, workspace]);
 
-  const isDirty = contentDraft !== savedContent;
+  const isDirty = saveSession.dirty;
   const wordCount = useMemo(() => countEditorWords(contentDraft), [contentDraft]);
   const activeCandidate = useMemo(
     () => session.candidates?.find((candidate) => candidate.id === session.activeCandidateId) ?? null,
@@ -190,64 +134,18 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
   };
 
   const saveMutation = useMutation({
-    mutationFn: async (nextContent: string) => {
-      if (!chapter) {
-        throw new Error("当前未选中章节。");
-      }
-      return updateNovelChapter(novelId, chapter.id, { content: nextContent });
-    },
-    onMutate: () => {
-      setSaveStatus("saving");
-    },
-    onSuccess: async (_response, nextContent) => {
-      setSavedContent(nextContent);
-      setSaveStatus("saved");
-      if (novelId && chapter?.id) {
-        clearChapterDraftCache(novelId, chapter.id);
-      }
-      await invalidateChapterQueries();
-    },
+    mutationFn: () => saveSession.save(),
+    onSuccess: invalidateChapterQueries,
     onError: (error) => {
-      setSaveStatus("error");
-      toast.error(error instanceof Error ? error.message : "章节保存失败。");
+      toast.error(error instanceof Error ? error.message : "章节保存失败，草稿已保留。");
     },
   });
 
-  // 自动保存：修改停顿 2.5s 后静默保存；本地草稿缓存同步兜底。
-  // 自动保存只更新该章数据，手动保存才做整组失效与完整快照联动。
-  const AUTO_SAVE_DELAY_MS = 2500;
-  useEffect(() => {
-    if (!novelId || !chapter?.id) {
-      return;
-    }
-    if (!isDirty) {
-      return;
-    }
-    writeChapterDraftCache(novelId, chapter.id, contentDraft);
-    const nextContent = contentDraft;
-    const handle = window.setTimeout(() => {
-      if (!chapter) {
-        return;
-      }
-      void (async () => {
-        try {
-          setSaveStatus("saving");
-          await updateNovelChapter(novelId, chapter.id, { content: nextContent });
-          if (contentDraftRef.current === nextContent) {
-            setSavedContent(nextContent);
-            setSaveStatus("saved");
-            clearChapterDraftCache(novelId, chapter.id);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapterEditorWorkspace(novelId, chapter.id) });
-          }
-        } catch (error) {
-          setSaveStatus("error");
-          console.warn("[章节编辑器] 自动保存失败，已保留本地草稿", error);
-        }
-      })();
-    }, AUTO_SAVE_DELAY_MS);
-    return () => window.clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contentDraft, isDirty, novelId, chapter?.id]);
+  const resolveConflictMutation = useMutation({
+    mutationFn: () => saveSession.keepLocalVersion(),
+    onSuccess: invalidateChapterQueries,
+    onError: (error) => toast.error(error instanceof Error ? error.message : "保存失败，两个版本都已保留。"),
+  });
 
   // 有未保存修改时拦截页面关闭/刷新。
   useEffect(() => {
@@ -326,21 +224,28 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
       if (!chapter || !activeCandidate || !session.targetRange) {
         throw new Error("当前没有可应用的候选版本。");
       }
+      const sourceContent = lastPreviewRequestRef.current?.contentSnapshot;
+      const requireMatchingDraft = () => {
+        if (sourceContent !== normalizeChapterContent(saveSession.getDraft())) {
+          throw new Error("正文发生了变化，请重新生成修改建议后应用。");
+        }
+      };
+      requireMatchingDraft();
+      // Confirm unsaved input before backing it up, so the snapshot contains the actual original.
+      await saveSession.save();
       const label = `chapter-editor:${chapter.order}:${session.scope}:${Date.now()}`;
-      const nextContent = applyCandidateToContent(contentDraft, session.targetRange, activeCandidate.content);
-      await createNovelSnapshot(novelId, {
+      const snapshot = await createNovelSnapshot(novelId, {
         triggerType: "manual",
         label,
       });
-      await updateNovelChapter(novelId, chapter.id, {
-        content: nextContent,
-      });
+      if (!snapshot.data?.id) throw new Error("修改前备份尚未确认，请重试。");
+      requireMatchingDraft();
+      const nextContent = applyCandidateToContent(saveSession.getDraft(), session.targetRange, activeCandidate.content);
+      saveSession.setDraft(nextContent);
+      await saveSession.save();
       return nextContent;
     },
-    onSuccess: async (nextContent) => {
-      setContentDraft(nextContent);
-      setSavedContent(nextContent);
-      setSaveStatus("saved");
+    onSuccess: async () => {
       setSession(EMPTY_SESSION);
       setRevisionInstruction("");
       await invalidateChapterQueries();
@@ -499,6 +404,19 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {saveSession.remoteContent !== undefined && (
+        <div role="alert" className="rounded-xl border border-amber-400/60 bg-amber-50 p-4 text-sm text-foreground">
+          <p>正文在其他位置发生了修改。你的草稿已保留，请核对服务器版本后保存。</p>
+          <details className="mt-2">
+            <summary className="cursor-pointer">查看服务器正文</summary>
+            <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap">{saveSession.remoteContent || "（空白正文）"}</pre>
+          </details>
+          <button type="button" className="mt-3 underline" disabled={resolveConflictMutation.isPending}
+            onClick={() => resolveConflictMutation.mutate()}>
+            备份服务器稿并保留我的修改
+          </button>
+        </div>
+      )}
       <div className={`grid min-h-0 flex-1 gap-4 overflow-hidden ${gridClassName}`}>
         <ChapterEditorSidebar
           chapter={chapter}
@@ -511,7 +429,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
           selectedDiagnosticId={selectedDiagnosticId}
           onBack={onBack}
           onOpenVersionHistory={onOpenVersionHistory}
-          onSave={() => saveMutation.mutate(contentDraftRef.current)}
+          onSave={() => saveMutation.mutate()}
           onFocusDiagnostic={handleFocusDiagnostic}
           onRunDiagnostic={handleRunDiagnostic}
         />
@@ -521,9 +439,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
             value={contentDraft}
             readOnly={session.status !== "idle"}
             onChange={(next) => {
-              contentDraftRef.current = next;
-              setContentDraft(next);
-              setSaveStatus("idle");
+              saveSession.setDraft(next);
             }}
             onSelectionChange={(nextSelection, position) => {
               setSelection(nextSelection);

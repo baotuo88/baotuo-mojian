@@ -5,8 +5,6 @@ import { BOOK_ANALYSIS_SECTIONS } from "@ai-novel/shared/types/bookAnalysis";
 import type { NovelExportDownloadFormat, NovelExportScope } from "@ai-novel/shared/types/novelExport";
 import type {
   Chapter,
-  PipelineRepairMode,
-  PipelineRunMode,
   VolumeBeatSheet,
   VolumeCritiqueReport,
   VolumePlan,
@@ -30,7 +28,6 @@ import { toast } from "@/components/ui/toast";
 import { useLLMStore } from "@/store/llmStore";
 import { buildWorldInjectionSummary } from "./novelEdit.utils";
 import type { QuickCharacterCreatePayload } from "./components/characterPanel/characterPanel.utils.ts";
-import type { ChapterExecutionStrategy } from "./chapterExecution.utils";
 import { useNovelCharacterMutations } from "./hooks/useNovelCharacterMutations";
 import { useChapterExecutionActions } from "./hooks/useChapterExecutionActions";
 import { useNovelContinuationSources } from "./hooks/useNovelContinuationSources";
@@ -51,11 +48,12 @@ import { useNovelDirectorWorkspaceSync } from "./hooks/useNovelDirectorWorkspace
 import { useNovelCharacterResourceMutations } from "./hooks/useNovelCharacterResourceMutations";
 import { useNovelDirectorReadModel } from "./hooks/useNovelDirectorReadModel";
 import { useNovelEditQueries } from "./hooks/useNovelEditQueries";
-import { useNovelWorkspaceInvalidation } from "./hooks/workspace";
+import { useNovelWorkspaceInvalidation, useChapterProductionState } from "./hooks/workspace";
 import { NovelTakeoverEntry } from "./presentation/NovelTakeoverEntry";
 import { buildNovelTaskDrawerModel } from "./presentation/buildNovelTaskDrawerModel";
 import { buildNovelEditPlanningTabs } from "./novelEditPlanningTabs";
-import type { ChapterReviewResult } from "./chapterPlanning.shared";
+import { reviewForChapter } from "./chapterProduction";
+import type { ChapterExecutionStrategy } from "./chapterExecution.utils";
 import NovelExistingProjectTakeoverDialog from "./components/takeover/NovelExistingProjectTakeoverDialog";
 import { isNovelWorkspaceFlowTab, tabFromScope } from "./novelWorkspaceNavigation";
 import {
@@ -129,30 +127,17 @@ export default function NovelEdit() {
     preserveContent: true,
     applyDeletes: false,
   });
-  const [currentJobId, setCurrentJobId] = useState("");
-  const [pipelineForm, setPipelineForm] = useState({
-    startOrder: 1,
-    endOrder: DEFAULT_ESTIMATED_CHAPTER_COUNT,
-    maxRetries: 1,
-    runMode: "fast" as PipelineRunMode,
-    autoReview: true,
-    autoRepair: true,
-    skipCompleted: true,
-    qualityThreshold: 75,
-    repairMode: "light_repair" as PipelineRepairMode,
-  });
-  const [reviewResult, setReviewResult] = useState<ChapterReviewResult | null>(null);
-  const [pipelineMessage, setPipelineMessage] = useState("");
+  const {
+    currentJobId, setCurrentJobId, pipelineForm, setPipelineForm, storedReview, setReviewResult,
+    pipelineMessage, setPipelineMessage, chapterOperationMessage, setChapterOperationMessage,
+    chapterStrategy, setChapterStrategy, activeChapterStream, setActiveChapterStream,
+    activeRepairStream, setActiveRepairStream, repairBeforeContent, setRepairBeforeContent,
+    repairAfterContent, setRepairAfterContent,
+  } = useChapterProductionState();
   const [structuredMessage, setStructuredMessage] = useState("");
-  const [chapterOperationMessage, setChapterOperationMessage] = useState("");
-  const [chapterStrategy, setChapterStrategy] = useState<ChapterExecutionStrategy>({ runMode: "fast", wordSize: "medium", conflictLevel: 60, pace: "balanced", aiFreedom: "medium" });
-  const [activeChapterStream, setActiveChapterStream] = useState<{ chapterId: string; chapterLabel: string } | null>(null);
-  const [activeRepairStream, setActiveRepairStream] = useState<{ chapterId: string; chapterLabel: string } | null>(null);
   const [isDirectorExitActionExpanded, setIsDirectorExitActionExpanded] = useState(false);
   const [dismissedTakeoverSignature, setDismissedTakeoverSignature] = useState("");
   const [characterMessage, setCharacterMessage] = useState("");
-  const [repairBeforeContent, setRepairBeforeContent] = useState("");
-  const [repairAfterContent, setRepairAfterContent] = useState("");
   const [selectedCharacterId, setSelectedCharacterId] = useState("");
   const [selectedBaseCharacterId, setSelectedBaseCharacterId] = useState("");
   const [quickCharacterForm, setQuickCharacterForm] = useState({
@@ -346,6 +331,7 @@ export default function NovelEdit() {
     () => chapters.find((item) => item.id === selectedChapterId),
     [chapters, selectedChapterId],
   );
+  const reviewResult = reviewForChapter(storedReview, { novelId: id, chapterId: selectedChapterId, content: selectedChapter?.content ?? null });
   const characters = useMemo(() => novelDetailQuery.data?.data?.characters ?? [], [novelDetailQuery.data?.data?.characters]);
   const baseCharacters = useMemo(() => baseCharacterListQuery.data?.data ?? [], [baseCharacterListQuery.data?.data]);
   const selectedCharacter = useMemo(

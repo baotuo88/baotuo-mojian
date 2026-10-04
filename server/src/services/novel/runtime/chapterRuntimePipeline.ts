@@ -116,7 +116,7 @@ interface RunPipelineChapterDeps {
     chapterId: string,
     content: string,
     generationState: "drafted" | "repaired",
-    options?: { scheduleBackgroundSync?: boolean; artifactSyncMode?: PipelineRuntimeInput["artifactSyncMode"]; syncArtifacts?: boolean },
+    options?: { scheduleBackgroundSync?: boolean; artifactSyncMode?: PipelineRuntimeInput["artifactSyncMode"]; syncArtifacts?: boolean; expectedContent?: string | null },
   ) => Promise<void>;
   syncFinalChapterArtifacts: (
     novelId: string,
@@ -140,8 +140,9 @@ interface RunPipelineChapterDeps {
   markChapterGenerationState: (
     chapterId: string,
     generationState: "reviewed" | "approved",
+    content: string,
   ) => Promise<void>;
-  markChapterNeedsRepair: (chapterId: string) => Promise<void>;
+  markChapterNeedsRepair: (chapterId: string, content: string) => Promise<void>;
 }
 
 const QUALITY_THRESHOLD = { coherence: 80, repetition: 75, engagement: 75 };
@@ -209,13 +210,14 @@ export async function runPipelineChapterWithRuntime(
           scheduleBackgroundSync: false,
           artifactSyncMode,
           syncArtifacts: false,
+          expectedContent: assembled.chapter.content,
         });
       }
     }
 
     if (!autoReview) {
       await syncFinalRetainedChapterArtifacts(deps, novelId, chapterId, content, artifactSyncMode, "confirmed");
-      await deps.markChapterGenerationState(chapterId, "approved");
+      await deps.markChapterGenerationState(chapterId, "approved", content);
       return {
         reviewExecuted: false,
         pass: true,
@@ -252,7 +254,7 @@ export async function runPipelineChapterWithRuntime(
       ...styleLeakageIssues,
     ];
     content = latestResult.finalContent;
-    await deps.markChapterGenerationState(chapterId, "reviewed");
+    await deps.markChapterGenerationState(chapterId, "reviewed", content);
 
     const acceptanceStatus = latestResult.runtimePackage.meta?.acceptanceStatus;
     const continuePolicy = latestResult.runtimePackage.meta?.continuePolicy;
@@ -265,7 +267,7 @@ export async function runPipelineChapterWithRuntime(
       && isQualityPass(latestResult.runtimePackage.audit.score, qualityThreshold)
       && styleLeakageIssues.length === 0;
     if (pass) {
-      await deps.markChapterGenerationState(chapterId, "approved");
+      await deps.markChapterGenerationState(chapterId, "approved", content);
       break;
     }
 
@@ -304,16 +306,18 @@ export async function runPipelineChapterWithRuntime(
     if (repairResult.recoverableFailure) {
       recoverableRepairFailure = repairResult.recoverableFailure;
       repairEscalatedFromPatch = repairResult.escalatedFromPatch;
-      await deps.markChapterNeedsRepair(chapterId);
+      await deps.markChapterNeedsRepair(chapterId, content);
       break;
     }
     repairEscalatedFromPatch = repairResult.escalatedFromPatch;
+    const repairBaseline = content;
     content = repairResult.content;
     retryCountUsed += 1;
     await deps.saveDraftAndArtifacts(novelId, chapterId, content, "repaired", {
       scheduleBackgroundSync: false,
       artifactSyncMode,
       syncArtifacts: false,
+      expectedContent: repairBaseline,
     });
   }
 
@@ -627,4 +631,3 @@ function buildQualityDebtAttribution(input: {
     },
   };
 }
-

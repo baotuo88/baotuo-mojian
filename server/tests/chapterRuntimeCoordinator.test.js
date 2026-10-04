@@ -7,6 +7,7 @@ const { mergeKnowledgeBoundaryState } = require("../dist/services/novel/runtime/
 const { directorAutomationLedgerEventService } = require("../dist/services/novel/director/runtime/DirectorAutomationLedgerEventService.js");
 const { PostGenerationStyleReviewRunner } = require("../dist/services/novel/runtime/PostGenerationStyleReviewRunner.js");
 const { openConflictService } = require("../dist/services/state/OpenConflictService.js");
+const generatedChapterStore = require("../dist/services/novel/runtime/persistence/GeneratedChapterStore.js");
 
 function createEmptyStream() {
   return {
@@ -666,13 +667,18 @@ test("finalizeChapterContent writes only acceptance-covered mustHitNow facts bef
     },
   });
 
-  const originalChapterUpdate = prisma.chapter.update;
+  const originalChapterUpdateMany = prisma.chapter.updateMany;
   const originalFactFindMany = prisma.novelFactEntry.findMany;
   const originalFactCreateMany = prisma.novelFactEntry.createMany;
   const originalListOpenConflicts = openConflictService.listOpenConflicts;
   const originalRecordEvent = directorAutomationLedgerEventService.recordEvent;
 
-  prisma.chapter.update = async () => undefined;
+  prisma.chapter.updateMany = async ({ where }) => {
+    assert.deepEqual(where, {
+      id: "chapter-1", novelId: "novel-1", content: "正文写出了主角当众拒绝婚约，但没有拿到钥匙。",
+    });
+    return { count: 1 };
+  };
   prisma.novelFactEntry.findMany = async () => [];
   prisma.novelFactEntry.createMany = async ({ data }) => {
     calls.push("facts");
@@ -710,7 +716,7 @@ test("finalizeChapterContent writes only acceptance-covered mustHitNow facts bef
     assert.equal(eventCalls[0].metadata.excludedObligations.length, 1);
     assert.equal(eventCalls[0].metadata.excludedObligations[0].text, "拿到青铜钥匙，并发现钥匙来自失踪师父。");
   } finally {
-    prisma.chapter.update = originalChapterUpdate;
+    prisma.chapter.updateMany = originalChapterUpdateMany;
     prisma.novelFactEntry.findMany = originalFactFindMany;
     prisma.novelFactEntry.createMany = originalFactCreateMany;
     openConflictService.listOpenConflicts = originalListOpenConflicts;
@@ -719,6 +725,7 @@ test("finalizeChapterContent writes only acceptance-covered mustHitNow facts bef
 });
 
 test("createRepairStream escalates patch schema failures to a single heavy repair stream", async () => {
+  const originalCommitGeneratedChapter = generatedChapterStore.commitGeneratedChapter;
   const originalNovelFindUnique = prisma.novel.findUnique;
   const originalChapterFindFirst = prisma.chapter.findFirst;
   const originalBibleFindUnique = prisma.novelBible.findUnique;
@@ -739,6 +746,10 @@ test("createRepairStream escalates patch schema failures to a single heavy repai
     content: "旧正文里有一段需要修复的内容。",
   });
   prisma.novelBible.findUnique = async () => ({ rawContent: "作品圣经" });
+  generatedChapterStore.commitGeneratedChapter = async (input) => {
+    assert.equal(input.expectedContent, "旧正文里有一段需要修复的内容。");
+    chapterUpdates.push({ content: input.content, generationState: input.generationState });
+  };
   prisma.chapter.update = async ({ data }) => {
     chapterUpdates.push(data);
     return { id: "chapter-1", ...data };
@@ -820,6 +831,7 @@ test("createRepairStream escalates patch schema failures to a single heavy repai
     assert.equal(frames.at(-1)?.status, "succeeded");
     assert.equal(frames.at(-1)?.phase, "completed");
   } finally {
+    generatedChapterStore.commitGeneratedChapter = originalCommitGeneratedChapter;
     prisma.novel.findUnique = originalNovelFindUnique;
     prisma.chapter.findFirst = originalChapterFindFirst;
     prisma.novelBible.findUnique = originalBibleFindUnique;
@@ -946,7 +958,7 @@ test("createChapterStream lets full_book_autopilot continue past pending state p
   });
 
   assert.equal(writerCalls.length, 1);
-  assert.deepEqual(statusCalls, [["chapter-1", "generating"]]);
+  assert.deepEqual(statusCalls, [["chapter-1", "generating", { novelId: "novel-1", content: assembled.chapter.content }]]);
 });
 
 test("createChapterStream retries once before failing empty generated content", async () => {
@@ -994,7 +1006,7 @@ test("createChapterStream retries once before failing empty generated content", 
   const done = await result.onDone("", { writeFrame: () => undefined });
 
   assert.equal(writerCalls.length, 2);
-  assert.deepEqual(statusCalls, [["chapter-1", "generating"]]);
+  assert.deepEqual(statusCalls, [["chapter-1", "generating", { novelId: "novel-1", content: assembled.chapter.content }]]);
   assert.deepEqual(finalized, ["重试后的正文"]);
   assert.equal(done.fullContent, "重试后的正文");
 });

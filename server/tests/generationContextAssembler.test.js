@@ -153,6 +153,7 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     novelBibleFindUnique: prisma.novelBible.findUnique,
     chapterSummaryFindMany: prisma.chapterSummary.findMany,
     consistencyFactFindMany: prisma.consistencyFact.findMany,
+    restoreCheckpointFindFirst: prisma.chapterArtifactSyncCheckpoint.findFirst,
     novelFactEntryFindMany: prisma.novelFactEntry.findMany,
     chapterFindMany: prisma.chapter.findMany,
     creativeDecisionFindMany: prisma.creativeDecision.findMany,
@@ -215,6 +216,7 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     prisma.novelBible.findUnique = async () => null;
     prisma.chapterSummary.findMany = async () => [];
     prisma.consistencyFact.findMany = async () => [];
+    prisma.chapterArtifactSyncCheckpoint.findFirst = async () => null;
     prisma.chapter.findMany = async () => [];
     prisma.creativeDecision.findMany = async () => [];
     prisma.characterMindSnapshot.findMany = async () => [];
@@ -334,6 +336,7 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     prisma.novelBible.findUnique = originals.novelBibleFindUnique;
     prisma.chapterSummary.findMany = originals.chapterSummaryFindMany;
     prisma.consistencyFact.findMany = originals.consistencyFactFindMany;
+    prisma.chapterArtifactSyncCheckpoint.findFirst = originals.restoreCheckpointFindFirst;
     prisma.novelFactEntry.findMany = originals.novelFactEntryFindMany;
     prisma.chapter.findMany = originals.chapterFindMany;
     prisma.creativeDecision.findMany = originals.creativeDecisionFindMany;

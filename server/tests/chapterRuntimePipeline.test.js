@@ -180,6 +180,7 @@ test("runPipelineChapterWithRuntime skips review and repair when autoReview is d
     content: "生成后的正文",
     generationState: "drafted",
     options: {
+      expectedContent: null,
       scheduleBackgroundSync: false,
       artifactSyncMode: "adaptive",
       syncArtifacts: false,
@@ -492,6 +493,7 @@ test("runPipelineChapterWithRuntime escalates patch failures to heavy repair and
       content: "生成后的正文需要承接。",
       generationState: "drafted",
       options: {
+        expectedContent: null,
         scheduleBackgroundSync: false,
         artifactSyncMode: "adaptive",
         syncArtifacts: false,
@@ -500,6 +502,7 @@ test("runPipelineChapterWithRuntime escalates patch failures to heavy repair and
       content: "rewritten chapter after safe full repair",
       generationState: "repaired",
       options: {
+        expectedContent: "生成后的正文需要承接。",
         scheduleBackgroundSync: false,
         artifactSyncMode: "adaptive",
         syncArtifacts: false,
@@ -1340,6 +1343,7 @@ test("runPipelineChapterWithRuntime clamps maxRetries to a single repair pass", 
         content: "生成后的正文",
         generationState: "drafted",
         options: {
+          expectedContent: null,
           scheduleBackgroundSync: false,
           artifactSyncMode: "adaptive",
           syncArtifacts: false,
@@ -1349,6 +1353,7 @@ test("runPipelineChapterWithRuntime clamps maxRetries to a single repair pass", 
         content: "修后正文补足承接。",
         generationState: "repaired",
         options: {
+          expectedContent: "初审正文需要承接。",
           scheduleBackgroundSync: false,
           artifactSyncMode: "adaptive",
           syncArtifacts: false,

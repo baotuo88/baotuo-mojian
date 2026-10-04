@@ -27,6 +27,10 @@ Wiki 不记录单次提交改了什么，也不替代 release notes。它只记�
 - [超长篇叙事上下文边界](./workflows/long-form-narrative-context.md)
 - [简易创作模式](./product/simple-creation-mode.md)
 - [章节生产链路](./workflows/chapter-production-chain.md)
+- [章节编辑、重写与审校的正文版本边界](./workflows/chapter-editing-consistency.md)
+- [执行取消与持久化围栏](./workflows/execution-cancellation-and-fencing.md)
+- [小说版本恢复](./workflows/novel-snapshot-restoration.md)
+- [流式取消与正文提交](./workflows/stream-cancellation-and-manuscript-commit.md)
 - [数据库备份与恢复边界](./workflows/database-protection.md)
 - [读者体验合同](./workflows/reader-experience-contract.md)
 - [Payoff Ledger 来源与同步合同](./workflows/payoff-ledger-contract.md)
@@ -44,6 +48,7 @@ Wiki 不记录单次提交改了什么，也不替代 release notes。它只记�
 ### RAG
 
 - [知识库与上下文组装](./rag/knowledge-and-context-assembly.md)
+- [索引队列与执行领取](./rag/queue-observability-and-worker-claims.md)
 
 ### Debugging
 

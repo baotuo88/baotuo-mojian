@@ -4,6 +4,16 @@ import type { AgentRuntimeCallbacks, PlannerInput } from "../agents/types";
 import { createStructuredPlan } from "../agents/orchestrator";
 import { AgentTraceStore } from "../agents/traceStore";
 import { RunExecutionService } from "../agents/runtime/RunExecutionService";
+import { registerAgentExecution } from "../agents/runtime/agentExecution";
+import {
+  attachExecutionFence,
+  ExecutionStoppedError,
+  getExecutionAbortSignal,
+  isExecutionStoppedError,
+  runWithExecutionScope,
+  throwIfExecutionAborted,
+  withoutExecutionScope,
+} from "../platform/execution";
 import { safeJson } from "../agents/runtime/runtimeHelpers";
 import { novelProductionService } from "../services/novel";
 import type { ProductionStatusResult } from "../services/novel";
@@ -32,6 +42,9 @@ import type { CreativeHubStreamFrame } from "@ai-novel/shared/types/api";
 
 interface CreativeHubGraphInvocation {
   emitFrame: (frame: CreativeHubStreamFrame) => void;
+  controller: AbortController;
+  runId?: string;
+  unregisterRun?: () => void;
 }
 
 interface RunThreadInput {
@@ -124,6 +137,8 @@ export class CreativeHubLangGraph {
   }
 
   private async coordinatorPlanNode(state: CreativeHubGraphStateValue) {
+    const invocation = this.getInvocation(state);
+    throwIfExecutionAborted();
     const run = await this.store.createRun({
       sessionId: state.sessionId,
       goal: state.goal,
@@ -140,6 +155,18 @@ export class CreativeHubLangGraph {
       }),
     });
 
+    invocation.runId = run.id;
+    invocation.unregisterRun = registerAgentExecution(run.id, invocation.controller);
+    attachExecutionFence({ kind: "agent", runId: run.id });
+    // Even an adapter that ignores cancellation must not leave a newly created
+    // run active after the graph has already unwound its invocation.
+    if (getExecutionAbortSignal()?.aborted) {
+      await withoutExecutionScope(() => this.store.updateRun(run.id, {
+        status: "cancelled", currentStep: "cancelled", finishedAt: new Date(),
+      }));
+      invocation.unregisterRun();
+      throwIfExecutionAborted();
+    }
     await this.store.updateRun(run.id, {
       status: "running",
       startedAt: new Date(),
@@ -189,6 +216,7 @@ export class CreativeHubLangGraph {
     try {
       plannerResult = await createStructuredPlan(plannerInput);
     } catch (error) {
+      if (isExecutionStoppedError(error)) throw error;
       const message = error instanceof Error ? error.message : "LLM 意图识别失败。";
       await this.store.addStep({
         runId: run.id,
@@ -506,44 +534,68 @@ export class CreativeHubLangGraph {
     }
 
     const invocationId = crypto.randomUUID();
-    this.invocations.set(invocationId, { emitFrame });
+    const controller = new AbortController();
+    const invocation: CreativeHubGraphInvocation = { emitFrame, controller };
+    this.invocations.set(invocationId, invocation);
+    const executionSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
     try {
-      const result = await this.graph.invoke({
-        invocationId,
-        threadId: input.threadId,
-        sessionId: `creative_hub_${input.threadId}`,
-        messages: input.messages,
-        runtimeMessages: [],
-        goal: "",
-        resourceBindings,
-        runSettings: input.runSettings,
-        parentCheckpointId: input.parentCheckpointId ?? null,
-        runId: null,
-        plannerResult: null,
-        executionResult: null,
-        interrupts: [],
-        finalMessages: input.messages,
-        nextBindings: resourceBindings,
-        checkpoint: null,
-        threadStatus: "idle",
-        latestError: null,
-        diagnostics: undefined,
-        turnSummary: null,
-      }, signal ? { signal } : undefined);
+      return await runWithExecutionScope({ signal: executionSignal }, async () => {
+        const result = await this.graph.invoke({
+          invocationId,
+          threadId: input.threadId,
+          sessionId: `creative_hub_${input.threadId}`,
+          messages: input.messages,
+          runtimeMessages: [],
+          goal: "",
+          resourceBindings,
+          runSettings: input.runSettings,
+          parentCheckpointId: input.parentCheckpointId ?? null,
+          runId: null,
+          plannerResult: null,
+          executionResult: null,
+          interrupts: [],
+          finalMessages: input.messages,
+          nextBindings: resourceBindings,
+          checkpoint: null,
+          threadStatus: "idle",
+          latestError: null,
+          diagnostics: undefined,
+          turnSummary: null,
+        }, { signal: getExecutionAbortSignal() });
 
-      return {
-        runId: result.runId,
-        assistantOutput: result.executionResult?.assistantOutput ?? "",
-        checkpoint: result.checkpoint,
-        interrupts: result.interrupts,
-        status: result.threadStatus,
-        latestError: result.latestError,
-        messages: result.finalMessages,
-        resourceBindings: result.nextBindings,
-        diagnostics: result.diagnostics,
-        turnSummary: result.turnSummary,
-      };
+        return {
+          runId: result.runId,
+          assistantOutput: result.executionResult?.assistantOutput ?? "",
+          checkpoint: result.checkpoint,
+          interrupts: result.interrupts,
+          status: result.threadStatus,
+          latestError: result.latestError,
+          messages: result.finalMessages,
+          resourceBindings: result.nextBindings,
+          diagnostics: result.diagnostics,
+          turnSummary: result.turnSummary,
+        };
+      });
+    } catch (error) {
+      const cancelled = executionSignal.aborted || isExecutionStoppedError(error);
+      controller.abort(error);
+      if (invocation.runId) {
+        await withoutExecutionScope(async () => {
+          const run = await this.store.getRun(invocation.runId!);
+          // An approval is durable user work. Closing a stream must not reject it.
+          if (!run || !["queued", "running"].includes(run.status)) return;
+          await this.store.updateRun(run.id, {
+            status: cancelled ? "cancelled" : "failed",
+            currentStep: cancelled ? "cancelled" : "failed",
+            error: cancelled ? null : error instanceof Error ? error.message : "创作中枢运行失败。",
+            finishedAt: new Date(),
+          });
+        });
+      }
+      throw error;
     } finally {
+      controller.abort(new ExecutionStoppedError("本轮创作中枢执行已结束。"));
+      invocation.unregisterRun?.();
       this.invocations.delete(invocationId);
     }
   }

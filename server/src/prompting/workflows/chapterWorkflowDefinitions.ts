@@ -157,6 +157,14 @@ export const chapterWorkflowDefinitions: WorkflowDefinition[] = [
       }
       return [{
         agent: "Writer",
+        tool: "get_chapter_content",
+        reason: "读取草稿对应的原稿版本",
+        input: intent.chapterSelectors.chapterId
+          ? { novelId: plannerInput.novelId, chapterId: intent.chapterSelectors.chapterId }
+          : { novelId: plannerInput.novelId, chapterOrder: order },
+        keyPrefix: "save_draft_read",
+      }, {
+        agent: "Writer",
         tool: "save_chapter_draft",
         reason: "保存章节草稿",
         input: intent.chapterSelectors.chapterId

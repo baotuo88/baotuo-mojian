@@ -24,7 +24,7 @@ import {
 } from "./structuredOutput";
 import { getStructuredFallbackSettings } from "./structuredFallbackSettings";
 import { extractLlmTokenUsage, mergeStreamTokenUsage } from "./usageTracking";
-import { runWithEnforcedTimeout } from "./invokeTimeout";
+import { runWithEnforcedTimeout, throwIfInvocationAborted } from "./invokeTimeout";
 import { beginLlmLiveSession } from "../platform/llm/live/llmLiveSession";
 import {
   buildStructuredError,
@@ -386,6 +386,7 @@ async function tryStructuredStrategies<T>(input: {
         fallbackUsed: input.fallbackUsed,
       });
     } catch (error) {
+      throwIfInvocationAborted(input.baseInput.signal);
       lastError = wrapStructuredInvokeError({
         label: input.baseInput.label,
         error,
@@ -429,6 +430,7 @@ async function tryStructuredStrategies<T>(input: {
 }
 
 export async function invokeStructuredLlmDetailed<T>(input: StructuredInvokeInput<T>): Promise<StructuredInvokeResult<T>> {
+  throwIfInvocationAborted(input.signal);
   const primaryTarget = await resolveAttemptTarget({
     provider: input.provider,
     model: input.model,
@@ -458,6 +460,7 @@ export async function invokeStructuredLlmDetailed<T>(input: StructuredInvokeInpu
       fallbackUsed: false,
     });
   } catch (primaryError) {
+    throwIfInvocationAborted(input.signal);
     if (!fallbackEnabled || !fallbackSettings) {
       throw primaryError;
     }
@@ -484,6 +487,7 @@ export async function invokeStructuredLlmDetailed<T>(input: StructuredInvokeInpu
         fallbackUsed: true,
       });
     } catch (fallbackError) {
+      throwIfInvocationAborted(input.signal);
       throw fallbackError instanceof StructuredOutputError
         ? fallbackError
         : primaryError;

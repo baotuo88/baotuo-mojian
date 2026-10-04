@@ -1,7 +1,7 @@
 import type { Router } from "express";
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import { z } from "zod";
-import { streamToSSE } from "../../../../llm/streaming";
+import { runClientSSE } from "../../../../llm/streaming";
 import { validate } from "../../../../middleware/validate";
 import type { NovelApplicationServices } from "../../../../services/novel/application/NovelApplicationContracts";
 import type { ChapterRuntimeCoordinator } from "../../../../services/novel/runtime/ChapterRuntimeCoordinator";
@@ -169,7 +169,7 @@ export function registerNovelReviewRoutes(input: RegisterNovelReviewRoutesInput)
     async (req, res, next) => {
       try {
         const { id, chapterId } = req.params as z.infer<typeof chapterParamsSchema>;
-        const { stream, onDone } = await stepModuleRunner.runStep<RepairStreamResult>(
+        await runClientSSE(req, res, () => stepModuleRunner.runStep<RepairStreamResult>(
           DIRECTOR_EXECUTION_STEP_IDS.chapter_repair,
           {
             novelId: id,
@@ -178,8 +178,7 @@ export function registerNovelReviewRoutes(input: RegisterNovelReviewRoutesInput)
             targetChapterId: chapterId,
             stepInput: req.body,
           },
-        );
-        await streamToSSE(res, stream, onDone);
+        ));
       } catch (error) {
         next(error);
       }

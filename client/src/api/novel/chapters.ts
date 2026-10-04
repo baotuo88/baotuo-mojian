@@ -52,6 +52,7 @@ export async function updateNovelChapter(
     title: string;
     order: number;
     content: string;
+    expectedContent: string | null;
     expectation: string;
     chapterStatus: ChapterStatus;
     targetWordCount: number;

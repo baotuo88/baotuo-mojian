@@ -1,6 +1,6 @@
 import type { Router } from "express";
 import { z } from "zod";
-import { streamToSSE } from "../../../../llm/streaming";
+import { runClientSSE } from "../../../../llm/streaming";
 import { validate } from "../../../../middleware/validate";
 import type { ChapterRuntimeCoordinator } from "../../../../services/novel/runtime/ChapterRuntimeCoordinator";
 import { chapterRuntimeRequestSchema } from "../../../../services/novel/runtime/chapterRuntimeSchema";
@@ -31,7 +31,7 @@ export function registerNovelChapterGenerationRoutes(input: RegisterNovelChapter
     async (req, res, next) => {
       try {
         const { id, chapterId } = req.params as z.infer<typeof chapterParamsSchema>;
-        const { stream, onDone } = await stepModuleRunner.runStep<ChapterStreamResult>(
+        await runClientSSE(req, res, () => stepModuleRunner.runStep<ChapterStreamResult>(
           DIRECTOR_EXECUTION_STEP_IDS.chapter_execution,
           {
             novelId: id,
@@ -43,8 +43,7 @@ export function registerNovelChapterGenerationRoutes(input: RegisterNovelChapter
               runtimeStream: true,
             },
           },
-        );
-        await streamToSSE(res, stream, onDone);
+        ));
       } catch (error) {
         if (forwardBusinessError(error, next)) {
           return;
@@ -60,7 +59,7 @@ export function registerNovelChapterGenerationRoutes(input: RegisterNovelChapter
     async (req, res, next) => {
       try {
         const { id, chapterId } = req.params as z.infer<typeof chapterParamsSchema>;
-        const { stream, onDone } = await stepModuleRunner.runStep<ChapterStreamResult>(
+        await runClientSSE(req, res, () => stepModuleRunner.runStep<ChapterStreamResult>(
           DIRECTOR_EXECUTION_STEP_IDS.chapter_execution,
           {
             novelId: id,
@@ -69,8 +68,7 @@ export function registerNovelChapterGenerationRoutes(input: RegisterNovelChapter
             targetChapterId: chapterId,
             stepInput: req.body as z.infer<typeof chapterRuntimeRequestSchema>,
           },
-        );
-        await streamToSSE(res, stream, onDone);
+        ));
       } catch (error) {
         if (forwardBusinessError(error, next)) {
           return;

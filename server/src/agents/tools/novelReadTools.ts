@@ -188,6 +188,7 @@ export const novelReadToolDefinitions: Partial<
         title: chapter.title,
         order: chapter.order,
         content: chapter.content ?? "",
+        expectedContent: chapter.content,
         contentLength: (chapter.content ?? "").length,
       });
     },
@@ -213,6 +214,7 @@ export const novelReadToolDefinitions: Partial<
         title: chapter.title,
         order: chapter.order,
         content: chapter.content ?? "",
+        expectedContent: chapter.content,
         contentLength: (chapter.content ?? "").length,
       });
     },

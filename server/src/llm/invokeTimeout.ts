@@ -1,3 +1,10 @@
+import { getExecutionAbortSignal, throwIfExecutionAborted } from "../platform/execution";
+
+export function throwIfInvocationAborted(signal?: AbortSignal): void {
+  throwIfExecutionAborted();
+  signal?.throwIfAborted();
+}
+
 function createTimeoutError(timeoutMs: number, label?: string): Error {
   const error = new Error(
     label?.trim()
@@ -26,16 +33,19 @@ export async function runWithEnforcedTimeout<T>(input: {
   signal?: AbortSignal;
   run: (signal?: AbortSignal) => Promise<T>;
 }): Promise<T> {
+  throwIfExecutionAborted();
+  const signals = [input.signal, getExecutionAbortSignal()].filter((signal): signal is AbortSignal => Boolean(signal));
+  const upstreamSignal = signals.length > 1 ? AbortSignal.any(signals) : signals[0];
+  upstreamSignal?.throwIfAborted();
   const timeoutMs = typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
     ? Math.floor(input.timeoutMs)
     : null;
 
-  if (!timeoutMs && !input.signal) {
+  if (!timeoutMs && !upstreamSignal) {
     return input.run(undefined);
   }
 
   const controller = new AbortController();
-  const upstreamSignal = input.signal;
   let timedOut = false;
   let timeoutHandle: NodeJS.Timeout | null = null;
   let removeAbortListener: (() => void) | null = null;

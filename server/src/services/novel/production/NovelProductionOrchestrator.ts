@@ -1,3 +1,4 @@
+import { ensureSnapshotRestoreReady } from "../snapshots";
 import type { NovelControlPolicy } from "@ai-novel/shared/types/canonicalState";
 
 export type NovelProductionStage =
@@ -78,6 +79,7 @@ export class NovelProductionOrchestrator {
         nextStage: defaultNextStage(input.stage),
       };
     }
+    await ensureSnapshotRestoreReady(input.novelId);
     return runner.run(input);
   }
 }

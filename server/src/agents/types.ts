@@ -221,6 +221,7 @@ export interface ToolExecutionContext {
   maxTokens?: number;
   dryRun?: boolean;
   plannerProfile?: PlannerProfile;
+  chapterDraftSource?: { novelId: string; chapterId: string; chapterOrder: number; expectedContent: string | null };
 }
 
 export interface ToolCall {

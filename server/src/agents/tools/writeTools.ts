@@ -49,7 +49,7 @@ export const writeToolDefinitions: Partial<
   save_chapter_draft: {
     name: "save_chapter_draft",
     title: "保存章节草稿",
-    description: "保存章节草稿，支持 dryRun。",
+    description: "保存章节草稿，需传入生成或修改前读取的 expectedContent 原稿版本，支持 dryRun。",
     category: "mutate",
     riskLevel: "medium",
     domainAgent: "NovelAgent",
@@ -71,6 +71,7 @@ export const writeToolDefinitions: Partial<
       }
       const updated = await novelService.updateChapter(input.novelId, input.chapterId, {
         content: input.content,
+        expectedContent: input.expectedContent,
         ...(input.title ? { title: input.title } : {}),
       });
       return saveChapterDraftOutputSchema.parse({
@@ -115,6 +116,7 @@ export const writeToolDefinitions: Partial<
       }
       const updated = await novelService.updateChapter(input.novelId, input.chapterId, {
         content: after,
+        expectedContent: input.expectedContent === undefined ? chapter.content : input.expectedContent,
       });
       return applyChapterPatchOutputSchema.parse({
         novelId: input.novelId,

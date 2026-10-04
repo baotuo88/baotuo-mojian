@@ -1,4 +1,5 @@
 import { prisma } from "../../../db/prisma";
+import { ExecutionStoppedError, runWithExecutionScope } from "../../../platform/execution";
 import { mergeChapterPatchForGenerationStateBump } from "../chapterLifecycleState";
 import { ChapterArtifactSyncService } from "./ChapterArtifactSyncService";
 import {
@@ -37,7 +38,8 @@ export class ChapterPipelineRuntimeAdapter {
     hooks: PipelineRuntimeHooks = {},
   ): Promise<PipelineRuntimeResult> {
     const { request, assembled } = await this.deps.streamOrchestrator.prepareRuntimeChapter(novelId, chapterId, options);
-    await this.deps.streamOrchestrator.markChapterStatus(chapterId, "generating");
+    const source = { novelId, content: assembled.chapter.content };
+    await this.deps.streamOrchestrator.markChapterStatus(chapterId, "generating", source);
     try {
       return await runPipelineChapterWithRuntime(
         {
@@ -79,10 +81,10 @@ export class ChapterPipelineRuntimeAdapter {
               runtimePackage: finalized.runtimePackage,
             };
           },
-          markChapterGenerationState: (targetChapterId, generationState) =>
-            this.markChapterGenerationState(targetChapterId, generationState),
-          markChapterNeedsRepair: (targetChapterId) =>
-            this.deps.streamOrchestrator.markChapterStatus(targetChapterId, "needs_repair"),
+          markChapterGenerationState: (targetChapterId, generationState, content) =>
+            this.markChapterGenerationState(novelId, targetChapterId, generationState, content),
+          markChapterNeedsRepair: (targetChapterId, content) =>
+            this.deps.streamOrchestrator.markChapterStatus(targetChapterId, "needs_repair", { novelId, content }),
         },
         novelId,
         chapterId,
@@ -91,19 +93,24 @@ export class ChapterPipelineRuntimeAdapter {
       );
     } catch (error) {
       if (isChapterEmptyContentError(error)) {
-        await this.deps.streamOrchestrator.markChapterStatus(chapterId, "pending_generation");
+        await this.deps.streamOrchestrator.markChapterStatus(chapterId, "pending_generation", source);
       }
       throw error;
     }
   }
 
   private async markChapterGenerationState(
+    novelId: string,
     chapterId: string,
     generationState: "reviewed" | "approved",
+    content: string,
   ): Promise<void> {
-    await prisma.chapter.update({
-      where: { id: chapterId },
-      data: mergeChapterPatchForGenerationStateBump({}, generationState),
+    await runWithExecutionScope({ fence: { kind: "chapter_content", novelId, chapterId, content } }, async () => {
+      const result = await prisma.chapter.updateMany({
+        where: { id: chapterId, novelId, content },
+        data: mergeChapterPatchForGenerationStateBump({}, generationState),
+      });
+      if (result.count !== 1) throw new ExecutionStoppedError("章节正文发生了变化，旧稿审校状态未应用。");
     });
   }
 }

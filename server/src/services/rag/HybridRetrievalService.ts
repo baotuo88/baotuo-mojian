@@ -1,3 +1,4 @@
+import { hasPendingRestoredNovelIndex } from "./retrieval";
 import { prisma } from "../../db/prisma";
 import { ragConfig } from "../../config/rag";
 import { compactSnippet, normalizeRagText, toKeywordTerms } from "./utils";
@@ -221,6 +222,7 @@ export class HybridRetrievalService {
     if (!ragConfig.enabled) {
       return [];
     }
+    if (options.novelId && await hasPendingRestoredNovelIndex(options.novelId)) return [];
     const normalizedQuery = normalizeRagText(query);
     if (!normalizedQuery) {
       return [];

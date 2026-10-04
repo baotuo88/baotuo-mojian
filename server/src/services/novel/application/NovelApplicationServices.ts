@@ -1,4 +1,5 @@
 import { prisma } from "../../../db/prisma";
+import { captureNovelRuntimeArchive, novelSnapshotRestoreService } from "../snapshots";
 import { NovelCoreService } from "../NovelCoreService";
 import { NovelWorldSliceService } from "../storyWorldSlice/NovelWorldSliceService";
 import { NovelWorldInstanceService } from "../worldContext/NovelWorldInstanceService";
@@ -172,20 +173,20 @@ export class DefaultNovelApplicationServices {
   async createNovelSnapshot(novelId: string, triggerType: "manual" | "auto_milestone" | "before_pipeline", label?: string) {
     const snapshot = await this.core.createNovelSnapshot(novelId, triggerType, label);
     const volumeWorkspace = await this.volumeService.getVolumes(novelId).catch(() => null);
-    if (!volumeWorkspace) {
-      return toNovelSnapshotListItem(snapshot);
-    }
-    const payload = JSON.parse(snapshot.snapshotData) as Record<string, unknown>;
-    const updatedSnapshot = await prisma.novelSnapshot.update({
-      where: { id: snapshot.id },
-      data: {
-        snapshotData: JSON.stringify({
-          ...payload,
-          volumes: volumeWorkspace.volumes,
-          activeVolumeVersionId: volumeWorkspace.activeVersionId,
-        }),
-      },
-    });
+    const updatedSnapshot = await prisma.$transaction(async (tx) => {
+      const archive = await captureNovelRuntimeArchive(novelId, tx);
+      const novel = await tx.novel.findUniqueOrThrow({ where: { id: novelId }, select: { outline: true, structuredOutline: true } });
+      return tx.novelSnapshot.update({
+        where: { id: snapshot.id },
+        data: { snapshotData: JSON.stringify({
+          outline: novel.outline,
+          structuredOutline: novel.structuredOutline,
+          chapters: archive.chapters,
+          runtimeArchive: archive,
+          ...(volumeWorkspace ? { volumes: volumeWorkspace.volumes, activeVolumeVersionId: volumeWorkspace.activeVersionId } : {}),
+        }) },
+      });
+    }, { isolationLevel: "Serializable", timeout: 30_000 });
     return toNovelSnapshotListItem(updatedSnapshot);
   }
 
@@ -194,46 +195,8 @@ export class DefaultNovelApplicationServices {
   }
 
   async restoreFromSnapshot(novelId: string, snapshotId: string) {
-    const snapshot = await prisma.novelSnapshot.findFirst({
-      where: { id: snapshotId, novelId },
-    });
-    if (!snapshot) {
-      throw new Error("Snapshot not found.");
-    }
-    const data = JSON.parse(snapshot.snapshotData) as {
-      outline?: string | null;
-      structuredOutline?: string | null;
-      chapters?: Array<{ id: string; title?: string; order?: number; content?: string | null }>;
-      volumes?: unknown;
-    };
-    await this.createNovelSnapshot(novelId, "manual", `before-restore-${snapshotId.slice(0, 8)}`);
-    await prisma.novel.update({
-      where: { id: novelId },
-      data: {
-        outline: data.outline ?? undefined,
-        structuredOutline: data.structuredOutline ?? undefined,
-      },
-    });
-    if (Array.isArray(data.chapters) && data.chapters.length > 0) {
-      for (const chapter of data.chapters) {
-        if (!chapter.id) {
-          continue;
-        }
-        await prisma.chapter.updateMany({
-          where: { id: chapter.id, novelId },
-          data: {
-            ...(chapter.title != null ? { title: chapter.title } : {}),
-            ...(chapter.order != null ? { order: chapter.order } : {}),
-            ...(chapter.content != null ? { content: chapter.content } : {}),
-          },
-        });
-      }
-    }
-    if (Array.isArray(data.volumes) && data.volumes.length > 0) {
-      await this.volumeService.updateVolumes(novelId, { volumes: data.volumes });
-    } else {
-      await this.volumeService.migrateLegacyVolumes(novelId);
-    }
+    await novelSnapshotRestoreService.restore(novelId, snapshotId, () =>
+      this.createNovelSnapshot(novelId, "manual", `before-restore-${snapshotId.slice(0, 8)}`));
     return this.getNovelById(novelId);
   }
 

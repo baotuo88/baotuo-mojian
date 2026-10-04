@@ -5,7 +5,7 @@ import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { auditNovelChapter, generateChapterPlan, replanNovel } from "@/api/novel";
 import { queryKeys } from "@/api/queryKeys";
 import type { ChapterExecutionStrategy } from "../chapterExecution.utils";
-import type { ChapterReviewResult } from "../chapterPlanning.shared";
+import { bindChapterReview, reviewForChapter, type BoundChapterReview } from "../chapterProduction";
 import { useChapterExecutionActions } from "./useChapterExecutionActions";
 
 interface StreamHandle {
@@ -25,12 +25,12 @@ interface UseNovelEditChapterRuntimeArgs {
   selectedChapterId: string;
   selectedChapter?: Chapter;
   chapterStrategy: ChapterExecutionStrategy;
-  reviewResult: ChapterReviewResult | null;
+  reviewResult: BoundChapterReview | null;
   openAuditIssueIds: string[];
   queryClient: QueryClient;
   invalidateNovelDetail: () => Promise<void>;
   setChapterOperationMessage: (value: string) => void;
-  setReviewResult: (value: ChapterReviewResult | null) => void;
+  setReviewResult: (value: BoundChapterReview | null) => void;
   setRepairBeforeContent: (value: string) => void;
   setRepairAfterContent: (value: string) => void;
   setActiveChapterStream: (value: { chapterId: string; chapterLabel: string } | null) => void;
@@ -114,15 +114,18 @@ export function useNovelEditChapterRuntime({
   });
 
   const fullAuditMutation = useMutation({
-    mutationFn: () => auditNovelChapter(novelId, selectedChapterId, "full", {
-      provider: llm.provider,
-      model: llm.model,
-      temperature: 0.1,
-    }),
+    mutationFn: async () => {
+      const source = { novelId, chapterId: selectedChapterId, content: selectedChapter?.content ?? null };
+      const response = await auditNovelChapter(source.novelId, source.chapterId, "full", {
+        provider: llm.provider, model: llm.model, temperature: 0.1,
+      });
+      return { ...response, data: bindChapterReview(response.data, source) };
+    },
     onSuccess: async (response) => {
       setReviewResult(response.data ?? null);
       setChapterOperationMessage("完整审校已完成。");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapterAuditReports(novelId, selectedChapterId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapterAuditReports(novelId, response.data?.source.chapterId ?? selectedChapterId) });
+      await invalidateNovelDetail();
       await queryClient.invalidateQueries({ queryKey: queryKeys.novels.qualityReport(novelId) });
     },
     onSettled: () => {
@@ -187,7 +190,7 @@ export function useNovelEditChapterRuntime({
     selectedChapterId,
     selectedChapter,
     strategy: chapterStrategy,
-    reviewIssues: reviewResult?.issues ?? [],
+    reviewIssues: reviewForChapter(reviewResult, { novelId, chapterId: selectedChapterId, content: selectedChapter?.content ?? null })?.issues ?? [],
     onGenerateChapter: handleGenerateSelectedChapter,
     onReviewChapter: runChapterReview,
     onStartRepair: startChapterRepair,

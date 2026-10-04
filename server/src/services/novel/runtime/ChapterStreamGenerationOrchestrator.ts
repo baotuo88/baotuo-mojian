@@ -56,7 +56,7 @@ export class ChapterStreamGenerationOrchestrator {
     onDone: (fullContent: string, helpers: StreamDoneHelpers) => Promise<void | StreamDonePayload>;
   }> {
     const { request, assembled } = await this.prepareRuntimeChapter(novelId, chapterId, options);
-    await this.markChapterStatus(chapterId, "generating");
+    await this.markChapterStatus(chapterId, "generating", { novelId, content: assembled.chapter.content });
 
     let traceRunId: string | null = null;
     try {
@@ -225,8 +225,9 @@ export class ChapterStreamGenerationOrchestrator {
   markChapterStatus(
     chapterId: string,
     chapterStatus: "pending_generation" | "generating" | "pending_review" | "needs_repair",
+    source?: { novelId: string; content: string | null },
   ): Promise<void> {
-    return this.deps.contentFinalizationService.markChapterStatus(chapterId, chapterStatus);
+    return this.deps.contentFinalizationService.markChapterStatus(chapterId, chapterStatus, source);
   }
 
   private assertStateDrivenReady(contextPackage: GenerationContextPackage, request: ChapterRuntimeRequestInput): void {
@@ -320,7 +321,7 @@ export class ChapterStreamGenerationOrchestrator {
           willRetry: false,
           attempt: 2,
         });
-        await this.markChapterStatus(input.chapterId, "pending_generation");
+        await this.markChapterStatus(input.chapterId, "pending_generation", { novelId: input.novelId, content: input.assembled.chapter.content });
       }
       throw error;
     }

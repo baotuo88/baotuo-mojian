@@ -194,6 +194,7 @@ export const getChapterContentOutput = z.object({
   title: z.string(),
   order: z.number().int(),
   content: z.string(),
+  expectedContent: z.string().nullable(),
   contentLength: z.number().int(),
 });
 

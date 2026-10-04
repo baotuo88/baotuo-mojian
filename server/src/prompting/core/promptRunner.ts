@@ -1,3 +1,6 @@
+import { captureStreamOutput, createPromptStreamControl, observeStreamCompletion, withExecutionSignal } from "./streaming/PromptStreamLifecycle";
+import { guardStreamStall } from "../../llm/streamStallGuard";
+import { throwIfInvocationAborted } from "../../llm/invokeTimeout";
 import { HumanMessage, type BaseMessage, type BaseMessageChunk } from "@langchain/core/messages";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { getLLM, getResolvedLLMClientOptionsFromInstance } from "../../llm/factory";
@@ -440,56 +443,6 @@ function recordPromptFailure(input: {
   });
 }
 
-function captureStreamOutput(
-  rawStream: AsyncIterable<BaseMessageChunk>,
-  onChunk?: (content: string) => void,
-): {
-  stream: AsyncIterable<BaseMessageChunk>;
-  completedText: Promise<string>;
-  completedUsage: Promise<LlmTokenUsageSnapshot | null>;
-} {
-  let resolveText!: (value: string) => void;
-  let rejectText!: (reason?: unknown) => void;
-  let resolveUsage!: (value: LlmTokenUsageSnapshot | null) => void;
-  let rejectUsage!: (reason?: unknown) => void;
-  const completedText = new Promise<string>((resolve, reject) => {
-    resolveText = resolve;
-    rejectText = reject;
-  });
-  const completedUsage = new Promise<LlmTokenUsageSnapshot | null>((resolve, reject) => {
-    resolveUsage = resolve;
-    rejectUsage = reject;
-  });
-
-  const stream = {
-    async *[Symbol.asyncIterator]() {
-      const chunks: string[] = [];
-      let usage: LlmTokenUsageSnapshot | null = null;
-      try {
-        for await (const chunk of rawStream) {
-          const content = toText(chunk.content);
-          chunks.push(content);
-          onChunk?.(content);
-          usage = mergeStreamTokenUsage(usage, extractLlmTokenUsage(chunk));
-          yield chunk;
-        }
-        resolveText(chunks.join(""));
-        resolveUsage(usage);
-      } catch (error) {
-        rejectText(error);
-        rejectUsage(error);
-        throw error;
-      }
-    },
-  };
-
-  return {
-    stream,
-    completedText,
-    completedUsage,
-  };
-}
-
 function buildPromptRunResult<T>(input: {
   asset: PromptAsset<unknown, unknown, unknown>;
   output: T;
@@ -567,6 +520,7 @@ async function resolveStructuredOutput<I, O, R = O>(input: {
   const maxSemanticRetryAttempts = resolveStructuredSemanticRetryAttempts(asset);
 
   while (true) {
+    throwIfInvocationAborted(input.options?.signal);
     try {
       const output = applyPromptPostValidate({
         asset: input.asset,
@@ -588,6 +542,7 @@ async function resolveStructuredOutput<I, O, R = O>(input: {
         postValidateFailureRecovered: false,
       };
     } catch (error) {
+      throwIfInvocationAborted(input.options?.signal);
       if (semanticRetryAttempts >= maxSemanticRetryAttempts) {
         if (input.asset.postValidateFailureRecovery) {
           logPromptEvent({
@@ -728,6 +683,7 @@ export async function runStructuredPrompt<I, O, R = O>(input: {
   contextBlocks?: Parameters<typeof selectContextBlocks>[0];
   options?: PromptExecutionOptions;
 }): Promise<PromptRunResult<O>> {
+  input = { ...input, options: withExecutionSignal(input.options) };
   if (input.asset.mode !== "structured" || !input.asset.outputSchema) {
     throw new Error(`Prompt asset ${input.asset.id}@${input.asset.version} is not a structured prompt.`);
   }
@@ -858,6 +814,8 @@ export async function runTextPrompt<I>(input: {
   contextBlocks?: Parameters<typeof selectContextBlocks>[0];
   options?: PromptExecutionOptions;
 }): Promise<PromptRunResult<string>> {
+  const streamControl = createPromptStreamControl(input.options);
+  input = { ...input, options: streamControl.options };
   if (input.asset.mode !== "text") {
     throw new Error(`Prompt asset ${input.asset.id}@${input.asset.version} is not a text prompt.`);
   }
@@ -902,7 +860,7 @@ export async function runTextPrompt<I>(input: {
     const stream = await llm.stream(messages, buildPromptCallOptions(input.options));
     let rawOutput = "";
     let tokenUsage: LlmTokenUsageSnapshot | null = null;
-    for await (const chunk of stream) {
+    for await (const chunk of guardStreamStall(stream, { signal: streamControl.signal, onStall: streamControl.cancel })) {
       const content = toText(chunk.content);
       rawOutput += content;
       liveSession.delta(content);
@@ -957,6 +915,8 @@ export async function streamTextPrompt<I>(input: {
   contextBlocks?: Parameters<typeof selectContextBlocks>[0];
   options?: PromptExecutionOptions;
 }): Promise<PromptStreamRunResult<string>> {
+  const streamControl = createPromptStreamControl(input.options);
+  input = { ...input, options: streamControl.options };
   if (input.asset.mode !== "text") {
     throw new Error(`Prompt asset ${input.asset.id}@${input.asset.version} is not a text prompt.`);
   }
@@ -1000,7 +960,7 @@ export async function streamTextPrompt<I>(input: {
     });
     liveSession.phase("streaming", "模型正在返回内容");
     const rawStream = await llm.stream(messages, buildPromptCallOptions(input.options));
-    captured = captureStreamOutput(rawStream as AsyncIterable<BaseMessageChunk>, (content) => liveSession.delta(content));
+    captured = captureStreamOutput(rawStream as AsyncIterable<BaseMessageChunk>, streamControl, (content) => liveSession.delta(content));
   } catch (error) {
     liveSession.fail(error);
     recordPromptFailure({
@@ -1016,8 +976,10 @@ export async function streamTextPrompt<I>(input: {
     throw error;
   }
 
-  return {
+  return observeStreamCompletion({
     stream: captured.stream,
+    cancel: streamControl.cancel,
+    signal: streamControl.signal,
     complete: captured.completedText.then(async (content) => {
       liveSession.phase("validating", "正在整理生成结果");
       const output = applyPromptPostValidate({
@@ -1063,7 +1025,7 @@ export async function streamTextPrompt<I>(input: {
     }),
     context: prepared.context,
     invocation: prepared.invocation,
-  };
+  });
 }
 
 export async function streamStructuredPrompt<I, O, R = O>(input: {
@@ -1072,6 +1034,8 @@ export async function streamStructuredPrompt<I, O, R = O>(input: {
   contextBlocks?: Parameters<typeof selectContextBlocks>[0];
   options?: PromptExecutionOptions;
 }): Promise<PromptStreamRunResult<O>> {
+  const streamControl = createPromptStreamControl(input.options);
+  input = { ...input, options: streamControl.options };
   if (input.asset.mode !== "structured" || !input.asset.outputSchema) {
     throw new Error(`Prompt asset ${input.asset.id}@${input.asset.version} is not a structured prompt.`);
   }
@@ -1133,7 +1097,7 @@ export async function streamStructuredPrompt<I, O, R = O>(input: {
     }
     liveSession.phase("streaming", "模型正在返回结构化结果");
     const rawStream = await llm.stream(prepared.messages, invokeOptions);
-    captured = captureStreamOutput(rawStream as AsyncIterable<BaseMessageChunk>, (content) => liveSession.delta(content));
+    captured = captureStreamOutput(rawStream as AsyncIterable<BaseMessageChunk>, streamControl, (content) => liveSession.delta(content));
   } catch (error) {
     liveSession.fail(error);
     recordPromptFailure({
@@ -1149,8 +1113,10 @@ export async function streamStructuredPrompt<I, O, R = O>(input: {
     throw error;
   }
 
-  return {
+  return observeStreamCompletion({
     stream: captured.stream,
+    cancel: streamControl.cancel,
+    signal: streamControl.signal,
     complete: captured.completedText.then(async (rawContent) => {
       liveSession.phase("validating", "正在检查生成结果");
       let repairStarted = false;
@@ -1216,7 +1182,7 @@ export async function streamStructuredPrompt<I, O, R = O>(input: {
     }),
     context: prepared.context,
     invocation: prepared.invocation,
-  };
+  });
 }
 
 export function setPromptRunnerLLMFactoryForTests(factory?: PromptRunnerLLMFactory): void {

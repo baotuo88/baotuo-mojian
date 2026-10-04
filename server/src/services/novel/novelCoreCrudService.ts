@@ -584,13 +584,22 @@ export class NovelCoreCrudService {
   }
 
   async updateChapter(novelId: string, chapterId: string, input: Partial<ChapterInput>) {
+    if (typeof input.content === "string" && input.expectedContent === undefined) {
+      throw new AppError("保存正文需要原稿版本，请先读取章节后重试。", 409);
+    }
     const exists = await prisma.chapter.findFirst({ where: { id: chapterId, novelId }, select: { id: true } });
     if (!exists) {
       throw new Error("章节不存在");
     }
 
     const chapter = await prisma.chapter.update({
-      where: { id: chapterId },
+      where: {
+        id: chapterId,
+        novelId,
+        ...(typeof input.content === "string" && input.expectedContent !== undefined
+          ? { content: input.expectedContent }
+          : {}),
+      },
       data: {
         title: input.title,
         order: input.order,
@@ -610,6 +619,12 @@ export class NovelCoreCrudService {
         pacingScore: input.pacingScore,
         riskFlags: input.riskFlags,
       },
+    }).catch((error: unknown) => {
+      if (typeof input.content === "string" && input.expectedContent !== undefined
+        && (error as { code?: string })?.code === "P2025") {
+        throw new AppError("章节正文已在其他位置更新，你的草稿已保留，请核对版本后再保存。", 409);
+      }
+      throw error;
     });
 
     if (typeof input.content === "string") {

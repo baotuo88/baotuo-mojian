@@ -1,10 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("desktop update entry and one-time release notes contracts are present", () => {
+test("desktop update entry and one-time release notes contracts are present", {
+  skip: !existsSync(new URL("../../desktop/package.json", import.meta.url))
+    && "This checkout does not contain the desktop package.",
+}, () => {
   const badge = read("src/components/layout/AppVersionBadge.tsx");
   const notesDialog = read("src/components/layout/DesktopReleaseNotesDialog.tsx");
   const notes = read("src/components/layout/desktopReleaseNotes.ts");

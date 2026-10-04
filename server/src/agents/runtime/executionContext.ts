@@ -11,6 +11,13 @@ export function resolveToolInput(
   if (typeof nextInput.worldId !== "string" && context.worldId) {
     nextInput.worldId = context.worldId;
   }
+  const source = context.chapterDraftSource;
+  if (source && typeof nextInput.content === "string" && nextInput.novelId === source.novelId
+    && (nextInput.chapterId === source.chapterId
+      || (nextInput.chapterId === undefined && nextInput.chapterOrder === source.chapterOrder))) {
+    nextInput.chapterId = source.chapterId;
+    if (nextInput.expectedContent === undefined) nextInput.expectedContent = source.expectedContent;
+  }
   return nextInput;
 }
 
@@ -23,6 +30,13 @@ export function applyToolResultContext(
     return context;
   }
   const nextContext = { ...context };
+  if ((call.tool === "get_chapter_content" || call.tool === "get_chapter_content_by_order")
+    && typeof output.novelId === "string" && typeof output.chapterId === "string" && typeof output.order === "number"
+    && (typeof output.expectedContent === "string" || output.expectedContent === null)) {
+    nextContext.chapterDraftSource = {
+      novelId: output.novelId, chapterId: output.chapterId, chapterOrder: output.order, expectedContent: output.expectedContent,
+    };
+  }
   if ((call.tool === "create_novel" || call.tool === "select_novel_workspace")
     && typeof output.novelId === "string"
     && output.novelId.trim()) {

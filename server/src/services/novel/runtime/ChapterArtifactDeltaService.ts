@@ -3,6 +3,7 @@ import type {
   StateChangeProposal,
 } from "@ai-novel/shared/types/canonicalState";
 import { createHash } from "node:crypto";
+import { runWithExecutionScope } from "../../../platform/execution";
 import { prisma } from "../../../db/prisma";
 import { withSqliteRetry } from "../../../db/sqliteRetry";
 import { runStructuredPrompt } from "../../../prompting/core/promptRunner";
@@ -294,6 +295,12 @@ function stringifyPreviousState(snapshot: Awaited<ReturnType<typeof stateService
 
 export class ChapterArtifactDeltaService {
   async syncChapterArtifacts(input: ChapterArtifactDeltaSyncInput): Promise<ChapterArtifactDeltaSyncResult> {
+    return runWithExecutionScope({
+      fence: { kind: "chapter_content", novelId: input.novelId, chapterId: input.chapterId, content: input.content },
+    }, () => this.syncCurrentChapterArtifacts(input));
+  }
+
+  private async syncCurrentChapterArtifacts(input: ChapterArtifactDeltaSyncInput): Promise<ChapterArtifactDeltaSyncResult> {
     const content = compactText(input.content);
     if (!content) {
       throw new Error("章节正文为空，无法提取资产 delta。");
@@ -654,8 +661,8 @@ export class ChapterArtifactDeltaService {
       await novelFactService.writeFacts(input.novelId, input.chapterOrder, concreteFacts);
     }
 
-    this.queueRagUpsert("chapter", input.chapterId);
-    this.queueRagUpsert("chapter_summary", input.chapterId);
+    await this.queueRagUpsert("chapter", input.chapterId);
+    await this.queueRagUpsert("chapter_summary", input.chapterId);
 
     return concreteFacts.length;
   }
@@ -1119,10 +1126,8 @@ export class ChapterArtifactDeltaService {
     return appliedCount;
   }
 
-  private queueRagUpsert(ownerType: RagOwnerType, ownerId: string): void {
-    void ragServices.ragIndexService.enqueueUpsert(ownerType, ownerId).catch(() => {
-      // Keep artifact extraction resilient when RAG queueing fails.
-    });
+  private async queueRagUpsert(ownerType: RagOwnerType, ownerId: string): Promise<void> {
+    await ragServices.ragIndexService.enqueueUpsert(ownerType, ownerId);
   }
 }
 
