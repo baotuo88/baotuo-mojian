@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronDown,
-  Download,
   Loader2,
   Pencil,
   BookText,
@@ -16,12 +15,9 @@ import {
   Check,
 } from "lucide-react";
 import {
-  exportComicEpisode,
   getComicProject,
   listComicEpisodes,
   updateComicPreset,
-  type ComicEpisode,
-  type ComicProject,
 } from "@/api/comic";
 import { ComicImageGenerationNotice } from "@/pages/comic/ComicImageGenerationNotice";
 import { COMIC_FORMATS } from "@/pages/comic/ComicWorkspacePage";
@@ -29,6 +25,8 @@ import { CharactersPanel } from "@/pages/comic/project/CharactersPanel";
 import { ScenesPanel } from "@/pages/comic/project/ScenesPanel";
 import { EpisodeListPanel } from "@/pages/comic/project/EpisodeListPanel";
 import { PanelsGridPanel } from "@/pages/comic/project/PanelsGridPanel";
+import { ExportPanel } from "@/pages/comic/project/export";
+import { FirstEpisodeGuide, type ComicWorkspaceTab } from "@/pages/comic/project/production";
 import { getAPIKeySettings } from "@/api/settings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,53 +39,6 @@ import SelectControl from "@/components/common/SelectControl";
 function safeJsonParseProject(raw: string | null | undefined): { style?: string; format?: string; imageSize?: string } {
   if (!raw) return {};
   try { return JSON.parse(raw); } catch { return {}; }
-}
-
-function ExportPanel({ projectId, episodes }: { projectId: string; episodes: ComicEpisode[] }) {
-  const [selectedEpId, setSelectedEpId] = useState(episodes[0]?.id ?? "");
-  const exportMut = useMutation({
-    mutationFn: (episodeId: string) => exportComicEpisode(episodeId, { format: "long_image" }),
-    onSuccess: (result) => {
-      const artifact = result.artifacts[0];
-      if (artifact?.url) {
-        window.open(artifact.url, "_blank");
-      }
-      toast.success("导出完成");
-    },
-    onError: (e) => toast.error(String(e)),
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 items-end">
-        <div className="space-y-1">
-          <label className="text-sm font-medium">选择话数</label>
-          <SelectControl
-            className="rounded-md border bg-background px-3 py-2 text-sm"
-            value={selectedEpId}
-            onChange={(e) => setSelectedEpId(e.target.value)}
-          >
-            {episodes.map((ep) => (
-              <option key={ep.id} value={ep.id}>
-                第 {ep.order} 话 {ep.title ? `《${ep.title}》` : ""}（{ep._count?.panels ?? 0} 格）
-              </option>
-            ))}
-          </SelectControl>
-        </div>
-        <Button
-          type="button"
-          disabled={!selectedEpId || exportMut.isPending}
-          onClick={() => exportMut.mutate(selectedEpId)}
-        >
-          <Download className="h-4 w-4" />
-          {exportMut.isPending ? "导出中…" : "导出长图"}
-        </Button>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        导出前请确保所有格子已生成图像。图像内文字由模型直接渲染。
-      </p>
-    </div>
-  );
 }
 
 // ─── Style options ─────────────────────────────────────────────────────────────
@@ -106,6 +57,18 @@ const STYLE_OPTIONS = [
 export default function ComicProjectPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab = ["outline", "characters", "scenes", "panels", "export"].includes(tabParam ?? "") ? tabParam! : "outline";
+  const episodeParam = searchParams.get("episodeId") ?? undefined;
+  const navigateWorkspace = (tab: ComicWorkspaceTab, episodeId?: string) => {
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set("tab", tab);
+      if (episodeId) next.set("episodeId", episodeId);
+      return next;
+    }, { replace: true });
+  };
   const [showFormatPicker, setShowFormatPicker] = useState(false);
   const [showStylePicker, setShowStylePicker] = useState(false);
   // 图片模型选择跨项目/跨刷新保留（用户通常长期用同一个图片模型）
@@ -123,7 +86,7 @@ export default function ComicProjectPage() {
     enabled: Boolean(id),
   });
 
-  const { data: episodes = [] } = useQuery({
+  const { data: episodes = [], isSuccess: episodesReady, isError: episodesError, refetch: reloadEpisodes } = useQuery({
     queryKey: ["comic", "episodes", id],
     queryFn: () => listComicEpisodes(id!),
     enabled: Boolean(id),
@@ -368,7 +331,10 @@ export default function ComicProjectPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="outline">
+      {episodesReady && <FirstEpisodeGuide key={id} project={project} episodes={episodes} onNavigate={navigateWorkspace} />}
+      {episodesError && <p className="text-sm text-destructive">话数进度读取失败。<button type="button" className="ml-2 underline" onClick={() => void reloadEpisodes()}>重新读取</button></p>}
+
+      <Tabs value={activeTab} onValueChange={(value) => navigateWorkspace(value as ComicWorkspaceTab)}>
         <TabsList className="w-full justify-start gap-1">
           <TabsTrigger value="outline">分话大纲</TabsTrigger>
           <TabsTrigger value="characters">
@@ -397,12 +363,12 @@ export default function ComicProjectPage() {
         </TabsContent>
 
         <TabsContent value="panels" className="mt-4">
-          <PanelsGridPanel projectId={id!} provider={resolvedProvider} />
+          <PanelsGridPanel key={`${id}:${episodeParam ?? "first"}`} projectId={id!} provider={resolvedProvider} initialEpisodeId={episodeParam} onEpisodeChange={(episodeId) => navigateWorkspace("panels", episodeId)} />
         </TabsContent>
 
         <TabsContent value="export" className="mt-4">
           {episodes.length > 0 ? (
-            <ExportPanel projectId={id!} episodes={episodes} />
+            <ExportPanel key={`${id}:${episodeParam ?? "first"}`} projectId={id!} episodes={episodes} initialEpisodeId={episodeParam} onEpisodeChange={(episodeId) => navigateWorkspace("export", episodeId)} onShowPanels={(episodeId) => navigateWorkspace("panels", episodeId)} />
           ) : (
             <div className="py-12 text-center text-sm text-muted-foreground">
               请先生成分话大纲。

@@ -53,6 +53,12 @@
 - 在 `ImageGenerationService` facade 里继续堆任务执行逻辑，会让创建任务、队列调度、取消恢复、provider 调用和资产写入混在一个文件；新增执行规则应优先进入 `ImageGenerationTaskExecutor`。
 - 批量任务如果逐图等待前端弹窗，会破坏自动化生产链；批量确认和单次确认是不同层级，不能混用。
 
+## 并发确认与模型一致性
+
+确认 Hook 为每次 prepare 分配请求序号；取消、切换素材和组件卸载使旧预览失效。confirm 必须绑定当次生成闭包并用同步锁防双击，不能只依赖 React 下一帧的 disabled 状态。生成成功的确认只能消费一次，失败可显式重试。此规则适用于共用 Hook 的漫画和短剧单张生图入口。
+
+漫画批量任务在确认时保存实际模型，统一 runner 的可选 `expectedModel` 在发送请求前校验配置。模型发生变化时要求重新确认，不能让续跑自动换成另一模型。详见 [漫画批量生产与恢复](./comic-batch-recovery.md)。
+
 ## Related Modules
 
 - `client/src/components/image/ImageGenerationConfirmDialog.tsx`

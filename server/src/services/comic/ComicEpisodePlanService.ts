@@ -6,6 +6,9 @@
  */
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { prisma } from "../../db/prisma";
+import { AppError } from "../../middleware/errorHandler";
+import type { SourceBundle } from "../adaptation/contracts/sourceBundle";
+import { archivePlanningRecords, assertPlanningIdle, claimEpisodeRevision, planningFingerprint, sourceBeatsDigest, validateSourceRange } from "./planning";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import { comicEpisodeOutlinePrompt } from "../../prompting/prompts/comic/comic.prompts";
 // rhythmEngine 是纯领域知识（零外部依赖），可直接 import
@@ -18,6 +21,7 @@ import {
 export interface GenerateComicOutlineInput {
   startOrder?: number;
   count?: number;
+  replaceExisting?: boolean;
 }
 
 export class ComicEpisodePlanService {
@@ -35,7 +39,7 @@ export class ComicEpisodePlanService {
       throw new Error("请先导入内容源（importSourceBundle）再生成分话大纲。");
     }
 
-    const bundle = JSON.parse(project.sourceBundle.bundleJson);
+    const bundle = JSON.parse(project.sourceBundle.bundleJson) as SourceBundle;
     const synopsis: string = bundle.synopsis ?? "";
     const beats: Array<{ order: number; summary: string }> = bundle.beats ?? [];
 
@@ -47,12 +51,18 @@ export class ComicEpisodePlanService {
 
     const startOrder = Math.max(1, input.startOrder ?? 1);
     const count = Math.min(40, Math.max(1, input.count ?? 12));
-    const endOrder = Math.min(targetEpisodes, startOrder + count - 1);
+    const endOrder = startOrder + count - 1;
+    const previousEpisodes = await prisma.comicEpisode.findMany({
+      where: { projectId, order: { gte: startOrder, lte: endOrder } },
+      orderBy: { order: "asc" },
+      include: { panels: { orderBy: { order: "asc" } } },
+    });
+    if (previousEpisodes.length && !input.replaceExisting) {
+      throw new AppError("这些分话已有内容。请确认备份并重新规划后继续。", 409);
+    }
+    await assertPlanningIdle(prisma, projectId, previousEpisodes.map((ep) => ep.id));
 
-    const beatsDigest = beats
-      .slice(0, 60)
-      .map((beat) => `${beat.order}：${beat.summary}`)
-      .join("\n") || "（无结构化节拍，按梗概自由分话）";
+    const beatsDigest = sourceBeatsDigest(bundle) || "（无结构化节拍，按梗概分话）";
 
     // 付费卡点（有赛道策略时才计算）
     const paywallOrders: number[] = [];
@@ -83,6 +93,7 @@ export class ComicEpisodePlanService {
         endOrder,
         paywallOrders,
         hookLibrary,
+        requireSourceRange: project.sourceType === "novel_import",
         stylePreset: project.stylePreset
           ? JSON.parse(project.stylePreset).style
           : undefined,
@@ -91,10 +102,37 @@ export class ComicEpisodePlanService {
     });
 
     const episodes = result.output.episodes;
+    const orders = new Set(episodes.map((ep) => ep.order));
+    if (orders.size !== count || episodes.length !== count || episodes.some((ep) => ep.order < startOrder || ep.order > endOrder)) {
+      throw new AppError("AI 返回的分话数量或话序与请求不一致，请重新生成。", 422);
+    }
+    const ranges = new Map(episodes.map((ep) => [ep.order, project.sourceType === "novel_import"
+      ? validateSourceRange({ start: ep.sourceChapterStart, end: ep.sourceChapterEnd }, bundle)
+      : undefined]));
 
     // 事务：落库 ComicEpisode（幂等，order 已存在则更新）
     await prisma.$transaction(async (tx) => {
+      for (const previous of [...previousEpisodes].sort((a, b) => a.id.localeCompare(b.id))) await claimEpisodeRevision(tx, previous);
+      await assertPlanningIdle(tx, projectId, previousEpisodes.map((ep) => ep.id));
+      const latestSource = await tx.comicProject.findUnique({ where: { id: projectId }, include: { sourceBundle: true } });
+      if (latestSource?.sourceBundle?.bundleJson !== project.sourceBundle!.bundleJson) {
+        throw new AppError("源小说资料在规划期间发生变化，请重试。", 409);
+      }
+      const currentEpisodes = await tx.comicEpisode.findMany({
+        where: { projectId, order: { gte: startOrder, lte: endOrder } },
+        orderBy: { order: "asc" }, include: { panels: { orderBy: { order: "asc" } } },
+      });
+      if (planningFingerprint(currentEpisodes) !== planningFingerprint(previousEpisodes)) {
+        throw new AppError("分话内容在规划期间发生变化，请查看最新内容后重试。", 409);
+      }
+      if (previousEpisodes.length) {
+        const facts = await tx.comicFact.findMany({ where: { projectId, episodeOrder: { gte: startOrder, lte: endOrder } } });
+        await archivePlanningRecords(tx, { projectId, reason: "outline_replacement", episodes: previousEpisodes, facts });
+        await tx.comicPanel.deleteMany({ where: { episodeId: { in: previousEpisodes.map((ep) => ep.id) } } });
+        await tx.comicFact.deleteMany({ where: { projectId, episodeOrder: { gte: startOrder, lte: endOrder } } });
+      }
       for (const ep of episodes) {
+        const scriptConfig = JSON.stringify({ sourceRange: ranges.get(ep.order) });
         await tx.comicEpisode.upsert({
           where: { projectId_order: { projectId, order: ep.order } },
           create: {
@@ -106,8 +144,10 @@ export class ComicEpisodePlanService {
             cliffhanger: ep.cliffhanger ?? null,
             isPaywalled: ep.isPaywalled,
             status: "draft",
+            scriptConfig,
           },
           update: {
+            status: "draft", sourceText: null, scriptConfig,
             title: ep.title,
             outline: ep.synopsis,
             hookType: ep.hookType ?? null,
@@ -120,7 +160,7 @@ export class ComicEpisodePlanService {
         where: { id: projectId },
         data: { status: "outlined" },
       });
-    });
+    }, { isolationLevel: "Serializable" });
 
     return prisma.comicEpisode.findMany({
       where: { projectId, order: { gte: startOrder, lte: endOrder } },

@@ -13,7 +13,9 @@ import sharp from "sharp";
 import type * as SharpNS from "sharp";
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
-import { resolveGeneratedImagesRoot } from "../../runtime/appPaths";
+import { randomUUID } from "node:crypto";
+import { throwIfExecutionAborted } from "../../platform/execution";
+import { letteringSourceFingerprint, panelRevisionPath, resolveLetteredImageFile, resolvePanelImageFile } from "./assets";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,7 +48,6 @@ export interface LetterPanelResult {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const COMIC_LETTERED_DIR = "comic-panels-lettered";
 const CJK_FONT_STACK = `"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans CN", sans-serif`;
 const DEFAULT_FONT_SIZE = 24;
 const BUBBLE_PADDING = 16;
@@ -98,11 +99,11 @@ function buildBubbleSvg(
   imgHeight: number,
   opts: LetterPanelOptions,
 ): { svgStr: string; bw: number; bh: number; bx: number; by: number } {
-  const fontSize = DEFAULT_FONT_SIZE;
-  const padding = BUBBLE_PADDING;
+  const fontSize = Math.max(8, Math.min(DEFAULT_FONT_SIZE, Math.floor(imgWidth / 20)));
+  const padding = Math.min(BUBBLE_PADDING, Math.max(2, Math.floor(imgWidth / 40)));
   const maxBubbleWidth = Math.floor((opts.maxBubbleWidthRatio ?? 0.42) * imgWidth);
   const lineHeightPx = Math.ceil(fontSize * LINE_HEIGHT_RATIO);
-  const charsPerLine = Math.min(MAX_CHARS_PER_LINE, Math.floor(maxBubbleWidth / (fontSize * 0.8)));
+  const charsPerLine = Math.max(1, Math.min(MAX_CHARS_PER_LINE, Math.floor(maxBubbleWidth / (fontSize * 0.8))));
   const lines = wrapText(dialogue.text, charsPerLine);
 
   const textW = Math.min(
@@ -112,6 +113,9 @@ function buildBubbleSvg(
   const textH = lines.length * lineHeightPx;
   const bw = Math.ceil(textW + padding * 2);
   const bh = Math.ceil(textH + padding * 2);
+  if (bw + 8 > imgWidth || bh + 8 > imgHeight) {
+    throw new AppError("该格对白较长，无法完整放入气泡。请缩短对白或使用更大的图片。", 400);
+  }
 
   // 气泡左上角坐标（保证在图内）
   let bx = Math.round(cx - bw / 2);
@@ -124,7 +128,7 @@ function buildBubbleSvg(
 
   const textElems = lines.map((line, i) =>
     `<text x="${padding}" y="${textY0 + i * lineHeightPx}"
-      font-family="${CJK_FONT_STACK}"
+      font-family="${escapeXml(CJK_FONT_STACK)}"
       font-size="${fontSize}"
       fill="#1a1a1a">${escapeXml(line)}</text>`
   ).join("\n");
@@ -169,7 +173,7 @@ function buildBubbleSvg(
   const textFill = dialogue.bubbleType === "caption" ? "#f5f0e8" : "#1a1a1a";
   const textElemsAdj = lines.map((line, i) =>
     `<text x="${bw / 2}" y="${textY0 + i * lineHeightPx - 4}"
-      font-family="${CJK_FONT_STACK}"
+      font-family="${escapeXml(CJK_FONT_STACK)}"
       font-size="${fontSize}"
       text-anchor="middle"
       fill="${textFill}">${escapeXml(line)}</text>`
@@ -190,23 +194,6 @@ function escapeXml(s: string): string {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function letteredPanelDir(panelId: string): string {
-  return path.join(resolveGeneratedImagesRoot(), COMIC_LETTERED_DIR, panelId);
-}
-
-function letteredPanelUrl(panelId: string): string {
-  return `/api/comic/panel-images/${panelId}/lettered`;
-}
-
-async function findPanelImageBuffer(panelId: string): Promise<Buffer> {
-  const rawDir = path.join(resolveGeneratedImagesRoot(), "comic-panels", panelId);
-  let entries: string[];
-  try { entries = await fs.readdir(rawDir); } catch { throw new AppError("格子图尚未生成，请先生成图像。", 400); }
-  const file = entries.find((f) => /^panel\.(png|jpg|webp)$/i.test(f));
-  if (!file) throw new AppError("格子图文件不存在。", 400);
-  return fs.readFile(path.join(rawDir, file));
-}
-
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export class ComicBubbleLayoutService {
@@ -223,7 +210,10 @@ export class ComicBubbleLayoutService {
       : [];
 
     // 加载原始格子图
-    const rawBuffer = await findPanelImageBuffer(panelId);
+    const sourceFingerprint = letteringSourceFingerprint(panel);
+    const sourceFile = await resolvePanelImageFile(panel);
+    if (!sourceFingerprint || !sourceFile) throw new AppError("该格缺少有效图片，请先生成图像。", 400);
+    const rawBuffer = await fs.readFile(sourceFile.filePath);
     const meta = await sharp(rawBuffer).metadata();
     const imgWidth = meta.width ?? 1024;
     const imgHeight = meta.height ?? 1536;
@@ -265,28 +255,38 @@ export class ComicBubbleLayoutService {
     }
 
     const outBuffer = await composited.png().toBuffer();
-    const outDir = letteredPanelDir(panelId);
-    await fs.mkdir(outDir, { recursive: true });
-    await fs.writeFile(path.join(outDir, "lettered.png"), outBuffer);
+    throwIfExecutionAborted();
+    const revision = randomUUID();
+    const filePath = panelRevisionPath(panelId, revision, "png", true);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, outBuffer, { flag: "wx" });
 
     const letteredData = {
       status: "done",
-      url: letteredPanelUrl(panelId),
+      url: `/api/comic/panel-images/${panelId}/lettered?revision=${revision}`,
+      revision,
+      sourceFingerprint,
       generatedAt: new Date().toISOString(),
     };
-    await prisma.comicPanel.update({
-      where: { id: panelId },
+    const saved = await prisma.comicPanel.updateMany({
+      where: { id: panelId, imageData: panel.imageData, dialogues: panel.dialogues,
+        visualPrompt: panel.visualPrompt, characterRefs: panel.characterRefs, sceneRef: panel.sceneRef,
+        letteredData: panel.letteredData },
       data: { letteredData: JSON.stringify(letteredData) },
     });
+    if (saved.count !== 1) throw new AppError("该格图片或对白已更新，请刷新后重新排版。", 409);
 
     return { buffer: outBuffer, ext: "png", width: imgWidth, height: imgHeight };
   }
 
   /** 读取已排版图文件（供 HTTP 路由流式响应） */
   async getLetteredImageFile(panelId: string): Promise<Buffer | null> {
-    const filePath = path.join(letteredPanelDir(panelId), "lettered.png");
+    const panel = await prisma.comicPanel.findUnique({ where: { id: panelId } });
+    if (!panel) return null;
+    const file = await resolveLetteredImageFile(panel);
+    if (!file) return null;
     try {
-      return await fs.readFile(filePath);
+      return await fs.readFile(file.filePath);
     } catch {
       return null;
     }

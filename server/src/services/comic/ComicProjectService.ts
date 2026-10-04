@@ -6,6 +6,8 @@
  * （由 CI 守卫 comicDecoupling.test.js 强制）。
  */
 import { prisma } from "../../db/prisma";
+import { AppError } from "../../middleware/errorHandler";
+import { assertPlanningIdle } from "./planning";
 import { adaptationSourceRegistry } from "../adaptation/source/SourceContentPort";
 import { novelSourceAdapter } from "../adaptation/source/NovelSourceAdapter";
 import type { AdaptationSourceType, SourceBundle, SourceRef } from "../adaptation/contracts/sourceBundle";
@@ -244,7 +246,7 @@ export class ComicProjectService {
    * 2) ComicCharacter（角色资源导入）
    */
   async importSourceBundle(projectId: string) {
-    const project = await prisma.comicProject.findUnique({ where: { id: projectId } });
+    const project = await prisma.comicProject.findUnique({ where: { id: projectId }, include: { characters: true } });
     if (!project) throw new Error(`未找到漫画项目：${projectId}`);
 
     const sourceRef: SourceRef = {
@@ -259,6 +261,12 @@ export class ComicProjectService {
 
     // 事务：落库 sourceBundle + characters
     await prisma.$transaction(async (tx) => {
+      await assertPlanningIdle(tx, projectId);
+      const claim = await tx.comicProject.updateMany({
+        where: { id: projectId, updatedAt: project.updatedAt },
+        data: { updatedAt: new Date() },
+      });
+      if (claim.count !== 1) throw new AppError("项目资料在导入期间发生变化，请重试。", 409);
       // 幂等：已存在则替换
       await tx.comicSourceBundle.upsert({
         where: { projectId },
@@ -266,26 +274,31 @@ export class ComicProjectService {
         update: { bundleJson: JSON.stringify(bundle), importedAt: new Date() },
       });
 
-      // 删除旧角色资源再重建（保证与源同步）
-      await tx.comicCharacter.deleteMany({ where: { projectId } });
-      if (bundle.characters.length > 0) {
-        await tx.comicCharacter.createMany({
-          data: bundle.characters.map((character) => ({
+      // Source identity is stable. Retain visual edits, generated sheets, assets and removed-source characters.
+      const existing = await tx.comicCharacter.findMany({ where: { projectId } });
+      for (const character of bundle.characters) {
+        const match = character.sourceCharacterRef
+          ? existing.find((row) => row.sourceCharacterRef === character.sourceCharacterRef)
+          : existing.find((row) => !row.sourceCharacterRef && row.name === character.name);
+        if (match) continue;
+        const created = await tx.comicCharacter.create({
+          data: {
             projectId,
             name: character.name,
             gender: character.gender ?? "unknown",
             persona: character.persona ?? null,
             visualAnchor: buildComicVisualAnchor(character),
             sourceCharacterRef: character.sourceCharacterRef ?? null,
-          })),
+          },
         });
+        existing.push(created);
       }
 
       await tx.comicProject.update({
         where: { id: projectId },
-        data: { status: "outlined" },
+        data: { status: project.status === "draft" ? "outlined" : project.status },
       });
-    });
+    }, { isolationLevel: "Serializable" });
 
     return prisma.comicProject.findUnique({
       where: { id: projectId },

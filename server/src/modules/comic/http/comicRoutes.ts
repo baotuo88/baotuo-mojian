@@ -57,6 +57,7 @@ const presetUpdateSchema = z.object({
 
 const generateOutlineSchema = z
   .object({
+    replaceExisting: z.boolean().optional(),
     startOrder: z.number().int().min(1).optional(),
     count: z.number().int().min(1).max(40).optional(),
     provider: z.string().trim().optional(),
@@ -69,6 +70,7 @@ const sourceTextSchema = z.object({
 
 const generateScriptSchema = z
   .object({
+    replaceExisting: z.boolean().optional(),
     targetPanelCount: z.number().int().min(10).max(80).optional(),
     densityMode: z.enum(["relaxed", "balanced", "compact"]).optional(),
     scriptPromptInstruction: z.string().trim().max(1000).optional(),
@@ -82,7 +84,12 @@ const visualPromptSchema = z.object({
 });
 
 const dialoguesSchema = z.object({
-  dialogues: z.array(z.unknown()).max(3),
+  dialogues: z.array(z.object({
+    speaker: z.string().trim().min(1).max(120),
+    text: z.string().trim().min(1).max(60),
+    bubbleType: z.enum(["round", "spike", "cloud", "caption"]).optional(),
+    anchorHint: z.string().trim().max(80).optional(),
+  })).max(3),
 });
 
 const excludedReferenceImageUrlsSchema = z.array(z.string().trim().min(1).max(1000)).max(24).optional();
@@ -525,7 +532,7 @@ router.get("/character-images/:charId/sheet", validate({ params: charIdParams })
       return;
     }
     res.setHeader("Content-Type", file.mimeType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "private, no-cache");
     res.send(await import("fs/promises").then((fs) => fs.readFile(file.filePath)));
   } catch (err) { next(err); }
 });
@@ -539,7 +546,7 @@ router.get("/character-images/:charId/expressions", validate({ params: charIdPar
       return;
     }
     res.setHeader("Content-Type", file.mimeType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "private, no-cache");
     res.send(await import("fs/promises").then((fs) => fs.readFile(file.filePath)));
   } catch (err) { next(err); }
 });
@@ -553,7 +560,7 @@ router.get("/character-images/:charId/face", validate({ params: charIdParams }),
       return;
     }
     res.setHeader("Content-Type", file.mimeType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "private, no-cache");
     res.send(await import("fs/promises").then((fs) => fs.readFile(file.filePath)));
   } catch (err) { next(err); }
 });
@@ -568,7 +575,7 @@ router.get("/character-images/:charId/sheet/v:version", validate({ params: charS
       return;
     }
     res.setHeader("Content-Type", file.mimeType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "private, no-cache");
     res.send(await import("fs/promises").then((fs) => fs.readFile(file.filePath)));
   } catch (err) { next(err); }
 });
@@ -633,7 +640,7 @@ router.get("/panel-images/:panelId/panel", validate({ params: panelIdParams }), 
     }
     const mimeMap: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
     res.setHeader("Content-Type", mimeMap[file.ext] ?? "image/png");
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "private, no-cache");
     res.send(file.buffer);
   } catch (err) { next(err); }
 });
@@ -672,7 +679,7 @@ router.get("/panel-images/:panelId/lettered", validate({ params: panelIdParams }
       return;
     }
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "private, no-cache");
     res.send(buf);
   } catch (err) { next(err); }
 });
@@ -753,6 +760,7 @@ const batchJobIdParams = z.object({ jobId: z.string().trim().min(1) });
 
 const startBatchSchema = z
   .object({
+    expectedScopeFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     provider: z.string().trim().optional(),
     concurrency: z.number().int().min(1).max(10).optional(),
     skipDone: z.boolean().optional(),
@@ -774,6 +782,7 @@ router.post(
         provider: body?.provider as LLMProvider | undefined,
         concurrency: body?.concurrency,
         skipDone: body?.skipDone,
+        expectedScopeFingerprint: body?.expectedScopeFingerprint,
       });
       res.status(202).json({ success: true, data } satisfies ApiResponse<typeof data>);
     } catch (err) { next(err); }
@@ -794,6 +803,13 @@ router.post(
     } catch (err) { next(err); }
   },
 );
+
+router.post("/batch-jobs/:jobId/cancel", validate({ params: batchJobIdParams }), async (req, res, next) => {
+  try {
+    await comicBatchOrchestrator.cancel(String(req.params.jobId));
+    res.json({ success: true, data: null } satisfies ApiResponse<null>);
+  } catch (err) { next(err); }
+});
 
 router.get("/batch-jobs/:jobId", validate({ params: batchJobIdParams }), async (req, res, next) => {
   try {
@@ -948,7 +964,7 @@ router.get("/character-assets/:assetId/image", validate({ params: assetIdParams 
     const { assetId } = req.params as z.infer<typeof assetIdParams>;
     const { filePath, mimeType } = await comicCharacterAssetService.serveAssetImage(assetId);
     res.setHeader("Content-Type", mimeType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "private, no-cache");
     const { createReadStream } = await import("fs");
     createReadStream(filePath).pipe(res);
   } catch (err) { next(err); }
@@ -1062,7 +1078,7 @@ router.get("/scenes/:sceneId/image", validate({ params: sceneIdParams }), async 
     const { sceneId } = req.params as z.infer<typeof sceneIdParams>;
     const { filePath, mimeType } = await comicSceneService.serveSceneImage(sceneId);
     res.setHeader("Content-Type", mimeType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cache-Control", "private, no-cache");
     const { createReadStream } = await import("fs");
     createReadStream(filePath).pipe(res);
   } catch (err) { next(err); }

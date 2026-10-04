@@ -64,6 +64,9 @@ export async function runImageGeneration<TState extends GeneratedImageState>(
 
   // 2. model 解析
   const model = await resolveImageModel(provider);
+  if (opts.expectedModel !== undefined && opts.expectedModel !== model) {
+    throw new AppError("图片模型配置有变化，请重新确认模型和生成范围后开始。", 409);
+  }
 
   // 3. loadState + 归档/版本号
   const existing = await adapter.loadState();

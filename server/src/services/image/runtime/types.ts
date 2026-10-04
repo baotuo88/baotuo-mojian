@@ -84,6 +84,8 @@ export interface ImageTargetAdapter<TState extends GeneratedImageState = Generat
 // ─── runImageGeneration 入参 ──────────────────────────────────────────────────
 
 export interface RunImageGenerationOptions {
+  /** Confirmed batch model; reject settings changes before sending a paid request. */
+  expectedModel?: string;
   /** LLM provider（缺省走调用方默认） */
   provider?: LLMProvider | string;
   /** 已构建好的 prompt */

@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export type ExecutionFence =
+  | { kind: "comic_batch"; jobId: string; leaseOwner: string }
   | { kind: "director"; commandId: string; leaseOwner: string; attempt?: number; controlAction?: "cancel" }
   | { kind: "agent"; runId: string }
   | { kind: "chapter_content"; novelId: string; chapterId: string; content: string | null }

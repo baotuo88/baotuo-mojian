@@ -28,6 +28,7 @@ export interface ComicEpisodeOutlinePromptInput {
   paywallOrders: number[];
   hookLibrary: string;
   stylePreset?: string;
+  requireSourceRange?: boolean;
 }
 
 export const comicEpisodeOutlinePrompt: PromptAsset<
@@ -35,7 +36,7 @@ export const comicEpisodeOutlinePrompt: PromptAsset<
   ComicEpisodeOutlineOutput
 > = {
   id: "comic.episodeOutline",
-  version: "v1",
+  version: "v2",
   taskType: "outline_planning",
   mode: "structured",
   language: "zh",
@@ -58,6 +59,8 @@ ${input.synopsis}
 ${input.beatsDigest}
 
 ## 约束
+- 必须逐一返回第 ${input.startOrder}-${input.endOrder} 话，话序不能重复、遗漏或超出范围。
+${input.requireSourceRange ? "- 每话必须标注 sourceChapterStart/sourceChapterEnd，只能使用情节节拍中明确提供的源章节编号；按语义选择覆盖本话事件的连续范围，禁止将话序当作章序。" : ""}
 - 卡点集号（isPaywalled=true）：${input.paywallOrders.length > 0 ? input.paywallOrders.join("、") : "无"}
 - 开场钩子类型库（hookType 从此选取）：
 ${input.hookLibrary}
@@ -174,11 +177,11 @@ export const comicPanelScriptPrompt: PromptAsset<
   ComicPanelScriptOutput
 > = {
   id: "comic.panelScript",
-  version: "v1",
+  version: "v2",
   taskType: "chapter_drafting",
   mode: "structured",
   language: "zh",
-  contextPolicy: { maxTokensBudget: 9000 },
+  contextPolicy: { maxTokensBudget: 32000 },
   outputSchema: comicPanelScriptOutputSchema,
   render(input) {
     const panelTarget = input.targetPanelCount ?? 45;
@@ -260,7 +263,7 @@ ${visualPromptRule}
 ## 本话情节大纲
 ${input.episodeSynopsis}
 
-${input.sourceText ? `## 本话原文（对白来源）\n${input.sourceText.slice(0, 3000)}\n` : ""}
+${input.sourceText ? `## 本话原文（对白来源）\n${input.sourceText}\n` : ""}
 ## 出场角色
 ${characterList}
 

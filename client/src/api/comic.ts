@@ -150,12 +150,14 @@ export interface CreateComicProjectPayload {
 }
 
 export interface GenerateOutlinePayload {
+  replaceExisting?: boolean;
   startOrder?: number;
   count?: number;
   provider?: string;
 }
 
 export interface GenerateScriptPayload {
+  replaceExisting?: boolean;
   targetPanelCount?: number;
   densityMode?: "relaxed" | "balanced" | "compact";
   scriptPromptInstruction?: string;
@@ -400,8 +402,9 @@ export async function generatePanelImage(
   return unwrapApiData(res.data);
 }
 
-export function panelImageUrl(panelId: string): string {
-  return `/api/comic/panel-images/${panelId}/panel`;
+export function panelImageUrl(panelId: string, version?: string | number): string {
+  const suffix = version == null ? "" : `?v=${encodeURIComponent(String(version))}`;
+  return `/api/comic/panel-images/${panelId}/panel${suffix}`;
 }
 
 export function panelLetteredImageUrl(panelId: string): string {
@@ -441,23 +444,35 @@ export async function listExportJobs(projectId: string): Promise<ComicExportJob[
 // ─── Batch jobs ───────────────────────────────────────────────────────────────
 
 export interface BatchProgress {
+  version?: 1;
+  episodeId?: string;
+  provider?: string;
+  imageModel?: string;
+  concurrency?: number;
+  targetPanelIds?: string[];
+  completedPanelIds?: string[];
   total: number;
   done: number;
   failed: number;
   failedPanelIds: string[];
-  status: "running" | "completed" | "partial";
+  status: "running" | "completed" | "partial" | "interrupted" | "waiting_recovery" | "cancelled";
+  errors?: Record<string, string>;
+  recoverable?: boolean;
 }
 
 export interface StartBatchPayload {
   provider?: string;
   concurrency?: number;
   skipDone?: boolean;
+  expectedScopeFingerprint?: string;
 }
 
 export interface BatchCostEstimate {
+  imageModel: string;
+  scopeFingerprint: string;
   totalPanels: number;
   pendingPanels: number;
-  estimatedCentsCost: number;
+  estimatedCentsCost: number | null;
   providerNote: string;
 }
 
@@ -478,6 +493,10 @@ export async function retryBatchJob(jobId: string, provider?: string): Promise<{
     provider ? { provider } : {},
   );
   return unwrapApiData(res.data);
+}
+
+export async function cancelComicBatchJob(jobId: string): Promise<void> {
+  await apiClient.post(`/comic/batch-jobs/${jobId}/cancel`);
 }
 
 export async function getBatchJob(jobId: string): Promise<ComicBatchJob> {

@@ -190,11 +190,15 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/drama/drama.prompts").dramaVideoPromptPrompt as UnknownPromptAsset,
   },
   {
-    key: "comic.episodeOutline@v1",
+    key: "comic.sourceMapping@v1",
+    load: () => require("../prompts/comic/comic.sourceMapping").comicSourceMappingPrompt as UnknownPromptAsset,
+  },
+  {
+    key: "comic.episodeOutline@v2",
     load: () => require("../prompts/comic/comic.prompts").comicEpisodeOutlinePrompt as UnknownPromptAsset,
   },
   {
-    key: "comic.panelScript@v1",
+    key: "comic.panelScript@v2",
     load: () => require("../prompts/comic/comic.prompts").comicPanelScriptPrompt as UnknownPromptAsset,
   },
   {

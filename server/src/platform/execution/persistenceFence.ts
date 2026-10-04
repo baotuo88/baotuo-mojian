@@ -8,7 +8,7 @@ import {
 } from "./executionScope";
 
 type FenceClient = Pick<Prisma.TransactionClient,
-  "directorRunCommand" | "agentRun" | "chapter" | "chapterArtifactSyncCheckpoint" | "$executeRaw">;
+  "directorRunCommand" | "agentRun" | "chapter" | "chapterArtifactSyncCheckpoint" | "comicBatchJob" | "$executeRaw">;
 
 export function isExecutionMutation(operation: string): boolean {
   return operation.startsWith("create") || operation.startsWith("update")
@@ -23,6 +23,20 @@ export async function assertExecutionWriteAllowed(client: FenceClient, lock = fa
   if (!scope || (scope.writeFenceHeld && !lock)) return;
   for (const fence of scope.fences) {
     const allowed = await withoutExecutionScope(async () => {
+      if (fence.kind === "comic_batch") {
+        const job = await client.comicBatchJob.findUnique({ where: { id: fence.jobId } });
+        if (!job || job.type !== "episode_image_batch" || job.status !== "running") return 0;
+        let progress: { leaseOwner?: string; leaseExpiresAt?: number };
+        try { progress = JSON.parse(job.progress); } catch { return 0; }
+        if (!progress || progress.leaseOwner !== fence.leaseOwner
+          || typeof progress.leaseExpiresAt !== "number" || progress.leaseExpiresAt <= Date.now()) return 0;
+        if (!lock) return 1;
+        // Compare the complete lease snapshot while acquiring the row lock. Never renew here.
+        return client.$executeRaw(Prisma.sql`
+          UPDATE "ComicBatchJob" SET "progress" = "progress"
+          WHERE "id" = ${fence.jobId} AND "status" = 'running' AND "progress" = ${job.progress}
+        `);
+      }
       if (fence.kind === "director") {
         const where: Prisma.DirectorRunCommandWhereInput = {
           id: fence.commandId,

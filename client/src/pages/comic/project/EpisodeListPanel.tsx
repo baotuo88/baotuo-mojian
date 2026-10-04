@@ -295,6 +295,7 @@ export function EpisodeListPanel({
 
   const format = parsePresetFormat(project.stylePreset);
   const targetPanelCount = resolveTargetPanelCount(densityMode, format);
+  const nextEpisodeOrder = Math.max(0, ...episodes.map((episode) => episode.order)) + 1;
 
   const bundleMut = useMutation({
     mutationFn: () => importComicSourceBundle(projectId),
@@ -328,13 +329,15 @@ export function EpisodeListPanel({
   });
 
   const generateScript = (episode: ComicEpisode) => {
-    if ((episode._count?.panels ?? 0) > 0) {
-      const ok = window.confirm("重新生成会替换本话已有格子脚本，并影响后续批量生图。继续生成吗？");
+    const replaceExisting = Math.max(episode._count?.panels ?? 0, episode.panels?.length ?? 0) > 0;
+    if (replaceExisting) {
+      const ok = window.confirm("生成前会备份本话原稿。新的分镜将替换当前分镜，需要重新生成对应图片。确认备份并重新生成吗？");
       if (!ok) return;
     }
     scriptMut.mutate({
       episodeId: episode.id,
       payload: {
+        replaceExisting,
         targetPanelCount,
         densityMode,
         scriptPromptInstruction: scriptPromptInstruction.trim() || undefined,
@@ -365,10 +368,10 @@ export function EpisodeListPanel({
               type="button"
               size="sm"
               disabled={outlineMut.isPending || !project.sourceBundle}
-              onClick={() => outlineMut.mutate({ startOrder: (episodes.length || 0) + 1, count: 12 })}
+              onClick={() => outlineMut.mutate({ startOrder: nextEpisodeOrder, count: 12 })}
             >
               <Sparkles className="h-4 w-4" />
-              {outlineMut.isPending ? "生成中..." : `生成第 ${(episodes.length || 0) + 1}-${(episodes.length || 0) + 12} 话大纲`}
+              {outlineMut.isPending ? "生成中..." : `生成第 ${nextEpisodeOrder}-${nextEpisodeOrder + 11} 话大纲`}
             </Button>
             <Button
               type="button"

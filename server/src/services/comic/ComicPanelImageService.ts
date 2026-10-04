@@ -1,14 +1,11 @@
 import fs from "fs/promises";
-import path from "path";
 
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
-import { resolveGeneratedImagesRoot } from "../../runtime/appPaths";
 import {
   filterImageGenerationReferences,
   runImageGeneration,
   safeJsonParse,
-  type ImageTargetAdapter,
 } from "../image/runtime";
 import {
   comicCharacterImageService,
@@ -20,6 +17,7 @@ import { resolveAssetFile } from "./ComicCharacterAssetService";
 import { comicSpriteSheetService } from "./ComicSpriteSheetService";
 import { resolveSceneFile, type SceneBible } from "./ComicSceneService";
 import { IMAGE_SIZES, type ImageSize } from "../image/types";
+import { createPanelImageAdapter, resolvePanelImageFile } from "./assets";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,6 +36,9 @@ export interface PanelReferenceImageMeta {
 
 export interface PanelImageData {
   status: PanelImageStatus;
+  revision?: string;
+  ext?: string;
+  sourceFingerprint?: string;
   version?: number;
   url?: string;
   prompt?: string;
@@ -50,16 +51,7 @@ export interface PanelImageData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const COMIC_IMAGES_DIR = "comic-panels";
 const DEFAULT_PROVIDER: LLMProvider = "openai";
-
-function comicPanelDir(panelId: string): string {
-  return path.join(resolveGeneratedImagesRoot(), COMIC_IMAGES_DIR, panelId);
-}
-
-function panelImageUrl(panelId: string): string {
-  return `/api/comic/panel-images/${panelId}/panel`;
-}
 
 interface DialogueEntry {
   speaker?: string;
@@ -431,16 +423,7 @@ export class ComicPanelImageService {
       : "1024x1536";
     const uniqueRefImagePaths = Array.from(new Set(finalRefImagePaths)).slice(0, 4);
 
-    const adapter: ImageTargetAdapter<PanelImageData> = {
-      kind: `comic.panel:${panelId}`,
-      loadState: async () => safeJsonParse<PanelImageData>(panel.imageData, { status: "idle" }),
-      saveState: async (next) => {
-        await prisma.comicPanel.update({ where: { id: panelId }, data: { imageData: JSON.stringify(next) } });
-      },
-      diskPath: (ext) => path.join(comicPanelDir(panelId), `panel.${ext}`),
-      publicUrl: () => panelImageUrl(panelId),
-      cleanupOtherExts: (keepExt) => cleanOldPanelFiles(panelId, keepExt),
-    };
+    const adapter = createPanelImageAdapter(panel);
 
     return {
       adapter,
@@ -478,6 +461,7 @@ export class ComicPanelImageService {
     panelId: string,
     provider: LLMProvider = DEFAULT_PROVIDER,
     overrides?: import("../image/runtime").ImageGenerationOverrides,
+    execution?: { expectedModel?: string },
   ): Promise<PanelImageData> {
     const ctx = await this.buildPanelGenerationContext(panelId);
     try {
@@ -487,6 +471,7 @@ export class ComicPanelImageService {
         excludedReferenceImageUrls: overrides?.excludedReferenceImageUrls,
       });
       return await runImageGeneration(ctx.adapter, {
+        expectedModel: execution?.expectedModel,
         provider: overrides?.providerOverride ?? provider,
         prompt: overrides?.promptOverride ?? ctx.prompt,
         size: overrides?.sizeOverride ?? ctx.size,
@@ -511,30 +496,11 @@ export class ComicPanelImageService {
   async getPanelImageFile(
     panelId: string,
   ): Promise<{ buffer: Buffer; ext: string } | null> {
-    const dir = comicPanelDir(panelId);
-    let entries: string[];
-    try {
-      entries = await fs.readdir(dir);
-    } catch {
-      return null;
-    }
-    const panelFile = entries.find((f) => /^panel\.(png|jpg|webp)$/i.test(f));
-    if (!panelFile) return null;
-    const ext = path.extname(panelFile).replace(".", "").toLowerCase();
-    const buffer = await fs.readFile(path.join(dir, panelFile));
-    return { buffer, ext };
-  }
-}
-
-async function cleanOldPanelFiles(panelId: string, keepExt: string): Promise<void> {
-  const dir = comicPanelDir(panelId);
-  let entries: string[];
-  try { entries = await fs.readdir(dir); } catch { return; }
-  for (const f of entries) {
-    const fExt = path.extname(f).replace(".", "").toLowerCase();
-    if (/^panel\.(png|jpg|webp)$/i.test(f) && fExt !== keepExt) {
-      await fs.unlink(path.join(dir, f)).catch(() => {});
-    }
+    const panel = await prisma.comicPanel.findUnique({ where: { id: panelId } });
+    if (!panel) return null;
+    const file = await resolvePanelImageFile(panel);
+    if (!file) return null;
+    try { return { buffer: await fs.readFile(file.filePath), ext: file.ext }; } catch { return null; }
   }
 }
 

@@ -1,33 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CircleDollarSign,
   FileText,
   Image as ImageIcon,
   ImageOff,
   LayoutGrid,
   Loader2,
   Pencil,
-  Play,
   RefreshCw,
-  RotateCcw,
   Save,
   Sparkles,
   Rows3,
 } from "lucide-react";
 import {
-  estimateBatchCost,
   generatePanelImage,
-  getBatchJob,
   listComicEpisodes,
   listComicPanels,
   panelImageUrl,
   preparePanelImage,
-  retryBatchJob,
-  startEpisodeBatch,
   updatePanelVisualPrompt,
-  type BatchProgress,
-  type ComicBatchJob,
   type ComicDialogue,
   type ComicPanel,
 } from "@/api/comic";
@@ -36,24 +27,10 @@ import { ImageGenerationConfirmDialog } from "@/components/image/ImageGeneration
 import { useImageGenerationFlow } from "@/components/image/useImageGenerationFlow";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { BatchBar } from "./production";
+import { readPanelImage } from "./assets";
 
-function parseImageData(
-  raw: string | null | undefined,
-): {
-  status?: string;
-  url?: string;
-  prompt?: string;
-  provider?: string;
-  generatedAt?: string;
-  referenceImages?: Array<{ kind: string; label: string; url: string }>;
-} {
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
+const parseImageData = readPanelImage;
 
 const REF_KIND_LABEL: Record<string, string> = {
   character_sheet: "三视图",
@@ -93,152 +70,12 @@ function parseLayoutData(raw: string | null | undefined): {
   }
 }
 
-function isPanelImageStale(panel: ComicPanel, imageData: { status?: string; generatedAt?: string }): boolean {
-  if (imageData.status !== "done" || !imageData.generatedAt || !panel.updatedAt) return false;
+function isPanelImageStale(panel: ComicPanel, imageData: { status?: string; generatedAt?: string; retained?: boolean }): boolean {
+  if (imageData.retained || imageData.status !== "done" || !imageData.generatedAt || !panel.updatedAt) return false;
   const imageGeneratedAt = Date.parse(imageData.generatedAt);
   const panelUpdatedAt = Date.parse(panel.updatedAt);
   if (Number.isNaN(imageGeneratedAt) || Number.isNaN(panelUpdatedAt)) return false;
   return panelUpdatedAt > imageGeneratedAt + 1000;
-}
-
-function BatchBar({
-  episodeId,
-  provider,
-  onComplete,
-}: {
-  episodeId: string;
-  provider: string;
-  onComplete: () => void;
-}) {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [job, setJob] = useState<ComicBatchJob | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const { data: estimate } = useQuery({
-    queryKey: ["comic", "batch-estimate", episodeId, provider],
-    queryFn: () => estimateBatchCost(episodeId, provider || undefined),
-    enabled: Boolean(episodeId),
-    staleTime: 30_000,
-  });
-
-  useEffect(() => {
-    if (!jobId) return;
-    pollRef.current = setInterval(async () => {
-      try {
-        const updated = await getBatchJob(jobId);
-        setJob(updated);
-        if (updated.status !== "running") {
-          clearInterval(pollRef.current!);
-          pollRef.current = null;
-          onComplete();
-        }
-      } catch {
-        // Polling failures are transient and should not interrupt the workspace.
-      }
-    }, 2500);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [jobId, onComplete]);
-
-  const startMut = useMutation({
-    mutationFn: () =>
-      startEpisodeBatch(episodeId, { provider: provider || undefined, concurrency: 3, skipDone: true }),
-    onSuccess: ({ jobId: id }) => {
-      setJobId(id);
-      setJob(null);
-    },
-    onError: (e) => toast.error(String(e)),
-  });
-
-  const retryMut = useMutation({
-    mutationFn: () => retryBatchJob(jobId!, provider || undefined),
-    onSuccess: ({ jobId: id }) => {
-      setJobId(id);
-      setJob(null);
-    },
-    onError: (e) => toast.error(String(e)),
-  });
-
-  const progress = job ? (JSON.parse(job.progress) as BatchProgress) : null;
-  const isRunning = job?.status === "running" || startMut.isPending;
-  const hasFailures = (progress?.failedPanelIds?.length ?? 0) > 0 && job?.status !== "running";
-  const pendingCount = estimate?.pendingPanels ?? 0;
-
-  return (
-    <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          disabled={isRunning || pendingCount === 0}
-          onClick={() => startMut.mutate()}
-        >
-          {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-          {isRunning ? "批量生成中..." : `批量生成 ${pendingCount > 0 ? `(${pendingCount}格)` : ""}`}
-        </Button>
-
-        {hasFailures && (
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            disabled={retryMut.isPending}
-            onClick={() => retryMut.mutate()}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            重试 {progress!.failedPanelIds.length} 格
-          </Button>
-        )}
-
-        {estimate && pendingCount > 0 && (
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <CircleDollarSign className="h-3.5 w-3.5" />
-            约 {estimate.estimatedCentsCost} ¢
-          </span>
-        )}
-
-        {job?.status === "completed" && (
-          <span className="text-xs font-medium text-green-600 dark:text-green-400">全部完成</span>
-        )}
-        {job?.status === "partial" && !hasFailures && (
-          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">部分完成</span>
-        )}
-      </div>
-
-      {progress && (
-        <div className="space-y-1">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                job?.status === "partial"
-                  ? "bg-amber-500"
-                  : job?.status === "completed"
-                  ? "bg-green-500"
-                  : "bg-primary"
-              }`}
-              style={{
-                width: `${progress.total > 0 ? Math.round(((progress.done + progress.failed) / progress.total) * 100) : 0}%`,
-              }}
-            />
-          </div>
-          <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>
-              {progress.done} / {progress.total} 完成
-              {progress.failed > 0 && (
-                <span className="ml-1.5 text-destructive">{progress.failed} 失败</span>
-              )}
-            </span>
-            <span>
-              {progress.total > 0
-                ? `${Math.round(((progress.done + progress.failed) / progress.total) * 100)}%`
-                : ""}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function parseDialogues(raw: string | null | undefined): ComicDialogue[] {
@@ -277,7 +114,7 @@ function StripView({
               {imageData.status === "done" ? (
                 <>
                   <img
-                    src={panelImageUrl(panel.id)}
+                    src={panelImageUrl(panel.id, imageData.revision ?? imageData.version ?? imageData.generatedAt)}
                     alt={`第 ${panel.order} 格`}
                     className="w-full object-cover"
                     loading={idx < 3 ? "eager" : "lazy"}
@@ -416,7 +253,7 @@ function PanelDetailDialog({
             {imageData.status === "done" ? (
               <div className="relative">
                 <img
-                  src={panelImageUrl(panel.id)}
+                  src={panelImageUrl(panel.id, imageData.revision ?? imageData.version ?? imageData.generatedAt)}
                   alt={`第 ${panel.order} 格`}
                   className="mx-auto max-h-72 w-full rounded-md object-contain lg:max-h-none"
                 />
@@ -631,9 +468,9 @@ function PanelDetailDialog({
   );
 }
 
-export function PanelsGridPanel({ projectId, provider }: { projectId: string; provider: string }) {
+export function PanelsGridPanel({ projectId, provider, initialEpisodeId, onEpisodeChange }: { projectId: string; provider: string; initialEpisodeId?: string; onEpisodeChange?: (episodeId: string) => void }) {
   const queryClient = useQueryClient();
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(initialEpisodeId ?? null);
   const [busyPanelId, setBusyPanelId] = useState("");
   const [selectedPanel, setSelectedPanel] = useState<ComicPanel | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "strip">("grid");
@@ -644,11 +481,9 @@ export function PanelsGridPanel({ projectId, provider }: { projectId: string; pr
     queryFn: () => listComicEpisodes(projectId),
   });
 
-  const activeEpisode = selectedEpisodeId
-    ? episodes.find((episode) => episode.id === selectedEpisodeId)
-    : episodes[0];
+  const activeEpisode = episodes.find((episode) => episode.id === selectedEpisodeId) ?? episodes[0];
 
-  const { data: panels = [], isLoading: panelsLoading, refetch: refetchPanels } = useQuery({
+  const { data: panels = [], isLoading: panelsLoading } = useQuery({
     queryKey: ["comic", "panels", activeEpisode?.id],
     queryFn: () => (activeEpisode ? listComicPanels(activeEpisode.id) : Promise.resolve([])),
     enabled: Boolean(activeEpisode),
@@ -690,7 +525,7 @@ export function PanelsGridPanel({ projectId, provider }: { projectId: string; pr
               <button
                 key={episode.id}
                 type="button"
-                onClick={() => setSelectedEpisodeId(episode.id)}
+                onClick={() => { setSelectedEpisodeId(episode.id); setSelectedPanel(null); onEpisodeChange?.(episode.id); }}
                 className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${(activeEpisode?.id === episode.id) ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent"}`}
               >
                 第 {episode.order} 话
@@ -720,12 +555,10 @@ export function PanelsGridPanel({ projectId, provider }: { projectId: string; pr
 
       {activeEpisode && (
         <BatchBar
+          key={activeEpisode.id}
+          projectId={projectId}
           episodeId={activeEpisode.id}
           provider={provider}
-          onComplete={() => {
-            queryClient.invalidateQueries({ queryKey: ["comic", "panels", activeEpisode.id] });
-            void refetchPanels();
-          }}
         />
       )}
 
@@ -777,7 +610,7 @@ export function PanelsGridPanel({ projectId, provider }: { projectId: string; pr
                 {imageData.status === "done" ? (
                   <div className="relative">
                     <img
-                      src={panelImageUrl(panel.id)}
+                      src={panelImageUrl(panel.id, imageData.revision ?? imageData.version ?? imageData.generatedAt)}
                       alt={`第 ${panel.order} 格`}
                       className="aspect-[2/3] w-full object-cover"
                       loading="lazy"

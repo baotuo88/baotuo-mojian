@@ -30,7 +30,7 @@ import SelectControl from "@/components/common/SelectControl";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const SOURCE_LABELS: Record<ComicSourceType, string> = {
-  novel_import: "导入小说",
+  novel_import: "我的小说",
   original: "原创灵感",
   text_import: "文本导入",
   comic_import: "漫画改编",
@@ -281,7 +281,7 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     title: "",
-    sourceType: "original" as ComicSourceType,
+    sourceType: "novel_import" as ComicSourceType,
     sourceRef: "",
     inspiration: "",
     rawText: "",
@@ -289,9 +289,10 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
     style: "webtoon_color",
   });
 
-  const { data: novels } = useQuery({
-    queryKey: ["novels"],
-    queryFn: () => getNovelList(),
+  const [novelSearch, setNovelSearch] = useState("");
+  const { data: novels, isPending: novelsLoading, isError: novelsError, refetch: refetchNovels } = useQuery({
+    queryKey: ["comic", "novel-source-options", novelSearch],
+    queryFn: () => getNovelList({ limit: 100, search: novelSearch }),
     enabled: form.sourceType === "novel_import",
   });
 
@@ -301,17 +302,18 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
       toast.success("漫画项目已创建");
       onCreated(proj.id);
     },
+    onError: (error) => toast.error(error instanceof Error ? error.message : String(error)),
   });
 
   const canNext = () => {
-    if (step === 0) return form.title.trim().length > 0;
+    if (step === 0) return form.sourceType === "novel_import" || form.title.trim().length > 0;
     if (step === 1) {
       if (form.sourceType === "novel_import") return Boolean(form.sourceRef);
       if (form.sourceType === "original") return form.inspiration.trim().length > 0;
       if (form.sourceType === "text_import") return form.rawText.trim().length > 0;
       return true;
     }
-    return true;
+    return form.title.trim().length > 0 && (form.sourceType !== "novel_import" || Boolean(form.sourceRef));
   };
 
   const handleSubmit = () => {
@@ -348,7 +350,7 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
             <div className="space-y-1">
               <label className="text-sm font-medium">项目标题</label>
               <Input
-                placeholder="漫画标题"
+                placeholder={form.sourceType === "novel_import" ? "可留空，选择小说后自动填写" : "漫画标题"}
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               />
@@ -376,16 +378,22 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
             {form.sourceType === "novel_import" && (
               <div className="space-y-1">
                 <label className="text-sm font-medium">选择小说</label>
+                <Input aria-label="搜索小说" placeholder="按小说标题搜索" value={novelSearch} onChange={(event) => setNovelSearch(event.target.value)} />
                 <SelectControl
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                   value={form.sourceRef}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm((f) => ({ ...f, sourceRef: e.target.value }))}
+                  onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
+                    const selected = novels?.data?.items?.find((novel) => novel.id === event.target.value);
+                    setForm((value) => ({ ...value, sourceRef: event.target.value, title: value.title || selected?.title || "" }));
+                  }}
                 >
-                  <option value="">—— 选择小说 ——</option>
+                  <option value="">{novelsLoading ? "正在读取小说…" : "选择用于改编的小说"}</option>
                   {novels?.data?.items?.map((n) => (
                     <option key={n.id} value={n.id}>{n.title ?? "未命名"}</option>
                   ))}
                 </SelectControl>
+                {novelsError && <p className="text-xs text-destructive">小说列表读取失败。<button type="button" className="ml-2 underline" onClick={() => void refetchNovels()}>重试</button></p>}
+                {!novelsLoading && !novelsError && novels?.data?.items?.length === 0 && <p className="text-xs text-muted-foreground">没有找到可选小说。可以调整搜索，或选择原创灵感、文本导入。</p>}
               </div>
             )}
             {form.sourceType === "original" && (
@@ -533,7 +541,7 @@ export default function ComicWorkspacePage() {
             漫画改编工作台
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            将小说或原创故事一键生成条漫分格脚本与图像
+            将小说或原创故事改编为漫画，按步骤完成第一话并导出图片
           </p>
         </div>
         <Button type="button" onClick={() => setShowWizard((v) => !v)}>

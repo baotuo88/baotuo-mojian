@@ -2,7 +2,7 @@
  * 漫画导出服务
  *
  * 1. 以话为单位，垂直拼接全话已排版格子图（lettered > raw 优先）
- * 2. 按平台规格切片（可配，默认 800px 宽度单片无高度上限）
+ * 2. 按平台规格逐片渲染，长图超出安全尺寸时自动分片
  * 3. 产物落盘 + ComicExportJob 记录
  *
  * 依赖：sharp（已安装）
@@ -10,7 +10,8 @@
 import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
-import type * as SharpNS from "sharp";
+import { resolveLetteredImageFile, resolvePanelImageFile } from "./assets";
+import { renderEpisodeArtifacts, resolveExportSpec } from "./export";
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import { resolveGeneratedImagesRoot } from "../../runtime/appPaths";
@@ -22,7 +23,7 @@ export type ExportFormat = "long_image" | "sliced";
 export interface ExportSpec {
   /** 切片目标宽度（像素，默认 800） */
   sliceWidth?: number;
-  /** 单切片最大高度（像素，0 = 不切，输出单张长图） */
+  /** 单切片最大高度（像素，0 = 自动选择安全高度） */
   sliceMaxHeight?: number;
   /** 输出格式 */
   outputFormat?: "png" | "jpg" | "webp";
@@ -51,37 +52,19 @@ function exportJobDir(jobId: string): string {
   return path.join(resolveGeneratedImagesRoot(), EXPORT_DIR, jobId);
 }
 
-function exportArtifactUrl(jobId: string, filename: string): string {
-  return `/api/comic/export-jobs/${jobId}/artifacts/${filename}`;
-}
-
-async function findPanelImageBuffer(panelId: string, preferLettered = true): Promise<Buffer | null> {
-  const base = resolveGeneratedImagesRoot();
-  if (preferLettered) {
-    const letteredPath = path.join(base, "comic-panels-lettered", panelId, "lettered.png");
-    try { return await fs.readFile(letteredPath); } catch { /* fall through */ }
-  }
-  const rawDir = path.join(base, "comic-panels", panelId);
-  try {
-    const entries = await fs.readdir(rawDir);
-    const file = entries.find((f) => /^panel\.(png|jpg|webp)$/i.test(f));
-    if (file) return fs.readFile(path.join(rawDir, file));
-  } catch { /* fall through */ }
-  return null;
-}
-
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export class ComicExportService {
   /**
    * 导出一话为长图（optionally 切片）。
-   * 若格子图不存在则跳过该格（导出可用的部分）。
+   * 全部格子必须有有效的已确认图片；导出冻结输入文件及元数据。
    */
   async exportEpisode(
     episodeId: string,
     format: ExportFormat = "long_image",
     spec: ExportSpec = {},
   ): Promise<ExportJobResult> {
+    const resolvedSpec = resolveExportSpec(format, spec);
     const episode = await prisma.comicEpisode.findUnique({
       where: { id: episodeId },
       include: {
@@ -100,89 +83,42 @@ export class ComicExportService {
         projectId: episode.projectId,
         episodeId,
         format,
-        spec: JSON.stringify(spec),
+        spec: JSON.stringify({ ...resolvedSpec, inputSnapshot: {
+          episodeId, episodeOrder: episode.order, capturedAt: new Date().toISOString(),
+          panels: episode.panels.map(({ id, order, visualPrompt, dialogues, characterRefs, sceneRef, imageData, letteredData }) =>
+            ({ id, order, visualPrompt, dialogues, characterRefs, sceneRef, imageData, letteredData })),
+        } }),
         status: "processing",
       },
     });
 
     const jobDir = exportJobDir(job.id);
-    await fs.mkdir(jobDir, { recursive: true });
-
     try {
-      const outputFmt = spec.outputFormat ?? "png";
-      const quality = spec.quality ?? 90;
-      const targetWidth = spec.sliceWidth ?? 800;
-
-      // 收集所有面板图
-      const panelBuffers: Buffer[] = [];
+      await fs.mkdir(jobDir, { recursive: true });
+      const inputDir = path.join(jobDir, "inputs");
+      await fs.mkdir(inputDir, { recursive: true });
+      const files: string[] = [];
+      const missing: number[] = [];
       for (const panel of episode.panels) {
-        const buf = await findPanelImageBuffer(panel.id);
-        if (buf) panelBuffers.push(buf);
-      }
-      if (panelBuffers.length === 0) {
-        throw new AppError("没有可用的格子图（请先生成图像）。", 400);
-      }
-
-      // 统一宽度 + 垂直拼接
-      const resizedBuffers = await Promise.all(
-        panelBuffers.map((buf) =>
-          sharp(buf).resize({ width: targetWidth, withoutEnlargement: false }).toBuffer(),
-        ),
-      );
-
-      // 逐一获取各格高度以计算 canvas 总高度
-      const heights = await Promise.all(
-        resizedBuffers.map(async (buf) => {
-          const meta = await sharp(buf).metadata();
-          return meta.height ?? 0;
-        }),
-      );
-      const totalHeight = heights.reduce((s, h) => s + h, 0);
-
-      // 用 sharp 的 joinChannel/composite 垂直拼接（通过 extend + composite 方式）
-      const composites: Array<{ input: Buffer; top: number; left: number }> = [];
-      let yOffset = 0;
-      for (let i = 0; i < resizedBuffers.length; i++) {
-        composites.push({ input: resizedBuffers[i], top: yOffset, left: 0 });
-        yOffset += heights[i];
-      }
-
-      let longImageBase = sharp({
-        create: { width: targetWidth, height: totalHeight, channels: 3, background: { r: 255, g: 255, b: 255 } },
-      }).composite(composites);
-
-      const applyQuality = (s: SharpNS.Sharp): SharpNS.Sharp => {
-        if (outputFmt === "jpg") return s.jpeg({ quality });
-        if (outputFmt === "webp") return s.webp({ quality });
-        return s.png();
-      };
-
-      const artifacts: ExportArtifact[] = [];
-
-      const maxHeight = spec.sliceMaxHeight ?? 0;
-      if (format === "sliced" && maxHeight > 0 && totalHeight > maxHeight) {
-        // 切片：先输出完整长图到内存，再按高度切割
-        const longBuffer = await applyQuality(longImageBase).toBuffer();
-        const sliceCount = Math.ceil(totalHeight / maxHeight);
-        for (let s = 0; s < sliceCount; s++) {
-          const sliceTop = s * maxHeight;
-          const sliceHeight = Math.min(maxHeight, totalHeight - sliceTop);
-          const sliceBuf = await applyQuality(
-            sharp(longBuffer).extract({ left: 0, top: sliceTop, width: targetWidth, height: sliceHeight }),
-          ).toBuffer();
-          const filename = `slice-${String(s + 1).padStart(3, "0")}.${outputFmt === "jpg" ? "jpg" : outputFmt}`;
-          const filePath = path.join(jobDir, filename);
-          await fs.writeFile(filePath, sliceBuf);
-          artifacts.push({ index: s + 1, filePath, url: exportArtifactUrl(job.id, filename), width: targetWidth, height: sliceHeight });
+        const rawFile = await resolvePanelImageFile(panel);
+        const file = rawFile ? await resolveLetteredImageFile(panel) ?? rawFile : null;
+        if (!file) { missing.push(panel.order); continue; }
+        try {
+          const buffer = await fs.readFile(file.filePath);
+          const metadata = await sharp(buffer).metadata();
+          if (!metadata.width || !metadata.height) { missing.push(panel.order); continue; }
+          const frozen = path.join(inputDir, `panel-${panel.order}.${file.ext}`);
+          await fs.writeFile(frozen, buffer, { flag: "wx" });
+          files.push(frozen);
+        } catch (error) {
+          // Missing/corrupt image is an incomplete episode, never a silently omitted panel.
+          if (error && typeof error === "object" && "code" in error && error.code !== "ENOENT") throw error;
+          missing.push(panel.order);
         }
-      } else {
-        // 单张长图
-        const ext = outputFmt === "jpg" ? "jpg" : outputFmt;
-        const filename = `episode-${episode.order}.${ext}`;
-        const filePath = path.join(jobDir, filename);
-        await applyQuality(longImageBase).toFile(filePath);
-        artifacts.push({ filePath, url: exportArtifactUrl(job.id, filename), width: targetWidth, height: totalHeight });
       }
+      if (missing.length > 0) throw new AppError(`第 ${missing.join("、")} 格缺少有效图片，请补齐后导出整话。`, 400);
+      const artifacts = await renderEpisodeArtifacts({ files, jobDir, jobId: job.id,
+        episodeOrder: episode.order, spec: resolvedSpec });
 
       await prisma.comicExportJob.update({
         where: { id: job.id },
@@ -213,7 +149,13 @@ export class ComicExportService {
 
   /** 读取导出产物文件供 HTTP 流式响应 */
   async getArtifactFile(jobId: string, filename: string): Promise<{ buffer: Buffer; ext: string } | null> {
-    const safeFilename = path.basename(filename); // 防目录穿越
+    const safeFilename = path.basename(filename);
+    if (safeFilename !== filename) return null;
+    const job = await prisma.comicExportJob.findUnique({ where: { id: jobId } });
+    if (!job || job.status !== "done") return null;
+    let artifacts: ExportArtifact[];
+    try { artifacts = JSON.parse(job.artifacts ?? "[]") as ExportArtifact[]; } catch { return null; }
+    if (!Array.isArray(artifacts) || !artifacts.some((item) => item && typeof item.filePath === "string" && path.basename(item.filePath) === safeFilename)) return null;
     const filePath = path.join(exportJobDir(jobId), safeFilename);
     try {
       const buffer = await fs.readFile(filePath);
