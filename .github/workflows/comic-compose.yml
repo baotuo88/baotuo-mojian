@@ -37,6 +37,14 @@ jobs:
           curl --fail --silent http://127.0.0.1:18089/api/health/live
           curl --fail --silent http://127.0.0.1:18089/ > "$RUNNER_TEMP/comic-index.html"
           test -s "$RUNNER_TEMP/comic-index.html"
+      - name: Verify API stop signal
+        run: |
+          docker compose --env-file "$RUNNER_TEMP/comic-smoke.env" -f compose.yml -f infra/docker/compose.comic-smoke.yml stop api
+          comic_api_exit=$(docker inspect --format '{{.State.ExitCode}}' comic-ci-api-1)
+          case "$comic_api_exit" in
+            0|143) ;;
+            *) echo "Unexpected API stop exit code: $comic_api_exit"; exit 1 ;;
+          esac
       - name: Capture deployment logs
         if: always()
         run: docker compose --env-file "$RUNNER_TEMP/comic-smoke.env" -f compose.yml -f infra/docker/compose.comic-smoke.yml logs --no-color --tail 150 > "$RUNNER_TEMP/comic-compose.log"

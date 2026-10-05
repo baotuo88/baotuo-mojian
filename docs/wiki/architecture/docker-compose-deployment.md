@@ -28,6 +28,7 @@ API 容器启动时先执行 Compose 专用 `migrations.compose` 链。首次 ba
 - 项目目录路径必须为纯 ASCII。中文路径会让 Compose/Buildx 构建会话在 `x-docker-expose-session-sharedkey` 头上报非 ASCII 字符错误；验证过的可用组合是 Compose v2.40.3 + Buildx 0.36.1。
 - `.env.example` 仅为配置模板，复制为 `.env` 后供 Compose 使用。部署时替换占位密码，避免把真实密钥提交到仓库。独立验证 override 清空 `env_file`，只接受显式测试配置。
 - API 和 Web 构建使用受支持的 Node.js 22，与 CI 保持一致；API 镜像携带 CJK 字体和 fontconfig，否则中文漫画植字可能缺字。API 构建阶段使用带编译工具的官方 bookworm 镜像，运行阶段使用 slim 镜像；原生依赖复用镜像自带的 Node 头文件，避免重复下载工具链和头文件。
+- API 使用 `init: true` 转发停止信号并回收子进程。直接让无信号处理器的 Node 成为 PID 1，会使容器停止依赖超时后的 SIGKILL。验收应在空闲状态停止 API，允许正常退出或 SIGTERM 退出，拒绝 SIGKILL/OOM；此规则不意味着上游模型会撤销已发出的计费请求，持久任务仍依靠租约恢复。
 - RAG 默认关闭。只有 Embedding 配置完整时才使用 `--profile rag` 并设置 `RAG_ENABLED=true`。
 - Compose 适用于单实例或受控内网 Beta。面向不可信公网用户前，仍需增加真实登录鉴权、HTTPS 入口、限流和备份监控。
 
