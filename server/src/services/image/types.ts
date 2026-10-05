@@ -96,9 +96,9 @@ export interface ImageProviderGenerateInput {
   outputFormat?: ImageOutputFormat;
   outputCompression?: number;
   moderation?: ImageModerationLevel;
-  /** 参考图 URL 列表（支持 http/https）；provider 不支持时静默忽略 */
+  /** 参考图 URL 列表（http/https 或图片 data URI），下载后完整上传；不支持参考图的通道明确报错 */
   refImages?: string[];
-  /** 参考图本地文件路径列表；优先于 refImages，通过 multipart/form-data 上传，避免 base64 膨胀 */
+  /** 本地参考图与 refImages 一并上传；合计最多 16 张，不截断 */
   refImagePaths?: string[];
 }
 

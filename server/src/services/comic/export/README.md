@@ -11,3 +11,7 @@
 - 原始输入与归一化文件留在每个导出任务的私有 `inputs/` 目录；下载入口仅提供 `done` 任务中明确列出的最终产物。
 
 没有使用真实模型、真实数据库或浏览器的必要：`comicAssetConsistency.test.js` 用临时 PNG、fake provider 验证版本和输出像素；`comicPanelPublication.test.js` 用独立临时 SQLite 验证发布 CAS。
+
+`ExportJobLease` 使用导出任务 `updatedAt` 作为 90 秒租约，每 15 秒心跳一次。列表/详情读取只将过期的 `processing` 任务 CAS 转为可重试错误；活跃任务不会因为其他进程读取而被误判。完成发布与心跳同样校验租约，因此没有读请求时，过期执行者也不能发布结果。任何终态不得被迟到回调覆盖。
+
+中断恢复保留 `spec.inputSnapshot` 与所有私有输入，不从变化后的当前格子自动重跑。用户重新导出会创建新快照与新任务。`comicExportRecovery.test.js` 使用独立 SQLite 验证心跳、过期发布、读时恢复与终态保护。

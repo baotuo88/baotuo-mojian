@@ -28,6 +28,7 @@ import { useImageGenerationFlow } from "@/components/image/useImageGenerationFlo
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import SelectControl from "@/components/common/SelectControl";
+import { parseReferenceImage, confirmedReferenceImage, referenceImageUrl } from "./assets";
 
 const SCENE_TYPE_LABELS: Record<SceneType, string> = {
   interior: "室内",
@@ -51,8 +52,7 @@ function parseBible(raw: string | null): SceneBible {
 }
 
 function parseSheetData(raw: string | null): SceneSheetData {
-  if (!raw) return { status: "idle" };
-  try { return JSON.parse(raw) as SceneSheetData; } catch { return { status: "idle" }; }
+  return parseReferenceImage<SceneSheetData>(raw);
 }
 
 function SceneList({
@@ -74,7 +74,8 @@ function SceneList({
         <div className="space-y-1">
           {scenes.map((scene) => {
             const sheet = parseSheetData(scene.sheetData);
-            const hasSheet = sheet.status === "done";
+            const image = confirmedReferenceImage(sheet);
+            const hasSheet = Boolean(image);
             const isSelected = scene.id === selectedId;
             return (
               <button
@@ -91,7 +92,7 @@ function SceneList({
                     <MapPin className="h-4 w-4" />
                     {hasSheet && (
                       <img
-                        src={comicSceneImageUrl(scene.id)}
+                        src={referenceImageUrl(comicSceneImageUrl(scene.id), image)}
                         alt={scene.name}
                         className="absolute inset-0 h-full w-full object-cover"
                         loading="lazy"
@@ -134,8 +135,8 @@ function SceneDetail({
   const flow = useImageGenerationFlow();
 
   const sheet = parseSheetData(scene.sheetData);
-  const hasSheet = sheet.status === "done";
-  const isGenerating = sheet.status === "generating";
+  const image = confirmedReferenceImage(sheet);
+  const hasSheet = Boolean(image);
 
   const saveMut = useMutation({
     mutationFn: () => updateComicScene(scene.id, { name: name.trim(), sceneType, bible }),
@@ -164,7 +165,7 @@ function SceneDetail({
     onError: (e) => toast.error(String(e)),
   });
 
-  const generatingBusy = flow.dialogProps.loading || flow.dialogProps.submitting || isGenerating;
+  const generatingBusy = flow.dialogProps.loading || flow.dialogProps.submitting;
 
   return (
     <>
@@ -231,16 +232,16 @@ function SceneDetail({
         <aside className="min-w-0 p-4">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-medium">场景设定图</p>
-            {sheet.origin && hasSheet && (
+            {image?.origin && hasSheet && (
               <span className="text-[10px] text-muted-foreground">
-                {sheet.origin === "uploaded" ? "已上传" : "AI 生成"}
+                {image.origin === "uploaded" ? "上传图片" : "AI 生成"}
               </span>
             )}
           </div>
           <div className="flex min-h-[180px] items-center justify-center overflow-hidden rounded-md border bg-muted/30">
             {hasSheet ? (
               <img
-                src={comicSceneImageUrl(scene.id)}
+                src={referenceImageUrl(comicSceneImageUrl(scene.id), image)}
                 alt={scene.name}
                 className="max-h-[280px] w-full object-contain"
                 loading="lazy"
@@ -260,6 +261,7 @@ function SceneDetail({
           {sheet.status === "error" && (
             <p className="mt-1.5 text-[11px] text-destructive">{sheet.error}</p>
           )}
+          {sheet.status === "generating" && <p className="mt-2 text-xs text-muted-foreground">生成结果待确认，可重新生成。{hasSheet ? "当前设定图可继续使用。" : ""}</p>}
           <p className="mt-2 text-[11px] text-muted-foreground">
             设定图会作为低权重参考图传给图像模型，只锁定色调/布局/材质，镜头仍按每格自由运镜。建议先保存场景圣经再生成。
           </p>
@@ -273,7 +275,7 @@ function SceneDetail({
               onClick={startGenerate}
             >
               {generatingBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {hasSheet ? "重新生成" : "AI 生成"}
+              {hasSheet || sheet.status === "generating" ? "重新生成" : "AI 生成"}
             </Button>
             <Button
               type="button"

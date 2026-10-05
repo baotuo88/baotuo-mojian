@@ -5,7 +5,7 @@ import { exportComicEpisode, listComicPanels, listExportJobs, type ComicEpisode,
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import SelectControl from "@/components/common/SelectControl";
-import { missingPanelOrders, parseExportArtifacts } from "./exportProjection";
+import { missingPanelOrders, parseExportArtifacts, exportFailureMessage } from "./exportProjection";
 
 export function ExportPanel({ projectId, episodes, initialEpisodeId, onShowPanels, onEpisodeChange }: {
   projectId: string;
@@ -33,7 +33,7 @@ export function ExportPanel({ projectId, episodes, initialEpisodeId, onShowPanel
   const missing = missingPanelOrders(panelsQuery.data ?? []);
   const complete = panelsQuery.isSuccess && !panelsQuery.isError && (panelsQuery.data?.length ?? 0) > 0 && missing.length === 0;
   const mutation = useMutation({
-    mutationFn: () => exportComicEpisode(selected!.id, { format, spec: { sliceWidth: 800, sliceMaxHeight: format === "sliced" ? 4000 : 0, outputFormat: "png" } }),
+    mutationFn: (request: { episodeId: string; format: NonNullable<ExportEpisodePayload["format"]> }) => exportComicEpisode(request.episodeId, { format: request.format, spec: { sliceWidth: 800, sliceMaxHeight: request.format === "sliced" ? 4000 : 0, outputFormat: "png" } }),
     onMutate: () => setExportError(""),
     onSuccess: () => toast.success("导出完成，可从下载记录保存图片"),
     onError: (error) => {
@@ -41,17 +41,17 @@ export function ExportPanel({ projectId, episodes, initialEpisodeId, onShowPanel
       setExportError(message);
       toast.error(message);
     },
-    onSettled: async () => {
+    onSettled: async (_data, _error, request) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["comic", "export-jobs", projectId] }),
-        queryClient.invalidateQueries({ queryKey: ["comic", "panels", selected?.id] }),
+        queryClient.invalidateQueries({ queryKey: ["comic", "panels", request?.episodeId ?? selected?.id] }),
       ]);
     },
   });
-  const exportImages = async () => {
+  const exportImages = async (request = { episodeId: selected!.id, format }) => {
     if (lock.current) return;
     lock.current = true;
-    try { await mutation.mutateAsync(); } catch { /* mutation reports the failure */ }
+    try { await mutation.mutateAsync(request); } catch { /* mutation reports the failure */ }
     finally { lock.current = false; }
   };
 
@@ -97,7 +97,10 @@ export function ExportPanel({ projectId, episodes, initialEpisodeId, onShowPanel
               <span>{episode ? `第 ${episode.order} 话` : "漫画导出"} · {job.format === "sliced" ? "分段图片" : "完整长图"}</span>
               <span className="text-xs text-muted-foreground">{new Date(job.createdAt).toLocaleString("zh-CN")}</span>
             </div>
-            {job.status === "processing" ? <p className="text-xs text-muted-foreground">图片导出中…</p> : job.status === "error" ? <p className="text-xs text-destructive">本次导出未完成，请补齐图片后重试。</p> : (
+            {job.status === "processing" ? <p className="text-xs text-muted-foreground">图片导出中…</p> : job.status === "error" ? <div className="space-y-2">
+              <p className="text-xs text-destructive" role="alert">{exportFailureMessage(job.artifacts)}</p>
+              {episode && <Button type="button" size="sm" variant="outline" disabled={mutation.isPending} onClick={() => void exportImages({ episodeId: episode.id, format: job.format === "sliced" ? "sliced" : "long_image" })}>重新导出本话</Button>}
+            </div> : (
               <div className="flex flex-wrap gap-2">{artifacts.map((artifact, index) => <Button key={artifact.url} asChild type="button" size="sm" variant="outline"><a href={artifact.url} target="_blank" rel="noreferrer" download><Download className="h-3.5 w-3.5" />{artifacts.length > 1 ? `下载第 ${artifact.index ?? index + 1} 张` : "下载图片"}</a></Button>)}</div>
             )}
           </div>;

@@ -4,12 +4,13 @@
  * 对齐 DramaCharacterImageService 的能力和存储规范。
  *
  * sheetData 结构：{ status, version, url, prompt, provider, generatedAt, error, history[] }
- * 图片存储：generated-images/comic-characters/{charId}/character-sheet.{ext}
+ * 图片存储：generated-images/comic-characters/{charId}/{revision}/character-sheet.{ext}
  * HTTP 端点：/api/comic/character-images/:charId/sheet
  */
 import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+import { randomUUID } from "node:crypto";
 
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
@@ -18,10 +19,10 @@ import {
   filterImageGenerationReferences,
   runImageGeneration,
   safeJsonParse,
-  type ImageTargetAdapter,
 } from "../image/runtime";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { buildGenderLockPrompt, resolveComicStyleKeywords } from "./comicStylePrompt";
+import { characterImageSource, confirmedReferenceImage, createCharacterReferenceAdapter, referenceSourceFingerprint, resolveReferenceImageFile, type ReferenceImageState } from "./assets";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,24 +96,6 @@ function comicCharacterDir(charId: string): string {
 
 function sheetUrl(charId: string): string {
   return `/api/comic/character-images/${charId}/sheet`;
-}
-
-function expressionUrl(charId: string): string {
-  return `/api/comic/character-images/${charId}/expression`;
-}
-
-function archivedSheetUrl(charId: string, version: number): string {
-  return `/api/comic/character-images/${charId}/sheet/v${version}`;
-}
-
-function readVersion(data: CharacterSheetData): number {
-  const v = Number(data.version);
-  return Number.isFinite(v) && v > 0 ? Math.round(v) : data.status === "done" ? 1 : 0;
-}
-
-function readExpressionVersion(data: CharacterExpressionData | undefined): number {
-  const v = Number(data?.version);
-  return Number.isFinite(v) && v > 0 ? Math.round(v) : data?.status === "done" ? 1 : 0;
 }
 
 /**
@@ -279,39 +262,20 @@ function buildExpressionPrompt(character: {
   return lines.join(", ");
 }
 
-async function removeOldAssetFiles(charId: string, basename: string, keepExt: string): Promise<void> {
-  const dir = comicCharacterDir(charId);
-  for (const [ext] of IMAGE_EXTS) {
-    if (ext === keepExt) continue;
-    await fs.unlink(path.join(dir, `${basename}.${ext}`)).catch(() => {});
-  }
-}
-
-async function resolveAssetFile(
-  charId: string,
-  basename: string,
-): Promise<{ filePath: string; mimeType: string } | null> {
-  const dir = comicCharacterDir(charId);
-  for (const [ext, mimeType] of IMAGE_EXTS) {
-    const filePath = path.join(dir, `${basename}.${ext}`);
-    try { await fs.access(filePath); return { filePath, mimeType }; } catch { /* try next */ }
-  }
-  return null;
-}
-
-async function ensureDerivedDir(charId: string): Promise<string> {
-  const dir = path.join(comicCharacterDir(charId), "derived");
+async function ensureDerivedDir(charId: string, sourcePath: string): Promise<string> {
+  const dir = path.join(comicCharacterDir(charId), "derived", referenceSourceFingerprint(sourcePath));
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }
 
-async function isDerivedFresh(sourcePath: string, derivedPath: string): Promise<boolean> {
-  try {
-    const [sourceStat, derivedStat] = await Promise.all([fs.stat(sourcePath), fs.stat(derivedPath)]);
-    return derivedStat.mtimeMs >= sourceStat.mtimeMs;
-  } catch {
-    return false;
-  }
+async function hasDerivedFile(derivedPath: string): Promise<boolean> {
+  try { await fs.access(derivedPath); return true; } catch { return false; }
+}
+
+async function saveDerivedImage(filePath: string, buffer: Buffer): Promise<void> {
+  const candidate = `${filePath}.${randomUUID()}.tmp`;
+  await fs.writeFile(candidate, buffer, { flag: "wx" });
+  await fs.rename(candidate, filePath);
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -335,42 +299,10 @@ export class ComicCharacterImageService {
       ? await this.resolveSheetFile(charId)
       : null;
 
-    const archiveCurrentSheet = async (current: CharacterSheetData): Promise<CharacterSheetHistoryItem | null> => {
-      if (current.status !== "done") return null;
-      const version = readVersion(current);
-      if (!version) return null;
-      const resolved = await this.resolveSheetFile(charId);
-      const item: CharacterSheetHistoryItem = {
-        version,
-        prompt: current.prompt,
-        provider: current.provider,
-        generatedAt: current.generatedAt,
-      };
-      if (!resolved) return item;
-      const ext = path.extname(resolved.filePath).replace(".", "").toLowerCase() || "png";
-      const archivePath = path.join(comicCharacterDir(charId), `character-sheet.v${version}.${ext}`);
-      await fs.copyFile(resolved.filePath, archivePath);
-      return { ...item, url: archivedSheetUrl(charId, version) };
-    };
-
-    const adapter: ImageTargetAdapter<CharacterSheetData> = {
-      kind: `comic.character.sheet:${charId}`,
-      loadState: async () => safeJsonParse<CharacterSheetData>(character.sheetData, { status: "idle" }),
-      saveState: async (next) => {
-        await prisma.comicCharacter.update({ where: { id: charId }, data: { sheetData: JSON.stringify(next) } });
-      },
-      diskPath: (ext) => path.join(comicCharacterDir(charId), `character-sheet.${ext}`),
-      publicUrl: () => sheetUrl(charId),
-      cleanupOtherExts: (keepExt) => removeOldAssetFiles(charId, "character-sheet", keepExt),
-      versioning: {
-        enabled: true,
-        maxHistory: 5,
-        archiveCurrent: archiveCurrentSheet,
-      },
-    };
+    const adapter = createCharacterReferenceAdapter<CharacterSheetData>(character);
 
     const referenceImages: import("../image/runtime").GeneratedReferenceImageMeta[] = currentReference
-      ? [{ kind: "character_sheet", label: `${character.name} · 当前三视图`, url: sheetUrl(charId) }]
+      ? [{ kind: "character_sheet", label: `${character.name} · 当前三视图`, url: sheetUrl(charId) + (currentReference.revision ? `?revision=${currentReference.revision}` : "") }]
       : [];
 
     return {
@@ -427,8 +359,11 @@ export class ComicCharacterImageService {
     return safeJsonParse<CharacterSheetData>(character.sheetData, { status: "idle" });
   }
 
-  async resolveSheetFile(charId: string): Promise<{ filePath: string; mimeType: string } | null> {
-    return resolveAssetFile(charId, "character-sheet");
+  async resolveSheetFile(charId: string, revision?: string): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
+    const character = await prisma.comicCharacter.findUnique({ where: { id: charId },
+      include: { project: { select: { stylePreset: true } } } });
+    return character ? resolveReferenceImageFile("sheet", charId, character.sheetData,
+      referenceSourceFingerprint(characterImageSource(character)), revision) : null;
   }
 
   private async buildExpressionSheetGenerationContext(
@@ -444,32 +379,10 @@ export class ComicCharacterImageService {
     const prompt = buildExpressionPrompt(character, styleKeywords);
     const sheetReference = await this.resolveSheetFile(charId);
     const referenceImages: import("../image/runtime").GeneratedReferenceImageMeta[] = sheetReference
-      ? [{ kind: "character_sheet", label: `${character.name} · 三视图`, url: sheetUrl(charId) }]
+      ? [{ kind: "character_sheet", label: `${character.name} · 三视图`, url: sheetUrl(charId) + (sheetReference.revision ? `?revision=${sheetReference.revision}` : "") }]
       : [];
 
-    // Expression 状态嵌在 sheetData.assets.expression；adapter 负责读写嵌套位置。
-    const adapter: ImageTargetAdapter<CharacterExpressionData> = {
-      kind: `comic.character.expression:${charId}`,
-      loadState: async () => {
-        const latest = await prisma.comicCharacter.findUnique({ where: { id: charId }, select: { sheetData: true } });
-        const sheet = safeJsonParse<CharacterSheetData>(latest?.sheetData, { status: "idle" });
-        return sheet.assets?.expression ?? { status: "idle" };
-      },
-      saveState: async (next) => {
-        // 每次写入都重新读最新 sheetData 再合并，避免覆盖三视图状态
-        const latest = await prisma.comicCharacter.findUnique({ where: { id: charId }, select: { sheetData: true } });
-        const sheet = safeJsonParse<CharacterSheetData>(latest?.sheetData, { status: "idle" });
-        const merged: CharacterSheetData = {
-          ...sheet,
-          status: sheet.status ?? "idle",
-          assets: { ...(sheet.assets ?? {}), expression: next },
-        };
-        await prisma.comicCharacter.update({ where: { id: charId }, data: { sheetData: JSON.stringify(merged) } });
-      },
-      diskPath: (ext) => path.join(comicCharacterDir(charId), `character-expression.${ext}`),
-      publicUrl: () => expressionUrl(charId),
-      cleanupOtherExts: (keepExt) => removeOldAssetFiles(charId, "character-expression", keepExt),
-    };
+    const adapter = createCharacterReferenceAdapter<CharacterExpressionData>(character, true);
 
     return {
       adapter,
@@ -524,38 +437,45 @@ export class ComicCharacterImageService {
     return data.assets?.expression ?? { status: "idle" };
   }
 
-  async resolveExpressionFile(charId: string): Promise<{ filePath: string; mimeType: string } | null> {
-    return resolveAssetFile(charId, "character-expression");
+  async resolveExpressionFile(charId: string, revision?: string): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
+    const character = await prisma.comicCharacter.findUnique({ where: { id: charId },
+      include: { project: { select: { stylePreset: true } } } });
+    if (!character) return null;
+    const sheet = safeJsonParse<CharacterSheetData>(character.sheetData, { status: "idle" });
+    return resolveReferenceImageFile("expression", charId, sheet.assets?.expression,
+      referenceSourceFingerprint(characterImageSource(character, true)), revision);
   }
 
-  async resolveFaceRegionFile(charId: string): Promise<{ filePath: string; mimeType: string } | null> {
-    const sheet = await this.resolveSheetFile(charId);
+  async resolveFaceRegionFile(charId: string, revision?: string): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
+    const sheet = await this.resolveSheetFile(charId, revision);
     if (!sheet) return null;
-    const derivedDir = await ensureDerivedDir(charId);
+    const derivedDir = await ensureDerivedDir(charId, sheet.filePath);
     const facePath = path.join(derivedDir, "character-face.png");
-    if (!(await isDerivedFresh(sheet.filePath, facePath))) {
+    if (!(await hasDerivedFile(facePath))) {
       const meta = await sharp(sheet.filePath).metadata();
       if (!meta.width || !meta.height) return null;
       const width = Math.max(1, Math.floor(meta.width / 3));
-      await sharp(sheet.filePath)
+      const buffer = await sharp(sheet.filePath)
         .extract({ left: 0, top: 0, width, height: meta.height })
         .png()
-        .toFile(facePath);
+        .toBuffer();
+      await saveDerivedImage(facePath, buffer);
     }
-    return { filePath: facePath, mimeType: "image/png" };
+    return { filePath: facePath, mimeType: "image/png", revision: sheet.revision };
   }
 
   async resolveExpressionRegionFile(
     charId: string,
     expression: CharacterExpressionId,
-  ): Promise<{ filePath: string; mimeType: string } | null> {
-    const expressionSheet = await this.resolveExpressionFile(charId);
+    revision?: string,
+  ): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
+    const expressionSheet = await this.resolveExpressionFile(charId, revision);
     if (!expressionSheet) return null;
     const expressionIndex = EXPRESSION_ORDER.indexOf(expression);
     if (expressionIndex < 0) return null;
-    const derivedDir = await ensureDerivedDir(charId);
+    const derivedDir = await ensureDerivedDir(charId, expressionSheet.filePath);
     const regionPath = path.join(derivedDir, `character-expression-${expression}.png`);
-    if (!(await isDerivedFresh(expressionSheet.filePath, regionPath))) {
+    if (!(await hasDerivedFile(regionPath))) {
       const meta = await sharp(expressionSheet.filePath).metadata();
       if (!meta.width || !meta.height) return null;
       const slotWidth = Math.max(1, Math.floor(meta.width / EXPRESSION_ORDER.length));
@@ -563,35 +483,34 @@ export class ComicCharacterImageService {
       const width = expressionIndex === EXPRESSION_ORDER.length - 1
         ? meta.width - left
         : slotWidth;
-      await sharp(expressionSheet.filePath)
+      const buffer = await sharp(expressionSheet.filePath)
         .extract({ left, top: 0, width: Math.max(1, width), height: meta.height })
         .png()
-        .toFile(regionPath);
+        .toBuffer();
+      await saveDerivedImage(regionPath, buffer);
     }
-    return { filePath: regionPath, mimeType: "image/png" };
+    return { filePath: regionPath, mimeType: "image/png", revision: expressionSheet.revision };
   }
 
-  async resolveArchivedSheetFile(charId: string, version: number): Promise<{ filePath: string; mimeType: string } | null> {
+  async resolveArchivedSheetFile(charId: string, version: number): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
+    const character = await prisma.comicCharacter.findUnique({ where: { id: charId }, select: { sheetData: true } });
+    if (!character) return null;
+    const state = safeJsonParse<CharacterSheetData>(character.sheetData, { status: "idle" });
+    const current = confirmedReferenceImage(character.sheetData);
+    const history = state.history ?? current?.history ?? [];
+    const item = history.find((entry) => entry.version === version) as (CharacterSheetHistoryItem & ReferenceImageState) | undefined;
+    if (item?.revision) return resolveReferenceImageFile("sheet", charId, { ...item, status: "done" });
+    // The legacy archive endpoint only serves a version registered in metadata.
+    if (!item) return null;
     const dir = comicCharacterDir(charId);
     for (const [ext, mimeType] of IMAGE_EXTS) {
       const filePath = path.join(dir, `character-sheet.v${version}.${ext}`);
-      try { await fs.access(filePath); return { filePath, mimeType }; } catch { /* try next */ }
+      try { await fs.access(filePath); return { filePath, mimeType }; } catch { /* next legacy encoding */ }
     }
-    return null;
+    // A formerly-current legacy sheet is retained under its fixed filename by new generators.
+    return item.legacyCurrent ? resolveReferenceImageFile("sheet", charId, { ...item, status: "done" }) : null;
   }
 
-  private async archiveCurrent(charId: string, data: CharacterSheetData): Promise<CharacterSheetHistoryItem | null> {
-    if (data.status !== "done") return null;
-    const version = readVersion(data);
-    if (!version) return null;
-    const resolved = await this.resolveSheetFile(charId);
-    const item: CharacterSheetHistoryItem = { version, prompt: data.prompt, provider: data.provider, generatedAt: data.generatedAt };
-    if (!resolved) return item;
-    const ext = path.extname(resolved.filePath).replace(".", "").toLowerCase() || "png";
-    const archivePath = path.join(comicCharacterDir(charId), `character-sheet.v${version}.${ext}`);
-    await fs.copyFile(resolved.filePath, archivePath);
-    return { ...item, url: archivedSheetUrl(charId, version) };
-  }
 }
 
 export function isCharacterExpressionId(value: unknown): value is CharacterExpressionId {

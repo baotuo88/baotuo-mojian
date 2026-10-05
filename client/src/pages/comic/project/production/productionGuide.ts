@@ -1,11 +1,11 @@
 import type { ComicCharacter, ComicEpisode, ComicPanel } from "@/api/comic";
-import { readPanelImage } from "../assets/index.ts";
+import { readPanelImage, parseReferenceImage, confirmedReferenceImage } from "../assets/index.ts";
 
 export type ComicWorkspaceTab = "outline" | "characters" | "scenes" | "panels" | "export";
 export type ProductionStep = "import" | "outline" | "script" | "characters" | "panels" | "export";
 
 export function hasReadyCharacterSheet(character: ComicCharacter): boolean {
-  try { return JSON.parse(character.sheetData ?? "null")?.status === "done"; } catch { return false; }
+  return Boolean(confirmedReferenceImage(parseReferenceImage(character.sheetData)));
 }
 
 export function resolveProductionStep(input: {

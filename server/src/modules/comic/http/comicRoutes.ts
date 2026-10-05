@@ -14,6 +14,7 @@ import { comicBatchOrchestrator } from "../../../services/comic/ComicBatchOrches
 import { comicFactService } from "../../../services/comic/ComicFactService";
 import { comicCharacterAssetService } from "../../../services/comic/ComicCharacterAssetService";
 import { comicSceneService } from "../../../services/comic/ComicSceneService";
+import { comicImageUpload } from "./imageUpload";
 
 const comicProjectService = new ComicProjectService();
 const comicEpisodePlanService = new ComicEpisodePlanService();
@@ -526,7 +527,7 @@ router.get("/characters/:charId/expressions", validate({ params: charIdParams })
 router.get("/character-images/:charId/sheet", validate({ params: charIdParams }), async (req, res, next) => {
   try {
     const { charId } = req.params as z.infer<typeof charIdParams>;
-    const file = await comicCharacterImageService.resolveSheetFile(charId);
+    const file = await comicCharacterImageService.resolveSheetFile(charId, typeof req.query.revision === "string" ? req.query.revision : undefined);
     if (!file) {
       res.status(404).json({ success: false, error: "设计稿尚未生成。" } satisfies ApiResponse<null>);
       return;
@@ -540,7 +541,7 @@ router.get("/character-images/:charId/sheet", validate({ params: charIdParams })
 router.get("/character-images/:charId/expressions", validate({ params: charIdParams }), async (req, res, next) => {
   try {
     const { charId } = req.params as z.infer<typeof charIdParams>;
-    const file = await comicCharacterImageService.resolveExpressionFile(charId);
+    const file = await comicCharacterImageService.resolveExpressionFile(charId, typeof req.query.revision === "string" ? req.query.revision : undefined);
     if (!file) {
       res.status(404).json({ success: false, error: "表情设计稿尚未生成。" } satisfies ApiResponse<null>);
       return;
@@ -554,7 +555,7 @@ router.get("/character-images/:charId/expressions", validate({ params: charIdPar
 router.get("/character-images/:charId/face", validate({ params: charIdParams }), async (req, res, next) => {
   try {
     const { charId } = req.params as z.infer<typeof charIdParams>;
-    const file = await comicCharacterImageService.resolveFaceRegionFile(charId);
+    const file = await comicCharacterImageService.resolveFaceRegionFile(charId, typeof req.query.revision === "string" ? req.query.revision : undefined);
     if (!file) {
       res.status(404).json({ success: false, error: "角色面部参考图尚未生成。" } satisfies ApiResponse<null>);
       return;
@@ -592,6 +593,7 @@ router.post(
       const data = await comicPanelImageService.preparePanelImage(
         panelId,
         body?.provider as Parameters<typeof comicPanelImageService.preparePanelImage>[1] | undefined,
+        { excludedReferenceImageUrls: body?.excludedReferenceImageUrls },
       );
       res.json({ success: true, data } satisfies ApiResponse<typeof data>);
     } catch (err) { next(err); }
@@ -910,30 +912,25 @@ router.delete("/character-assets/:assetId", validate({ params: assetIdParams }),
 
 // AI 生成资产图
 // 预览即将发送的素材（不消耗 token）
-router.post("/character-assets/:assetId/prepare-image", validate({ params: assetIdParams }), async (req, res, next) => {
+router.post("/character-assets/:assetId/prepare-image", validate({ params: assetIdParams, body: imageGenerateSchema }), async (req, res, next) => {
   try {
     const { assetId } = req.params as z.infer<typeof assetIdParams>;
-    const provider = typeof req.body.provider === "string" ? req.body.provider : undefined;
+    const provider = req.body?.provider;
     const data = await comicCharacterAssetService.prepareAssetImage(assetId, provider);
     res.json({ success: true, data } satisfies ApiResponse<typeof data>);
   } catch (err) { next(err); }
 });
 
-router.post("/character-assets/:assetId/generate-image", validate({ params: assetIdParams }), async (req, res, next) => {
+router.post("/character-assets/:assetId/generate-image", validate({ params: assetIdParams, body: imageGenerateSchema }), async (req, res, next) => {
   try {
     const { assetId } = req.params as z.infer<typeof assetIdParams>;
-    const body = req.body as {
-      provider?: string;
-      promptOverride?: string;
-      sizeOverride?: string;
-      providerOverride?: string;
-      excludedReferenceImageUrls?: string[];
-    };
-    await comicCharacterAssetService.generateAssetImage(assetId, body.provider, {
-      promptOverride: body.promptOverride,
-      sizeOverride: body.sizeOverride as never,
-      providerOverride: body.providerOverride,
-      excludedReferenceImageUrls: body.excludedReferenceImageUrls,
+    const body = req.body as z.infer<typeof imageGenerateSchema>;
+    await comicCharacterAssetService.generateAssetImage(assetId, body?.provider, {
+      promptOverride: body?.promptOverride,
+      sizeOverride: body?.sizeOverride as never,
+      providerOverride: body?.providerOverride,
+      negativePromptOverride: body?.negativePromptOverride,
+      excludedReferenceImageUrls: body?.excludedReferenceImageUrls,
     });
     const data = await comicCharacterAssetService.getAsset(assetId);
     res.json({ success: true, data } satisfies ApiResponse<typeof data>);
@@ -944,14 +941,12 @@ router.post("/character-assets/:assetId/generate-image", validate({ params: asse
 router.post(
   "/character-assets/:assetId/upload-image",
   validate({ params: assetIdParams }),
+  comicImageUpload,
   async (req, res, next) => {
     try {
       const { assetId } = req.params as z.infer<typeof assetIdParams>;
-      const mimeType = req.headers["content-type"] ?? "image/png";
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) chunks.push(chunk as Buffer);
-      const buffer = Buffer.concat(chunks);
-      if (buffer.length === 0) throw new Error("未收到图片数据");
+      const mimeType = req.get("content-type")!.split(";")[0].trim().toLowerCase();
+      const buffer = req.body as Buffer;
       const data = await comicCharacterAssetService.uploadAssetImage(assetId, buffer, mimeType);
       res.json({ success: true, data } satisfies ApiResponse<typeof data>);
     } catch (err) { next(err); }
@@ -962,11 +957,10 @@ router.post(
 router.get("/character-assets/:assetId/image", validate({ params: assetIdParams }), async (req, res, next) => {
   try {
     const { assetId } = req.params as z.infer<typeof assetIdParams>;
-    const { filePath, mimeType } = await comicCharacterAssetService.serveAssetImage(assetId);
+    const { filePath, mimeType } = await comicCharacterAssetService.serveAssetImage(assetId, typeof req.query.revision === "string" ? req.query.revision : undefined);
     res.setHeader("Content-Type", mimeType);
     res.setHeader("Cache-Control", "private, no-cache");
-    const { createReadStream } = await import("fs");
-    createReadStream(filePath).pipe(res);
+    res.sendFile(filePath, (error) => { if (error) next(error); });
   } catch (err) { next(err); }
 });
 
@@ -1059,14 +1053,11 @@ router.post("/scenes/:sceneId/generate-image", validate({ params: sceneIdParams,
 });
 
 // 上传场景设定图（Content-Type: image/* 直传）
-router.post("/scenes/:sceneId/upload-image", validate({ params: sceneIdParams }), async (req, res, next) => {
+router.post("/scenes/:sceneId/upload-image", validate({ params: sceneIdParams }), comicImageUpload, async (req, res, next) => {
   try {
     const { sceneId } = req.params as z.infer<typeof sceneIdParams>;
-    const mimeType = req.headers["content-type"] ?? "image/png";
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
-    const buffer = Buffer.concat(chunks);
-    if (buffer.length === 0) throw new Error("未收到图片数据");
+    const mimeType = req.get("content-type")!.split(";")[0].trim().toLowerCase();
+    const buffer = req.body as Buffer;
     const data = await comicSceneService.uploadSceneImage(sceneId, buffer, mimeType);
     res.json({ success: true, data } satisfies ApiResponse<typeof data>);
   } catch (err) { next(err); }
@@ -1076,11 +1067,10 @@ router.post("/scenes/:sceneId/upload-image", validate({ params: sceneIdParams })
 router.get("/scenes/:sceneId/image", validate({ params: sceneIdParams }), async (req, res, next) => {
   try {
     const { sceneId } = req.params as z.infer<typeof sceneIdParams>;
-    const { filePath, mimeType } = await comicSceneService.serveSceneImage(sceneId);
+    const { filePath, mimeType } = await comicSceneService.serveSceneImage(sceneId, typeof req.query.revision === "string" ? req.query.revision : undefined);
     res.setHeader("Content-Type", mimeType);
     res.setHeader("Cache-Control", "private, no-cache");
-    const { createReadStream } = await import("fs");
-    createReadStream(filePath).pipe(res);
+    res.sendFile(filePath, (error) => { if (error) next(error); });
   } catch (err) { next(err); }
 });
 

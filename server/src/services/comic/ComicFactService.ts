@@ -34,6 +34,17 @@ export class ComicFactService {
       const panelSummary = episode.panels
         .map((p) => {
           let line = `格${p.order}[${p.panelType}]: ${p.action}`;
+          if (p.visualPrompt) line += `\n画面：${p.visualPrompt}`;
+          if (p.dialogues) {
+            try {
+              const dialogues = JSON.parse(p.dialogues) as Array<{ speaker?: string; text?: string }>;
+              if (Array.isArray(dialogues)) {
+                const spoken = dialogues.filter(dialogue => typeof dialogue?.text === "string")
+                  .map(dialogue => `${dialogue.speaker ?? "未标注说话者"}：${dialogue.text}`).join("\n");
+                if (spoken) line += `\n对白：\n${spoken}`;
+              }
+            } catch { /* Invalid legacy dialogue cannot replace valid action and visual evidence. */ }
+          }
           if (p.characterRefs) {
             try {
               const refs = JSON.parse(p.characterRefs) as Array<{ name?: string; costume?: string; expression?: string } | string>;

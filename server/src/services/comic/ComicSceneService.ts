@@ -4,18 +4,14 @@
  *
  * bible JSON：{ palette, keyElements, materials, ambiance, layout }
  * sheetData JSON：{ status, url, prompt, provider, generatedAt, error, origin:"generated"|"uploaded" }
- * 图片存储：generated-images/comic-scenes/{sceneId}/scene-sheet.{ext}
+ * 图片存储：generated-images/comic-scenes/{sceneId}/{revision}/scene-sheet.{ext}
  * HTTP 端点：/api/comic/scenes/:sceneId/image
  */
-import fs from "fs/promises";
-import path from "path";
-
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
-import { resolveGeneratedImagesRoot } from "../../runtime/appPaths";
-import { runImageGeneration, safeJsonParse, type ImageTargetAdapter } from "../image/runtime";
-import type { LLMProvider } from "@ai-novel/shared/types/llm";
+import { runImageGeneration, safeJsonParse } from "../image/runtime";
 import { resolveComicStyleKeywords } from "./comicStylePrompt";
+import { createSceneReferenceAdapter, publishReferenceUpload, referenceSourceFingerprint, resolveReferenceImageFile, sceneImageSource } from "./assets";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,41 +53,16 @@ export interface UpdateSceneInput {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const SCENES_DIR = "comic-scenes";
-const DEFAULT_PROVIDER: LLMProvider = "openai";
-const IMAGE_EXTS: Array<[string, string]> = [
-  ["png", "image/png"],
-  ["jpg", "image/jpeg"],
-  ["webp", "image/webp"],
-];
-
-function sceneDir(sceneId: string): string {
-  return path.join(resolveGeneratedImagesRoot(), SCENES_DIR, sceneId);
-}
-
 export function sceneImageUrl(sceneId: string): string {
   return `/api/comic/scenes/${sceneId}/image`;
 }
 
-async function removeOldSceneFiles(sceneId: string, keepExt: string): Promise<void> {
-  const dir = sceneDir(sceneId);
-  for (const [ext] of IMAGE_EXTS) {
-    if (ext === keepExt) continue;
-    await fs.unlink(path.join(dir, `scene-sheet.${ext}`)).catch(() => {});
-  }
-}
-
-/** 找已存盘的场景设定图路径 */
-export async function resolveSceneFile(sceneId: string): Promise<{ filePath: string; mimeType: string } | null> {
-  const dir = sceneDir(sceneId);
-  for (const [ext, mimeType] of IMAGE_EXTS) {
-    const candidate = path.join(dir, `scene-sheet.${ext}`);
-    try {
-      await fs.access(candidate);
-      return { filePath: candidate, mimeType };
-    } catch { /* 继续 */ }
-  }
-  return null;
+/** Resolve only the database-confirmed image revision. */
+export async function resolveSceneFile(sceneId: string, revision?: string): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
+  const scene = await prisma.comicScene.findUnique({ where: { id: sceneId },
+    include: { project: { select: { stylePreset: true } } } });
+  return scene ? resolveReferenceImageFile("scene", sceneId, scene.sheetData,
+    referenceSourceFingerprint(sceneImageSource(scene)), revision) : null;
 }
 
 function buildSceneSheetPrompt(params: {
@@ -175,35 +146,17 @@ export class ComicSceneService {
 
   async deleteScene(sceneId: string) {
     await this.getScene(sceneId);
-    try {
-      await fs.rm(sceneDir(sceneId), { recursive: true, force: true });
-    } catch { /* 忽略：文件可能从未生成 */ }
+    // Retain revisions used by prior panel references and export snapshots.
     return prisma.comicScene.delete({ where: { id: sceneId } });
   }
 
   // ── 图片上传 ──────────────────────────────────────────────────────────────
 
   async uploadSceneImage(sceneId: string, fileBuffer: Buffer, mimeType: string): Promise<{ url: string }> {
-    await this.getScene(sceneId);
-    const ext = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : "png";
-    const dir = sceneDir(sceneId);
-    await fs.mkdir(dir, { recursive: true });
-    const filePath = path.join(dir, `scene-sheet.${ext}`);
-    await fs.writeFile(filePath, fileBuffer);
-    await removeOldSceneFiles(sceneId, ext);
-
-    const url = sceneImageUrl(sceneId);
-    const sheetData: SceneSheetData = {
-      status: "done",
-      url,
-      origin: "uploaded",
-      generatedAt: new Date().toISOString(),
-    };
-    await prisma.comicScene.update({
-      where: { id: sceneId },
-      data: { sheetData: JSON.stringify(sheetData) },
-    });
-    return { url };
+    const scene = await prisma.comicScene.findUnique({ where: { id: sceneId },
+      include: { project: { select: { stylePreset: true } } } });
+    if (!scene) throw new AppError(`场景不存在：${sceneId}`, 404);
+    return publishReferenceUpload(createSceneReferenceAdapter<SceneSheetData>(scene, true), fileBuffer, mimeType);
   }
 
   // ── AI 生成（prepare + generate 共享 buildContext） ───────────────────────
@@ -224,17 +177,7 @@ export class ComicSceneService {
       stylePrefix,
     });
 
-    const adapter: ImageTargetAdapter<SceneSheetData> = {
-      kind: `comic.scene:${sceneId}`,
-      loadState: async () => safeJsonParse<SceneSheetData>(scene.sheetData, { status: "idle" }),
-      saveState: async (next) => {
-        await prisma.comicScene.update({ where: { id: sceneId }, data: { sheetData: JSON.stringify(next) } });
-      },
-      diskPath: (ext) => path.join(sceneDir(sceneId), `scene-sheet.${ext}`),
-      publicUrl: () => sceneImageUrl(sceneId),
-      cleanupOtherExts: (keepExt) => removeOldSceneFiles(sceneId, keepExt),
-      buildExtraDoneState: () => ({ origin: "generated" as const }),
-    };
+    const adapter = createSceneReferenceAdapter<SceneSheetData>(scene);
 
     return {
       adapter,
@@ -271,8 +214,8 @@ export class ComicSceneService {
 
   // ── 文件服务 ──────────────────────────────────────────────────────────────
 
-  async serveSceneImage(sceneId: string): Promise<{ filePath: string; mimeType: string }> {
-    const resolved = await resolveSceneFile(sceneId);
+  async serveSceneImage(sceneId: string, revision?: string): Promise<{ filePath: string; mimeType: string }> {
+    const resolved = await resolveSceneFile(sceneId, revision);
     if (!resolved) throw new AppError(`场景图片未找到：${sceneId}`, 404);
     return resolved;
   }

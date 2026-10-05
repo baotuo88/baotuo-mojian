@@ -228,6 +228,8 @@ export interface CharacterSheetData {
   provider?: string;
   generatedAt?: string;
   error?: string;
+  revision?: string;
+  previousImage?: CharacterSheetData;
   assets?: {
     expression?: CharacterExpressionData;
   };
@@ -241,6 +243,8 @@ export interface CharacterExpressionData {
   provider?: string;
   generatedAt?: string;
   error?: string;
+  revision?: string;
+  previousImage?: CharacterExpressionData;
   referenceImages?: PanelReferenceImageMeta[];
 }
 
@@ -551,6 +555,8 @@ export interface AssetImageData {
   provider?: string;
   generatedAt?: string;
   error?: string;
+  revision?: string;
+  previousImage?: AssetImageData;
   origin?: "generated" | "uploaded";
 }
 
@@ -733,6 +739,8 @@ export interface SceneSheetData {
   provider?: string;
   generatedAt?: string;
   error?: string;
+  revision?: string;
+  previousImage?: SceneSheetData;
   origin?: "generated" | "uploaded";
 }
 

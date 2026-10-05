@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, beta, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main, beta, develop]
 
 jobs:
   lint-and-typecheck:
@@ -28,6 +28,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Generate workspace types and SQLite Prisma client
+        run: pnpm --filter @ai-novel/shared build && pnpm --filter @ai-novel/server prisma:generate
 
       - name: Run ESLint
         run: pnpm lint
@@ -68,25 +71,12 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: baotuo_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     env:
-      DATABASE_URL: postgresql://test:test@localhost:5432/baotuo_test
+      # The fast suite creates isolated SQLite fixtures. PostgreSQL deployment is covered by comic-compose.yml.
+      DATABASE_URL: file:./ci-test.db
+      AI_NOVEL_DATABASE_MODE: sqlite
       NODE_ENV: test
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key' }}
+      OPENAI_API_KEY: test-key
 
     steps:
       - name: Checkout code
@@ -105,6 +95,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Generate SQLite Prisma client
+        run: pnpm --filter @ai-novel/server prisma:generate
 
       - name: Run database migrations
         run: pnpm --filter @ai-novel/server prisma migrate deploy
@@ -133,6 +126,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @ai-novel/server prisma:generate
 
       - name: Build all packages
         run: pnpm build

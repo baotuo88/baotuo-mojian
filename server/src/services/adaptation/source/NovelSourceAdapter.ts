@@ -7,6 +7,7 @@
  * loadChapterText：按章节区间取原文，供 comic 分格脚本提取对白。
  */
 import { prisma } from "../../../db/prisma";
+import { AppError } from "../../../middleware/errorHandler";
 import type { SourceContentPort } from "./SourceContentPort";
 import type {
   SourceBundle,
@@ -112,13 +113,24 @@ export class NovelSourceAdapter implements SourceContentPort {
 
   async loadChapterText(ref: SourceRef, start: number, end: number): Promise<string> {
     const novelId = ref.ref?.trim();
-    if (!novelId) return "";
+    if (!novelId) throw new AppError("请先选择需要改编的小说。", 400);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
+      throw new AppError("小说章节范围无效，请重新规划本话。", 422);
+    }
 
     const chapters = await prisma.chapter.findMany({
       where: { novelId, order: { gte: start, lte: end } },
       orderBy: { order: "asc" },
       select: { order: true, title: true, content: true },
     });
+
+    if (chapters.length !== end - start + 1 || chapters.some((chapter, index) => chapter.order !== start + index)) {
+      throw new AppError("本话对应的小说章节不完整，请重新导入小说资料并检查分话范围。", 422);
+    }
+    const unwritten = chapters.filter(chapter => !chapter.content?.trim());
+    if (unwritten.length) {
+      throw new AppError(`第 ${unwritten.map(chapter => chapter.order).join("、")} 章没有正文，请先完成小说章节。`, 422);
+    }
 
     return chapters
       .map((ch) => `【第${ch.order}章 ${ch.title}】\n${ch.content ?? ""}`)

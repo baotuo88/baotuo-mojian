@@ -51,6 +51,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { GeneratedImageCard } from "@/components/comic/GeneratedImageCard";
 import SelectControl from "@/components/common/SelectControl";
+import { parseReferenceImage, confirmedReferenceImage, referenceImageUrl } from "../assets";
 
 // ─── Asset Section ────────────────────────────────────────────────────────────
 
@@ -89,8 +90,7 @@ const STATUS_DOT_TITLE: Record<string, string> = {
 };
 
 function parseAssetImageData(raw: string | null): AssetImageData {
-  if (!raw) return { status: "idle" };
-  try { return JSON.parse(raw) as AssetImageData; } catch { return { status: "idle" }; }
+  return parseReferenceImage<AssetImageData>(raw);
 }
 
 function AssetCard({
@@ -112,6 +112,7 @@ function AssetCard({
       prepare: () => prepareCharacterAssetImage(asset.id, provider || undefined),
       generate: (overrides) => generateCharacterAssetImage(asset.id, provider || undefined, overrides),
       onSuccess: onUpdated,
+      onError: onUpdated,
     });
   };
 
@@ -128,14 +129,16 @@ function AssetCard({
   });
 
   const accent = ASSET_TYPE_ACCENT[asset.assetType as CharacterAssetType] ?? ASSET_TYPE_ACCENT.other;
-  const status = (imageData.status ?? "idle") as "idle" | "generating" | "done" | "error";
+  const image = confirmedReferenceImage(imageData);
+  const generating = flow.dialogProps.loading || flow.dialogProps.submitting;
+  const status = image ? "done" : generating ? "generating" : imageData.status === "generating" ? "idle" : imageData.status;
 
   return (
     <>
       <ImageGenerationConfirmDialog {...flow.dialogProps} />
       <GeneratedImageCard
         status={status}
-        imageUrl={status === "done" ? characterAssetImageUrl(asset.id) : undefined}
+        imageUrl={image ? referenceImageUrl(characterAssetImageUrl(asset.id), image) : undefined}
         errorMessage={imageData.error}
         title={asset.name}
         subtitle={asset.description ?? undefined}
@@ -143,7 +146,9 @@ function AssetCard({
         onGenerate={triggerGen}
         onUpload={(file) => uploadMut.mutate(file)}
         onDelete={() => deleteMut.mutate()}
-        busy={uploadMut.isPending || deleteMut.isPending}
+        busy={generating || uploadMut.isPending || deleteMut.isPending}
+        generateLabel={imageData.status === "generating" ? "重新生成" : undefined}
+        footer={imageData.status === "generating" ? <p className="text-[11px] text-muted-foreground">生成结果待确认，可重新生成。</p> : imageData.status === "error" ? <p className="text-[11px] text-destructive">{imageData.error ?? "图片生成失败，可重试。"}</p> : undefined}
         confirmDeleteText={`删除资产「${asset.name}」？此操作不可撤销。`}
       />
     </>

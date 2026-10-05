@@ -14,7 +14,6 @@ import {
   type CharacterExpressionId,
 } from "./ComicCharacterImageService";
 import { resolveAssetFile } from "./ComicCharacterAssetService";
-import { comicSpriteSheetService } from "./ComicSpriteSheetService";
 import { resolveSceneFile, type SceneBible } from "./ComicSceneService";
 import { IMAGE_SIZES, type ImageSize } from "../image/types";
 import { createPanelImageAdapter, resolvePanelImageFile } from "./assets";
@@ -93,7 +92,7 @@ function normalizeCharacterRefs(raw: string | null | undefined): StructuredChara
       props: props && props.length > 0 ? props : undefined,
     });
   }
-  return refs.slice(0, 5);
+  return refs;
 }
 
 function extractVisualAnchorDesc(visualAnchor: string): string {
@@ -271,12 +270,15 @@ export class ComicPanelImageService {
     // 从 characterRefs 提取视觉描述文字（文字锚定，无论有无参考图都注入）
     const characterRefs = normalizeCharacterRefs(panel.characterRefs);
     const characterVisualDescs: string[] = [];
-    const spriteCleanups: Array<() => Promise<void>> = [];
-
-    // 最终参考图路径列表（雪碧图模式：每角色最多 1 张）
-    const finalRefImagePaths: string[] = [];
-    // 参考素材元数据（写入 imageData.referenceImages，供前端弹窗展示）
-    const referenceMetas: PanelReferenceImageMeta[] = [];
+    // A preview entry and an image sent to the model always represent the same immutable file.
+    const references: Array<{ filePath: string; meta: PanelReferenceImageMeta }> = [];
+    const referencePaths = new Set<string>();
+    const addReference = (file: { filePath: string; revision?: string }, meta: PanelReferenceImageMeta) => {
+      if (referencePaths.has(file.filePath)) return;
+      referencePaths.add(file.filePath);
+      references.push({ filePath: file.filePath, meta: { ...meta,
+        url: meta.url + (file.revision ? `?revision=${file.revision}` : "") } });
+    };
 
     if (characterRefs.length > 0) {
       for (const character of project.characters) {
@@ -300,79 +302,35 @@ export class ComicPanelImageService {
         if (ref.props?.length) refParts.push(`持有:${ref.props.join("、")}`);
         characterVisualDescs.push(refParts.join("，"));
 
-        // ── 雪碧图参考图合成 ──────────────────────────────────
-        const sheetData = safeJsonParse<{ status?: string }>(character.sheetData, {});
-        const sheetRef = sheetData.status === "done"
-          ? await comicCharacterImageService.resolveSheetFile(character.id)
-          : null;
+        const sheetRef = await comicCharacterImageService.resolveSheetFile(character.id);
+        if (sheetRef) {
+          addReference(sheetRef, { kind: "character_sheet", label: `${character.name} · 三视图`,
+            url: `/api/comic/character-images/${character.id}/sheet` });
+        }
 
-        // 对应服装资产（costume 不是 default 时查找对应资产图）
-        const costumeAssets = project.characterAssets
-          .filter((a) => a.characterId === character.id && a.assetType === "costume")
-          .map((a) => ({ id: a.id, name: a.name }));
-
-        // 按 props 名字匹配道具/武器资产
+        // Default costume belongs to the character sheet. Only a named variant selects an asset.
         const propNames = new Set(ref.props ?? []);
-        const propAssets = project.characterAssets
-          .filter((a) => a.characterId === character.id && a.assetType !== "costume" && propNames.has(a.name))
-          .map((a) => ({ id: a.id, name: a.name, assetType: a.assetType as import("./ComicCharacterAssetService").CharacterAssetType }));
-
-        // 有三视图或任意资产图才合成雪碧图
-        const hasAnyAssetImage = costumeAssets.length > 0 || propAssets.length > 0;
-
-        if (sheetRef || hasAnyAssetImage) {
-          const usedCostume = ref.costume !== "default"
-            ? costumeAssets.filter((a) => a.name === ref.costume)
-            : costumeAssets.slice(0, 1);
-          const spriteResult = await comicSpriteSheetService.buildSpriteSheet({
-            characterId: character.id,
-            characterName: character.name,
-            sheetFilePath: sheetRef?.filePath,
-            costumeAssets: usedCostume,
-            propAssets,
-          });
-          if (spriteResult) {
-            finalRefImagePaths.push(spriteResult.filePath);
-            spriteCleanups.push(spriteResult.cleanup);
-          } else if (sheetRef) {
-            // 降级：只有三视图时直接用原图
-            finalRefImagePaths.push(sheetRef.filePath);
-          }
-
-          // 记录素材元数据（按雪碧图实际组合的元素）
-          if (sheetRef) {
-            referenceMetas.push({
-              kind: "character_sheet",
-              label: `${character.name} · 三视图`,
-              url: `/api/comic/character-images/${character.id}/sheet`,
-            });
-          }
-          for (const a of usedCostume) {
-            referenceMetas.push({
-              kind: "asset",
-              label: `${character.name} · 服装:${a.name}`,
-              url: `/api/comic/character-assets/${a.id}/image`,
-            });
-          }
-          for (const a of propAssets) {
-            referenceMetas.push({
-              kind: "asset",
-              label: `${character.name} · ${a.name}`,
-              url: `/api/comic/character-assets/${a.id}/image`,
-            });
-          }
+        const selectedAssets = project.characterAssets.filter((asset) => asset.characterId === character.id
+          && (asset.assetType === "costume"
+            ? ref.costume !== "default" && asset.name === ref.costume
+            : propNames.has(asset.name)));
+        for (const asset of selectedAssets) {
+          const file = await resolveAssetFile(asset.id);
+          if (!file) continue;
+          addReference(file, { kind: "asset",
+            label: `${character.name} · ${asset.assetType === "costume" ? "服装:" : ""}${asset.name}`,
+            url: `/api/comic/character-assets/${asset.id}/image` });
         }
       }
 
-      // 多角色同框时追加各自表情稿（辅助参考，不超过总上限）
+      // 多角色同框时追加各自表情稿；具体表情继续由文字描述指定。
       if (characterRefs.length > 1) {
         for (const character of project.characters) {
           const ref = characterRefs.find((item) => item.name === character.name);
           if (!ref?.expression) continue;
-          const expressionRef = await comicCharacterImageService.resolveExpressionRegionFile(character.id, ref.expression);
+          const expressionRef = await comicCharacterImageService.resolveExpressionFile(character.id);
           if (expressionRef) {
-            finalRefImagePaths.push(expressionRef.filePath);
-            referenceMetas.push({
+            addReference(expressionRef, {
               kind: "character_expression",
               label: `${character.name} · 表情:${describeCharacterExpression(ref.expression ?? "neutral")}`,
               url: `/api/comic/character-images/${character.id}/expressions`,
@@ -398,19 +356,11 @@ export class ComicPanelImageService {
         if (bibleParts.length > 0) {
           sceneDesc = `场景设定【${scene.name}】：${bibleParts.join("，")}`;
         }
-        // L1：设定图作为参考图（仅当已生成）
-        const sceneSheet = safeJsonParse<{ status?: string }>(scene.sheetData, {});
-        if (sceneSheet.status === "done") {
-          const sceneRef = await resolveSceneFile(scene.id);
-          if (sceneRef) {
-            finalRefImagePaths.push(sceneRef.filePath);
-            hasSceneRefImage = true;
-            referenceMetas.push({
-              kind: "scene",
-              label: `场景:${scene.name}`,
-              url: `/api/comic/scenes/${scene.id}/image`,
-            });
-          }
+        const sceneRef = await resolveSceneFile(scene.id);
+        if (sceneRef) {
+          hasSceneRefImage = true;
+          addReference(sceneRef, { kind: "scene", label: `场景:${scene.name}`,
+            url: `/api/comic/scenes/${scene.id}/image` });
         }
       }
     }
@@ -421,7 +371,6 @@ export class ComicPanelImageService {
     const imageSize: ImageSize = (IMAGE_SIZES as readonly string[]).includes(rawSize)
       ? rawSize as ImageSize
       : "1024x1536";
-    const uniqueRefImagePaths = Array.from(new Set(finalRefImagePaths)).slice(0, 4);
 
     const adapter = createPanelImageAdapter(panel);
 
@@ -429,32 +378,29 @@ export class ComicPanelImageService {
       adapter,
       prompt,
       size: imageSize,
-      refImagePaths: uniqueRefImagePaths,
-      referenceImages: referenceMetas,
+      refImagePaths: references.map((reference) => reference.filePath),
+      referenceImages: references.map((reference) => reference.meta),
       title: `生成第 ${panel.order} 格图像`,
-      cleanup: async () => {
-        await Promise.allSettled(spriteCleanups.map((fn) => fn()));
-      },
     };
   }
 
   async preparePanelImage(
     panelId: string,
     provider: LLMProvider = DEFAULT_PROVIDER,
+    overrides?: Pick<import("../image/runtime").ImageGenerationOverrides, "excludedReferenceImageUrls">,
   ): Promise<import("../image/runtime").ImageGenerationPreview> {
     const ctx = await this.buildPanelGenerationContext(panelId);
-    try {
-      return {
-        kind: ctx.adapter.kind,
-        title: ctx.title,
-        prompt: ctx.prompt,
-        referenceImages: ctx.referenceImages,
-        provider,
-        size: ctx.size,
-      };
-    } finally {
-      await ctx.cleanup();
-    }
+    const refs = filterImageGenerationReferences({ refImagePaths: ctx.refImagePaths,
+      referenceImages: ctx.referenceImages, excludedReferenceImageUrls: overrides?.excludedReferenceImageUrls });
+    // Preview must expose all candidates so the user can remove excess references before generation.
+    return {
+      kind: ctx.adapter.kind,
+      title: ctx.title,
+      prompt: ctx.prompt,
+      referenceImages: refs.referenceImages ?? [],
+      provider,
+      size: ctx.size,
+    };
   }
 
   async generatePanelImage(
@@ -464,23 +410,22 @@ export class ComicPanelImageService {
     execution?: { expectedModel?: string },
   ): Promise<PanelImageData> {
     const ctx = await this.buildPanelGenerationContext(panelId);
-    try {
-      const refs = filterImageGenerationReferences({
-        refImagePaths: ctx.refImagePaths,
-        referenceImages: ctx.referenceImages,
-        excludedReferenceImageUrls: overrides?.excludedReferenceImageUrls,
-      });
-      return await runImageGeneration(ctx.adapter, {
-        expectedModel: execution?.expectedModel,
-        provider: overrides?.providerOverride ?? provider,
-        prompt: overrides?.promptOverride ?? ctx.prompt,
-        size: overrides?.sizeOverride ?? ctx.size,
-        refImagePaths: refs.refImagePaths,
-        referenceImages: refs.referenceImages && refs.referenceImages.length > 0 ? refs.referenceImages : undefined,
-      });
-    } finally {
-      await ctx.cleanup();
+    const refs = filterImageGenerationReferences({
+      refImagePaths: ctx.refImagePaths,
+      referenceImages: ctx.referenceImages,
+      excludedReferenceImageUrls: overrides?.excludedReferenceImageUrls,
+    });
+    if ((refs.refImagePaths?.length ?? 0) > 16) {
+      throw new AppError(`本格选中了 ${refs.refImagePaths!.length} 张参考图，最多可使用 16 张。请在生成预览中移除部分参考图后重试。`, 400);
     }
+    return runImageGeneration(ctx.adapter, {
+      expectedModel: execution?.expectedModel,
+      provider: overrides?.providerOverride ?? provider,
+      prompt: overrides?.promptOverride ?? ctx.prompt,
+      size: overrides?.sizeOverride ?? ctx.size,
+      refImagePaths: refs.refImagePaths,
+      referenceImages: refs.referenceImages && refs.referenceImages.length > 0 ? refs.referenceImages : undefined,
+    });
   }
 
   getPanelImageData(panelId: string): Promise<PanelImageData> {

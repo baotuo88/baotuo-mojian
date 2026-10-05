@@ -1,11 +1,8 @@
 import type { CharacterExpressionData, CharacterSheetData, ComicCharacter } from "@/api/comic";
+import { parseReferenceImage } from "../assets/index.ts";
 
 export function parseSheetData(character: ComicCharacter): CharacterSheetData {
-  try {
-    return character.sheetData ? JSON.parse(character.sheetData) : { status: "idle" };
-  } catch {
-    return { status: "idle" };
-  }
+  return parseReferenceImage<CharacterSheetData>(character.sheetData);
 }
 
 export function getExpressionData(sheetData: CharacterSheetData): CharacterExpressionData {

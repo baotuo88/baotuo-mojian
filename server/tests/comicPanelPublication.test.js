@@ -18,7 +18,7 @@ async function fixture(t) {
   const load = sourceLoader({ '/db/prisma': { prisma: db },
     '/runtime/appPaths': { resolveGeneratedImagesRoot: () => root },
     '/middleware/errorHandler': { AppError: class extends Error { constructor(message, statusCode) { super(message); this.statusCode = statusCode; } } },
-    '/platform/execution': { throwIfExecutionAborted() {} },
+    '/platform/execution': { throwIfExecutionAborted() {}, getExecutionAbortSignal() {} },
   });
   const { createPanelImageAdapter } = load(path.join(__dirname, '../src/services/comic/assets/PanelImagePublication.ts'));
   const adapter = createPanelImageAdapter(panel);

@@ -3,8 +3,8 @@
  *
  * 替代散落在 4 个 comic service + 2 个 drama service 中的同名重复实现。
  */
-import fs from "fs/promises";
 import path from "path";
+export { saveImageToDisk } from "../infrastructure";
 
 /** 安全 JSON 解析（解析失败返回 fallback） */
 export function safeJsonParse<T>(raw: string | null | undefined, fallback: T): T {
@@ -13,19 +13,6 @@ export function safeJsonParse<T>(raw: string | null | undefined, fallback: T): T
     return JSON.parse(raw) as T;
   } catch {
     return fallback;
-  }
-}
-
-/** 把图片 URL（data: 或 http(s):）保存到本地磁盘 */
-export async function saveImageToDisk(imageUrl: string, destPath: string): Promise<void> {
-  await fs.mkdir(path.dirname(destPath), { recursive: true });
-  if (imageUrl.startsWith("data:")) {
-    const [, b64 = ""] = imageUrl.split(",", 2);
-    await fs.writeFile(destPath, Buffer.from(b64, "base64"));
-  } else {
-    const resp = await fetch(imageUrl);
-    if (!resp.ok) throw new Error(`图片下载失败 (${resp.status}): ${imageUrl}`);
-    await fs.writeFile(destPath, Buffer.from(await resp.arrayBuffer()));
   }
 }
 

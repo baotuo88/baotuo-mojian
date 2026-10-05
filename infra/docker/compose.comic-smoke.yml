@@ -1,0 +1,22 @@
+# Always combine with compose.yml, an explicitly generated --env-file and a unique -p project name.
+# !reset/!override require Docker Compose >= 2.24.4. Never load a user's .env into the smoke containers.
+services:
+  postgres:
+    env_file: !reset []
+    restart: "no"
+    environment:
+      POSTGRES_USER: comic_smoke
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a disposable smoke password}
+      POSTGRES_DB: comic_smoke
+  api:
+    env_file: !reset []
+    restart: "no"
+    environment:
+      COMIC_SMOKE_ALLOW_WRITES: "1"
+      RAG_ENABLED: "false"
+    volumes:
+      - ./server/scripts/comic-postgres-smoke.cjs:/app/server/scripts/comic-postgres-smoke.cjs:ro
+  web:
+    restart: "no"
+    ports: !override
+      - "127.0.0.1:${SMOKE_WEB_PORT:-18089}:8080"

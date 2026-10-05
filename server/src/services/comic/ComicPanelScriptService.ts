@@ -242,9 +242,15 @@ export class ComicPanelScriptService {
     return prisma.$transaction(async (tx) => {
       const panel = await tx.comicPanel.findUnique({ where: { id: panelId } });
       if (!panel) throw new AppError("未找到漫画分镜。", 404);
-      const episode = await tx.comicEpisode.findUnique({ where: { id: panel.episodeId } });
+      const episode = await tx.comicEpisode.findUnique({ where: { id: panel.episodeId }, include: { panels: { orderBy: { order: "asc" } } } });
       if (!episode) throw new AppError("未找到漫画分话。", 404);
       await claimEpisodeRevision(tx, episode);
+      const facts = await tx.comicFact.findMany({ where: { projectId: episode.projectId, episodeOrder: episode.order } });
+      if (facts.length) {
+        // Manual edits invalidate the prior interpretation without triggering a paid model call.
+        await archivePlanningRecords(tx, { projectId: episode.projectId, reason: "fact_replacement", episodes: [episode], facts });
+        await tx.comicFact.deleteMany({ where: { projectId: episode.projectId, episodeOrder: episode.order } });
+      }
       const result = await tx.comicPanel.updateMany({
         where: { id: panelId, visualPrompt: panel.visualPrompt, dialogues: panel.dialogues, imageData: panel.imageData, letteredData: panel.letteredData },
         data: { ...patch, imageData: null, letteredData: null },

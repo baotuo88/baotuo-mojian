@@ -258,7 +258,7 @@ function ProjectCard({
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
-        {!project.sourceBundle && project.sourceType === "novel_import" && (
+        {!project.sourceBundle && project.sourceType !== "comic_import" && (
           <Button
             type="button"
             size="sm"
@@ -267,7 +267,7 @@ function ProjectCard({
             onClick={() => onImport(project)}
           >
             <Layers3 className="h-4 w-4" />
-            导入内容源
+            {busy ? "正在整理…" : "整理故事资料"}
           </Button>
         )}
       </CardContent>
@@ -527,8 +527,9 @@ export default function ComicWorkspacePage() {
     onMutate: (id) => setBusyId(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["comic", "projects"] });
-      toast.success("内容源导入完成");
+      toast.success("故事资料整理完成，可继续规划分话");
     },
+    onError: (error) => toast.error(error instanceof Error ? error.message : String(error)),
     onSettled: () => setBusyId(""),
   });
 

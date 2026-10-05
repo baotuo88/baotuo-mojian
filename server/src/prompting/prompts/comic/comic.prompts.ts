@@ -29,6 +29,7 @@ export interface ComicEpisodeOutlinePromptInput {
   hookLibrary: string;
   stylePreset?: string;
   requireSourceRange?: boolean;
+  existingEpisodes?: Array<{ order: number; title: string | null; outline: string | null; cliffhanger: string | null; sourceRange?: unknown }>;
 }
 
 export const comicEpisodeOutlinePrompt: PromptAsset<
@@ -36,12 +37,24 @@ export const comicEpisodeOutlinePrompt: PromptAsset<
   ComicEpisodeOutlineOutput
 > = {
   id: "comic.episodeOutline",
-  version: "v2",
+  version: "v3",
   taskType: "outline_planning",
   mode: "structured",
   language: "zh",
-  contextPolicy: { maxTokensBudget: 7000 },
+  contextPolicy: { maxTokensBudget: 24000 },
   outputSchema: comicEpisodeOutlineOutputSchema,
+  semanticRetryPolicy: { maxAttempts: 1 },
+  postValidate(output, input) {
+    const count = input.endOrder - input.startOrder + 1;
+    const orders = new Set(output.episodes.map(episode => episode.order));
+    if (output.episodes.length !== count || orders.size !== count || output.episodes.some(episode => episode.order < input.startOrder || episode.order > input.endOrder)) {
+      throw new Error(`请逐一返回第 ${input.startOrder}-${input.endOrder} 话，不能重复、遗漏或超出范围。`);
+    }
+    if (input.requireSourceRange && output.episodes.some(episode => !episode.sourceChapterStart || !episode.sourceChapterEnd || episode.sourceChapterEnd < episode.sourceChapterStart)) {
+      throw new Error("每话必须提供有效的 sourceChapterStart/sourceChapterEnd，只能使用源节拍中的小说章节编号。");
+    }
+    return output;
+  },
   render(input) {
     return [
       new SystemMessage(
@@ -58,8 +71,13 @@ ${input.synopsis}
 ## 情节节拍摘要
 ${input.beatsDigest}
 
+## 已确定的其他分话（保持其情节和结尾）
+${input.existingEpisodes?.length ? input.existingEpisodes.map(episode => `第 ${episode.order} 话「${episode.title ?? "未命名"}」：${episode.outline ?? "无大纲"}\n结尾：${episode.cliffhanger ?? "无"}\n源章节范围：${episode.sourceRange ? JSON.stringify(episode.sourceRange) : "未标注"}`).join("\n\n") : "暂无其他分话。"}
+
 ## 约束
 - 必须逐一返回第 ${input.startOrder}-${input.endOrder} 话，话序不能重复、遗漏或超出范围。
+- 续写必须承接前话已发生的情节和结尾，推进尚未改编的事件，不得重新讲述故事开头。若本次范围后已有分话，结尾必须衔接其开场，不能提前消耗或改写后话事件。
+- 同一小说章节可以跨话改编，但必须明确本话新增进展，不重复已确定分话的主要事件。全部源节拍是完整故事背景，并不表示本次必须从第一个节拍开始。
 ${input.requireSourceRange ? "- 每话必须标注 sourceChapterStart/sourceChapterEnd，只能使用情节节拍中明确提供的源章节编号；按语义选择覆盖本话事件的连续范围，禁止将话序当作章序。" : ""}
 - 卡点集号（isPaywalled=true）：${input.paywallOrders.length > 0 ? input.paywallOrders.join("、") : "无"}
 - 开场钩子类型库（hookType 从此选取）：
@@ -375,21 +393,22 @@ export const comicFactExtractionPrompt: PromptAsset<
   ComicFactExtractionOutput
 > = {
   id: "comic.factExtraction",
-  version: "v1",
+  version: "v2",
   taskType: "chapter_drafting",
   mode: "structured",
   language: "zh",
-  contextPolicy: { maxTokensBudget: 3000 },
+  contextPolicy: { maxTokensBudget: 32000 },
   outputSchema: comicFactExtractionOutputSchema,
   render(input) {
     return [
       new SystemMessage(
-        `你是漫画连载项目的视觉一致性管理员。
-你的任务是从本话分格脚本中提取需要跨话保持一致的关键视觉事实。
-只提取对未来话数图像生成有约束意义的事实，忽略无关紧要的细节。
+        `你是漫画连载项目的一致性管理员。
+你的任务是从本话分格脚本的动作、画面与对白中提取需要跨话保持一致的关键事实。
+只提取对未来剧情或图像生成有约束意义的事件、明确揭示的信息和视觉状态，忽略无关紧要的细节。
+对白中的猜测、谎言或未证实主张不能直接当作客观事实；必要时写明“某角色声称”，不要擅自证实。
 类别说明：
 - completed：已发生的重要事件（道具损坏/关系确立/场景变化）
-- revealed：首次出现的角色/地点/道具视觉描述
+- revealed：明确揭示的信息及首次出现的角色/地点/道具视觉描述
 - state_changed：角色状态改变（受伤/换装/情感状态）`,
       ),
       new HumanMessage(
@@ -401,9 +420,9 @@ ${input.panelSummary}
 
 ${input.existingFacts ? `## 已记录的跨话事实（不要重复）\n${input.existingFacts}\n` : ""}
 ## 任务
-从本话中提取需要在未来各话图像生成中保持一致的视觉事实，返回 facts 数组。
-每条事实 ≤200字，语言简洁，直接描述视觉约束（如：「林落羽右臂有刀疤，从第3话起始终存在」）。
-不要重复已有事实。若本话无新增视觉事实，返回空数组。`,
+从本话中提取需要在未来各话剧情与图像生成中保持一致的事实，返回 facts 数组。
+每条事实 ≤200字，语言简洁，直接描述事件或约束（如：「林落羽右臂有刀疤，从第3话起始终存在」）。
+不要重复已有事实。若本话无新增事实，返回空数组。`,
       ),
     ];
   },

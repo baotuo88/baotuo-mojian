@@ -55,6 +55,7 @@ import SelectControl from "@/components/common/SelectControl";
 import { buildRecommendedSheetPrompt, getExpressionData, getVisualAnchorText, parseSheetData } from "./data";
 import { GenderSelector, VisualAnchorEditor } from "./CharacterVisualEditor";
 import { AssetSection } from "./CharacterAssets";
+import { confirmedReferenceImage, referenceImageUrl } from "../assets";
 
 function CharacterDetail({
   character,
@@ -74,7 +75,9 @@ function CharacterDetail({
   const expressionData = getExpressionData(sheetData);
   const visualAnchorText = getVisualAnchorText(character);
   const recommendedSheetPrompt = buildRecommendedSheetPrompt(character);
-  const hasSheet = sheetData.status === "done";
+  const sheetImage = confirmedReferenceImage(sheetData);
+  const expressionImage = confirmedReferenceImage(expressionData);
+  const hasSheet = Boolean(sheetImage);
   const sheetFlow = useImageGenerationFlow();
   const expressionFlow = useImageGenerationFlow();
 
@@ -87,6 +90,7 @@ function CharacterDetail({
         toast.success(`${character.name} 设计稿生成完成`);
         setShowSheetTuning(false);
       },
+      onError: () => { void queryClient.invalidateQueries({ queryKey: ["comic", "project"] }); },
     });
   };
 
@@ -98,14 +102,15 @@ function CharacterDetail({
         queryClient.invalidateQueries({ queryKey: ["comic", "project"] });
         toast.success(`${character.name} 表情稿生成完成`);
       },
+      onError: () => { void queryClient.invalidateQueries({ queryKey: ["comic", "project"] }); },
     });
   };
 
-  const isGenerating = sheetFlow.dialogProps.loading || sheetFlow.dialogProps.submitting || sheetData.status === "generating";
-  const isExpressionGenerating = expressionFlow.dialogProps.loading || expressionFlow.dialogProps.submitting || expressionData.status === "generating";
+  const isGenerating = sheetFlow.dialogProps.loading || sheetFlow.dialogProps.submitting;
+  const isExpressionGenerating = expressionFlow.dialogProps.loading || expressionFlow.dialogProps.submitting;
 
   const openSheetTuning = () => {
-    setDraftPrompt(sheetData.prompt?.trim() || recommendedSheetPrompt);
+    setDraftPrompt(sheetImage?.prompt?.trim() || sheetData.prompt?.trim() || recommendedSheetPrompt);
     setUseCurrentImageAsReference(true);
     setLockAppearance(true);
     setAppearanceOverride(visualAnchorText);
@@ -156,7 +161,7 @@ function CharacterDetail({
           <div className="flex min-h-[360px] items-center justify-center bg-muted/30 p-4">
             {hasSheet ? (
               <img
-                src={characterSheetImageUrl(character.id)}
+                src={referenceImageUrl(characterSheetImageUrl(character.id), sheetImage)}
                 alt={`${character.name} 设计稿`}
                 className="max-h-[520px] w-full rounded-md object-contain"
               />
@@ -183,6 +188,12 @@ function CharacterDetail({
           {sheetData.status === "error" && (
             <div className="border-t bg-destructive/10 px-4 py-3 text-xs text-destructive">{sheetData.error}</div>
           )}
+          {sheetData.status === "generating" && (
+            <div className="flex items-center justify-between gap-3 border-t px-4 py-3 text-xs text-muted-foreground">
+              <span>生成结果待确认，可重新生成。{hasSheet ? "当前设计稿可继续使用。" : ""}</span>
+              <Button type="button" size="sm" variant="outline" disabled={isGenerating} onClick={() => startSheetGeneration()}>重新生成三视图</Button>
+            </div>
+          )}
 
           <div className="border-t px-4 py-3">
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -193,7 +204,7 @@ function CharacterDetail({
               <Button
                 type="button"
                 size="sm"
-                variant={expressionData.status === "done" ? "outline" : "secondary"}
+                variant={expressionImage ? "outline" : "secondary"}
                 disabled={!hasSheet || isExpressionGenerating}
                 onClick={startExpressionGeneration}
               >
@@ -202,10 +213,10 @@ function CharacterDetail({
                     <Loader2 className="h-4 w-4 animate-spin" />
                     生成中
                   </>
-                ) : expressionData.status === "done" ? (
+                ) : expressionImage || expressionData.status === "generating" ? (
                   <>
                     <RefreshCw className="h-4 w-4" />
-                    更新表情稿
+                    重新生成表情稿
                   </>
                 ) : (
                   <>
@@ -215,10 +226,10 @@ function CharacterDetail({
                 )}
               </Button>
             </div>
-            {expressionData.status === "done" ? (
+            {expressionImage ? (
               <div className="overflow-hidden rounded-md border bg-muted">
                 <img
-                  src={characterExpressionImageUrl(character.id)}
+                  src={referenceImageUrl(characterExpressionImageUrl(character.id), expressionImage)}
                   alt={`${character.name} 表情稿`}
                   className="max-h-56 w-full object-contain"
                   loading="lazy"
@@ -231,6 +242,8 @@ function CharacterDetail({
                   : "生成三视图后，可继续生成 6 个核心表情。"}
               </div>
             )}
+            {expressionData.status === "generating" && <p className="mt-2 text-xs text-muted-foreground">表情稿生成结果待确认，可重新生成。</p>}
+            {expressionImage && expressionData.status === "error" && <p className="mt-2 text-xs text-destructive">{expressionData.error ?? "表情稿生成失败，可重试。"}</p>}
           </div>
         </div>
 
@@ -391,13 +404,15 @@ function CharacterStatusBadges({
   sheetData: CharacterSheetData;
   expressionData: CharacterExpressionData;
 }) {
+  const sheet = confirmedReferenceImage(sheetData);
+  const expression = confirmedReferenceImage(expressionData);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Badge variant={sheetData.status === "done" ? "default" : "secondary"} className="text-[11px]">
-        三视图{sheetData.status === "done" ? ` v${sheetData.version ?? 1}` : "待生成"}
+      <Badge variant={sheet ? "default" : "secondary"} className="text-[11px]">
+        三视图{sheet ? ` v${sheet.version ?? 1}` : "待生成"}
       </Badge>
-      <Badge variant={expressionData.status === "done" ? "default" : "secondary"} className="text-[11px]">
-        表情稿{expressionData.status === "done" ? ` v${expressionData.version ?? 1}` : "待生成"}
+      <Badge variant={expression ? "default" : "secondary"} className="text-[11px]">
+        表情稿{expression ? ` v${expression.version ?? 1}` : "待生成"}
       </Badge>
     </div>
   );

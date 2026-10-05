@@ -11,6 +11,14 @@ export function parseExportArtifacts(raw: string | null | undefined): ExportArti
   } catch { return []; }
 }
 
+export function exportFailureMessage(raw: string | null | undefined): string {
+  try {
+    const value: unknown = JSON.parse(raw ?? "null");
+    if (value && typeof value === "object" && !Array.isArray(value) && "error" in value && typeof value.error === "string" && value.error.trim()) return value.error;
+  } catch { /* Legacy failed records may not have a structured reason. */ }
+  return "本次导出未完成，请重新导出。";
+}
+
 export function missingPanelOrders(panels: ComicPanel[]): number[] {
   return panels.filter((panel) => readPanelImage(panel.imageData).status !== "done")
     .map((panel) => panel.order).sort((a, b) => a - b);

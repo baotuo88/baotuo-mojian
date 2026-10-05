@@ -1,0 +1,48 @@
+name: Comic Compose PostgreSQL Smoke
+
+on:
+  push:
+    branches: [main, beta]
+  pull_request:
+    branches: [main, beta]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  comic-compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      COMPOSE_PROJECT_NAME: comic-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated test configuration
+        run: |
+          cat > "$RUNNER_TEMP/comic-smoke.env" <<'ENV'
+          POSTGRES_USER=comic_smoke
+          POSTGRES_PASSWORD=disposable-comic-ci-password
+          POSTGRES_DB=comic_smoke
+          SMOKE_WEB_PORT=18089
+          ENV
+          docker compose --env-file "$RUNNER_TEMP/comic-smoke.env" -f compose.yml -f infra/docker/compose.comic-smoke.yml config --quiet
+      - name: Build deployment images once
+        run: docker compose --env-file "$RUNNER_TEMP/comic-smoke.env" -f compose.yml -f infra/docker/compose.comic-smoke.yml build api web
+      - name: Start fresh PostgreSQL 17 and deployment services
+        run: docker compose --env-file "$RUNNER_TEMP/comic-smoke.env" -f compose.yml -f infra/docker/compose.comic-smoke.yml up -d --no-build --wait --wait-timeout 180 postgres api web
+      - name: Verify comic production against PostgreSQL and real image storage
+        run: |
+          docker compose --env-file "$RUNNER_TEMP/comic-smoke.env" -f compose.yml -f infra/docker/compose.comic-smoke.yml exec -T api node /app/server/scripts/comic-postgres-smoke.cjs
+          curl --fail --silent http://127.0.0.1:18089/api/health/live
+          curl --fail --silent http://127.0.0.1:18089/ > "$RUNNER_TEMP/comic-index.html"
+          test -s "$RUNNER_TEMP/comic-index.html"
+      - name: Capture deployment logs
+        if: always()
+        run: docker compose --env-file "$RUNNER_TEMP/comic-smoke.env" -f compose.yml -f infra/docker/compose.comic-smoke.yml logs --no-color --tail 150 > "$RUNNER_TEMP/comic-compose.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comic-compose-log
+          path: ${{ runner.temp }}/comic-compose.log
+          retention-days: 7

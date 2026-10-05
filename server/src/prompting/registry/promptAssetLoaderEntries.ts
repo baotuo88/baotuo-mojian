@@ -190,11 +190,15 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/drama/drama.prompts").dramaVideoPromptPrompt as UnknownPromptAsset,
   },
   {
+    key: "comic.sourceBundle@v1",
+    load: () => require("../prompts/comic/comic.sourceBundle").comicSourceBundlePrompt as UnknownPromptAsset,
+  },
+  {
     key: "comic.sourceMapping@v1",
     load: () => require("../prompts/comic/comic.sourceMapping").comicSourceMappingPrompt as UnknownPromptAsset,
   },
   {
-    key: "comic.episodeOutline@v2",
+    key: "comic.episodeOutline@v3",
     load: () => require("../prompts/comic/comic.prompts").comicEpisodeOutlinePrompt as UnknownPromptAsset,
   },
   {
@@ -202,7 +206,7 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/comic/comic.prompts").comicPanelScriptPrompt as UnknownPromptAsset,
   },
   {
-    key: "comic.factExtraction@v1",
+    key: "comic.factExtraction@v2",
     load: () => require("../prompts/comic/comic.prompts").comicFactExtractionPrompt as UnknownPromptAsset,
   },
   {

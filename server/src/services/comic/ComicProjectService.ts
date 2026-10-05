@@ -7,7 +7,7 @@
  */
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
-import { assertPlanningIdle } from "./planning";
+import { assertPlanningIdle, loadComicSourceBundle } from "./planning";
 import { adaptationSourceRegistry } from "../adaptation/source/SourceContentPort";
 import { novelSourceAdapter } from "../adaptation/source/NovelSourceAdapter";
 import type { AdaptationSourceType, SourceBundle, SourceRef } from "../adaptation/contracts/sourceBundle";
@@ -68,12 +68,16 @@ export interface CreateComicProjectInput {
 
 export class ComicProjectService {
   async createProject(input: CreateComicProjectInput) {
+    if (input.sourceType === "comic_import") throw new AppError("请选择小说改编、原创故事或文本导入来创建漫画。", 400);
+    if (input.sourceType === "novel_import" && !input.sourceRef?.trim()) throw new AppError("请先选择需要改编的小说。", 400);
+    if (input.sourceType === "original" && !input.inspiration?.trim()) throw new AppError("请先填写故事灵感。", 400);
+    if (input.sourceType === "text_import" && !input.rawText?.trim()) throw new AppError("请先填写需要改编的原文。", 400);
     return prisma.comicProject.create({
       data: {
         title: input.title,
         sourceType: input.sourceType,
         sourceRef: input.sourceRef ?? null,
-        sourceInput: input.rawText ?? input.inspiration ?? null,
+        sourceInput: input.sourceType === "original" ? input.inspiration!.trim() : input.sourceType === "text_import" ? input.rawText!.trim() : null,
         trackId: input.trackId ?? null,
         status: "draft",
         stylePreset: input.stylePreset ?? null,
@@ -256,8 +260,7 @@ export class ComicProjectService {
       rawText: project.sourceInput ?? undefined,
     };
 
-    const adapter = adaptationSourceRegistry.resolve(sourceRef.type);
-    const bundle: SourceBundle = await adapter.loadBundle(sourceRef);
+    const bundle = await loadComicSourceBundle(project.title, sourceRef);
 
     // 事务：落库 sourceBundle + characters
     await prisma.$transaction(async (tx) => {

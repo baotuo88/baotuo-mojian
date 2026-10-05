@@ -1,9 +1,14 @@
 import fs from "fs/promises";
 import path from "path";
+import os from "node:os";
+import sharp from "sharp";
 
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { prisma } from "../../db/prisma";
 import { imageGenerationConfig } from "../../config/imageGeneration";
+import { getExecutionAbortSignal, throwIfExecutionAborted } from "../../platform/execution";
+import { AppError } from "../../middleware/errorHandler";
+import { saveImageToDisk } from "./infrastructure";
 import {
   getProviderDefaultBaseUrl,
   getProviderEnvApiKey,
@@ -84,7 +89,7 @@ async function resolveProviderSecret(provider: LLMProvider): Promise<ProviderSec
   return { apiKey: finalApiKey, baseURL };
 }
 
-function parseImagesFromPayload(payload: unknown): Array<{
+function parseImagesFromPayload(payload: unknown, outputFormat: ImageOutputFormat = "png"): Array<{
   url: string;
   mimeType?: string;
   width?: number;
@@ -117,17 +122,19 @@ function parseImagesFromPayload(payload: unknown): Array<{
       width?: unknown;
       height?: unknown;
     };
+    const mimeType = typeof row.mime_type === "string" && ["image/png", "image/jpeg", "image/webp"].includes(row.mime_type)
+      ? row.mime_type : `image/${outputFormat}`;
     const rawUrl = typeof row.url === "string"
       ? row.url
       : typeof row.b64_json === "string"
-        ? `data:image/png;base64,${row.b64_json}`
+        ? `data:${mimeType};base64,${row.b64_json}`
         : "";
     if (!rawUrl) {
       continue;
     }
     images.push({
       url: rawUrl,
-      mimeType: typeof row.mime_type === "string" ? row.mime_type : undefined,
+      mimeType,
       width: typeof row.width === "number" ? row.width : undefined,
       height: typeof row.height === "number" ? row.height : undefined,
       metadata: {},
@@ -188,13 +195,6 @@ export function buildImageGenerationRequestBody(input: ImageProviderGenerateInpu
     }
   }
 
-  // 参考图注入（OpenAI images/edits 兼容格式）
-  // grok 暂不支持参考图，静默跳过；其他 provider 按 input_image_url 格式透传，
-  // 若 provider 实际不支持，API 层会返回错误，由上层处理。
-  if (input.refImages && input.refImages.length > 0 && input.provider !== "grok") {
-    requestBody.input_image_url = input.refImages[0];
-  }
-
   return requestBody;
 }
 
@@ -212,75 +212,105 @@ export async function resolveImageModel(provider: LLMProvider, model?: string): 
   return resolved;
 }
 
-function inferMimeType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-  if (ext === ".webp") return "image/webp";
-  return "image/png";
-}
-
 /**
- * 当 refImagePaths 存在时，用 multipart/form-data 上传本地文件到 /images/edits。
- * 避免 base64 字符串膨胀（1MB 图片 → 1.33MB base64 字符串 → 占用 Node 堆）。
+ * Every selected reference is uploaded to the edits endpoint in order.
+ * Bound individual files and the complete multipart payload before contacting the model.
  */
 async function generateWithFileRef(
   input: ImageProviderGenerateInput,
-  refImagePath: string,
   apiKey: string | undefined,
   baseURL: string,
-  controller: AbortController,
+  signal: AbortSignal,
 ): Promise<ImageProviderGenerateResult> {
-  const fileBuffer = await fs.readFile(refImagePath);
-  const mimeType = inferMimeType(refImagePath);
-  const blob = new Blob([fileBuffer], { type: mimeType });
+  const temporary = input.refImages?.length ? await fs.mkdtemp(path.join(os.tmpdir(), "image-references-")) : undefined;
+  try {
+    const paths = [...(input.refImagePaths ?? [])];
+    const maxFileBytes = 20 * 1024 * 1024;
+    const maxTotalBytes = 64 * 1024 * 1024;
+    const tooLarge = () => new AppError("参考图单张不能超过 20 MB，总大小不能超过 64 MB，请缩小图片或减少参考图。", 400);
+    let stagedBytes = 0;
+    for (const referencePath of paths) {
+      signal.throwIfAborted();
+      const stat = await fs.stat(referencePath);
+      stagedBytes += stat.size;
+      if (!stat.isFile() || stat.size > maxFileBytes || stagedBytes > maxTotalBytes) throw tooLarge();
+    }
+    for (const [index, url] of (input.refImages ?? []).entries()) {
+      const remainingBytes = maxTotalBytes - stagedBytes;
+      if (remainingBytes <= 0) throw tooLarge();
+      const destination = path.join(temporary!, `reference-${index}`);
+      await saveImageToDisk(url, destination, { maxBytes: Math.min(maxFileBytes, remainingBytes), signal });
+      stagedBytes += (await fs.stat(destination)).size;
+      paths.push(destination);
+    }
+    const form = new FormData();
+    for (const [key, value] of Object.entries(buildImageGenerationRequestBody(input))) {
+      form.append(key, String(value));
+    }
+    let totalBytes = 0;
+    for (const [index, referencePath] of paths.entries()) {
+      signal.throwIfAborted();
+      const stat = await fs.stat(referencePath);
+      totalBytes += stat.size;
+      if (!stat.isFile() || stat.size > maxFileBytes || totalBytes > maxTotalBytes) throw tooLarge();
+      const fileBuffer = await fs.readFile(referencePath, { signal });
+      const { format } = await sharp(fileBuffer).metadata();
+      if (format !== "png" && format !== "jpeg" && format !== "webp") {
+        throw new AppError("参考图需要使用 PNG、JPEG 或 WebP 格式。", 400);
+      }
+      form.append(paths.length === 1 ? "image" : "image[]", new Blob([fileBuffer], { type: `image/${format}` }), `reference-${index}.${format}`);
+    }
 
-  const form = new FormData();
-  form.append("model", input.model);
-  form.append("prompt", buildPrompt(input.prompt, input.negativePrompt));
-  form.append("n", String(input.count));
-  if (input.provider !== "grok") {
-    form.append("size", input.size);
+    signal.throwIfAborted();
+    const response = await fetch(`${baseURL}/images/edits`, {
+      method: "POST",
+      headers: {
+        // FormData 自动设置 Content-Type: multipart/form-data; boundary=...
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: form,
+      signal,
+    });
+
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`Image API (edits) request failed (${response.status}): ${detail || "unknown error"}`);
+    }
+
+    const payload = (await response.json()) as unknown;
+    const images = parseImagesFromPayload(payload, input.outputFormat);
+    if (images.length === 0) {
+      throw new Error("Image API returned empty data.");
+    }
+    return {
+      provider: input.provider,
+      model: input.model,
+      images: images.map((item, index) => ({
+        ...item,
+        seed: typeof input.seed === "number" ? input.seed + index : undefined,
+      })),
+    };
+  } finally {
+    if (temporary) await fs.rm(temporary, { recursive: true, force: true });
   }
-  // 将文件以 image 字段上传，OpenAI /images/edits 兼容格式
-  form.append("image", blob, path.basename(refImagePath));
-
-  const response = await fetch(`${baseURL}/images/edits`, {
-    method: "POST",
-    headers: {
-      // FormData 自动设置 Content-Type: multipart/form-data; boundary=...
-      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-    },
-    body: form,
-    signal: controller.signal,
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Image API (edits) request failed (${response.status}): ${detail || "unknown error"}`);
-  }
-
-  const payload = (await response.json()) as unknown;
-  const images = parseImagesFromPayload(payload);
-  if (images.length === 0) {
-    throw new Error("Image API returned empty data.");
-  }
-  return {
-    provider: input.provider,
-    model: input.model,
-    images: images.map((item, index) => ({
-      ...item,
-      seed: typeof input.seed === "number" ? input.seed + index : undefined,
-    })),
-  };
 }
 
 export async function generateImagesByProvider(input: ImageProviderGenerateInput): Promise<ImageProviderGenerateResult> {
+  throwIfExecutionAborted();
   if (!isImageProviderSupported(input.provider)) {
     throw new Error(`Provider ${input.provider} does not support image generation currently.`);
   }
 
+  const referenceCount = (input.refImagePaths?.length ?? 0) + (input.refImages?.length ?? 0);
+  if (referenceCount > 16) throw new AppError("最多使用 16 张参考图，请取消部分参考图后重试。", 400);
+  if (referenceCount && input.provider === "grok") {
+    throw new AppError("此图片通道未接入参考图，请选择支持参考图的通道，或取消所有参考图。", 400);
+  }
+
   const { apiKey, baseURL } = await resolveProviderSecret(input.provider);
   const controller = new AbortController();
+  const executionSignal = getExecutionAbortSignal();
+  const signal = executionSignal ? AbortSignal.any([controller.signal, executionSignal]) : controller.signal;
   const timeoutMs = imageGenerationConfig.httpTimeoutMs;
   const timeout = setTimeout(
     () => controller.abort(new Error(`Image generation request timed out after ${timeoutMs}ms.`)),
@@ -288,10 +318,9 @@ export async function generateImagesByProvider(input: ImageProviderGenerateInput
   );
 
   try {
-    // 优先使用本地文件路径（multipart 上传，避免 base64 膨胀）
-    const refImagePath = input.refImagePaths?.[0];
-    if (refImagePath && input.provider !== "grok") {
-      return await generateWithFileRef(input, refImagePath, apiKey, baseURL, controller);
+    signal.throwIfAborted();
+    if (referenceCount) {
+      return await generateWithFileRef(input, apiKey, baseURL, signal);
     }
 
     const requestBody = buildImageGenerationRequestBody(input);
@@ -303,7 +332,7 @@ export async function generateImagesByProvider(input: ImageProviderGenerateInput
         ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
       body: JSON.stringify(requestBody),
-      signal: controller.signal,
+      signal,
     });
 
     if (!response.ok) {
@@ -312,7 +341,7 @@ export async function generateImagesByProvider(input: ImageProviderGenerateInput
     }
 
     const payload = (await response.json()) as unknown;
-    const images = parseImagesFromPayload(payload);
+    const images = parseImagesFromPayload(payload, input.outputFormat);
     if (images.length === 0) {
       throw new Error("Image API returned empty data.");
     }

@@ -42,6 +42,8 @@ Wiki 不记录单次提交改了什么，也不替代 release notes。它只记�
 - [漫画内容映射与规划保护](./workflows/comic-source-planning-integrity.md)
 - [漫画批量生产与恢复](./workflows/comic-batch-recovery.md)
 - [漫画图片版本与完整导出](./workflows/comic-image-export-consistency.md)
+- [漫画参考图恢复与界面状态](./workflows/comic-reference-recovery-projection.md)
+- [图片模型调用与文件传输边界](./workflows/image-transfer-boundaries.md)
 - [Creative Hub 边界](./workflows/creative-hub-boundary.md)
 
 ### Prompts

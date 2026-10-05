@@ -53,6 +53,7 @@ import { GeneratedImageCard } from "@/components/comic/GeneratedImageCard";
 import SelectControl from "@/components/common/SelectControl";
 
 import { getExpressionData, parseSheetData } from "./data";
+import { confirmedReferenceImage, referenceImageUrl } from "../assets";
 
 function CharacterList({
   characters,
@@ -75,7 +76,8 @@ function CharacterList({
             const sheetData = parseSheetData(character);
             const expressionData = getExpressionData(sheetData);
             const isSelected = character.id === selectedCharacterId;
-            const hasSheet = sheetData.status === "done";
+            const sheetImage = confirmedReferenceImage(sheetData);
+            const hasSheet = Boolean(sheetImage);
 
             return (
               <button
@@ -98,7 +100,7 @@ function CharacterList({
                     <User className="h-4 w-4" />
                     {hasSheet && (
                       <img
-                        src={characterSheetImageUrl(character.id)}
+                        src={referenceImageUrl(characterSheetImageUrl(character.id), sheetImage)}
                         alt={`${character.name} 头像`}
                         className="absolute inset-0 h-full w-full object-cover object-left"
                         loading="lazy"
@@ -112,7 +114,7 @@ function CharacterList({
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-medium">{character.name}</p>
                       {hasSheet && (
-                        <span className="shrink-0 text-[10px] text-muted-foreground">v{sheetData.version ?? 1}</span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">v{sheetImage?.version ?? 1}</span>
                       )}
                     </div>
                     {character.persona && (
@@ -123,7 +125,7 @@ function CharacterList({
                     <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
                       <span className={hasSheet ? "text-primary" : ""}>三视图</span>
                       <span className="text-border">/</span>
-                      <span className={expressionData.status === "done" ? "text-primary" : ""}>表情稿</span>
+                      <span className={confirmedReferenceImage(expressionData) ? "text-primary" : ""}>表情稿</span>
                     </div>
                   </div>
                 </div>

@@ -11,7 +11,7 @@ import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import { resolveLetteredImageFile, resolvePanelImageFile } from "./assets";
-import { renderEpisodeArtifacts, resolveExportSpec } from "./export";
+import { ExportJobLease, recoverInterruptedExports, renderEpisodeArtifacts, resolveExportSpec } from "./export";
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import { resolveGeneratedImagesRoot } from "../../runtime/appPaths";
@@ -92,6 +92,7 @@ export class ComicExportService {
       },
     });
 
+    const lease = new ExportJobLease(job.id);
     const jobDir = exportJobDir(job.id);
     try {
       await fs.mkdir(jobDir, { recursive: true });
@@ -120,26 +121,22 @@ export class ComicExportService {
       const artifacts = await renderEpisodeArtifacts({ files, jobDir, jobId: job.id,
         episodeOrder: episode.order, spec: resolvedSpec });
 
-      await prisma.comicExportJob.update({
-        where: { id: job.id },
-        data: { status: "done", artifacts: JSON.stringify(artifacts) },
-      });
+      await lease.complete(artifacts);
 
       return { jobId: job.id, artifacts };
     } catch (err) {
-      await prisma.comicExportJob.update({
-        where: { id: job.id },
-        data: { status: "error", artifacts: JSON.stringify({ error: String(err) }) },
-      });
+      await lease.fail(err);
       throw err;
     }
   }
 
   async getExportJob(jobId: string) {
+    await recoverInterruptedExports({ id: jobId });
     return prisma.comicExportJob.findUnique({ where: { id: jobId } });
   }
 
   async listExportJobs(projectId: string) {
+    await recoverInterruptedExports({ projectId });
     return prisma.comicExportJob.findMany({
       where: { projectId },
       orderBy: { createdAt: "desc" },

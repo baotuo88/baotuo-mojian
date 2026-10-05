@@ -15,7 +15,7 @@ function load(relative, fixtures = {}, cache = new Map()) {
     if (id.endsWith('/middleware/errorHandler')) return { AppError };
     if (id.endsWith('/prompting/core/promptRunner')) return { runStructuredPrompt: fixtures.prompt };
     if (id.endsWith('/adaptation/source/SourceContentPort')) return { adaptationSourceRegistry: { register() {}, resolve: () => fixtures.adapter } };
-    if (id.endsWith('/adaptation/source/NovelSourceAdapter')) return { novelSourceAdapter: {} };
+    if (id.endsWith('/adaptation/source/NovelSourceAdapter') && !fixtures.realNovelAdapter) return { novelSourceAdapter: {} };
     if (id.endsWith('/drama/engine/rhythmEngine')) return { rhythmEngine: { listHooks: () => [], getTrack: () => null } };
     if (id.endsWith('/drama/engine/paywallPlanPolicy')) return {};
     if (id === '../production') return { isLiveBatch: job => { try { return job.status === 'running' && JSON.parse(job.progress).leaseExpiresAt > Date.now(); } catch { return false; } } };
@@ -102,7 +102,7 @@ test('panel prompt contains the end of full source material', () => {
   assert.ok(rendered.map(m=>m.content).join('\n').includes('最终关键事件'));
 });
 
-module.exports = { load, fixture };
+module.exports = { load, fixture, sqliteFixture };
 
 test('legacy episode mapping is inferred by registered AI and never by episode order', async () => {
   const f=fixture(); f.episode.order=8; f.episode.scriptConfig=null; let reads;

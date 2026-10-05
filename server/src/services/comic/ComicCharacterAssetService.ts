@@ -4,17 +4,15 @@
  *
  * 资产类型：costume | weapon | item | vehicle | ability | other
  * imageData JSON：{ status, url, prompt, provider, generatedAt, error, origin:"generated"|"uploaded" }
- * 图片存储：generated-images/comic-character-assets/{assetId}/asset.{ext}
+ * 图片存储：generated-images/comic-character-assets/{assetId}/{revision}/asset.{ext}
  * HTTP 端点：/api/comic/character-assets/:assetId/image
  */
-import fs from "fs/promises";
-import path from "path";
-
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
-import { resolveGeneratedImagesRoot } from "../../runtime/appPaths";
-import { filterImageGenerationReferences, runImageGeneration, safeJsonParse } from "../image/runtime";
+import { filterImageGenerationReferences, runImageGeneration } from "../image/runtime";
 import { buildGenderLockPrompt, resolveComicStyleKeywords } from "./comicStylePrompt";
+import { comicCharacterImageService } from "./ComicCharacterImageService";
+import { assetImageSource, createAssetReferenceAdapter, publishReferenceUpload, referenceSourceFingerprint, resolveReferenceImageFile } from "./assets";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,55 +47,16 @@ export interface UpdateAssetInput {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const ASSETS_DIR = "comic-character-assets";
-const IMAGE_EXTS: Array<[string, string]> = [
-  ["png", "image/png"],
-  ["jpg", "image/jpeg"],
-  ["webp", "image/webp"],
-];
-
-function assetDir(assetId: string): string {
-  return path.join(resolveGeneratedImagesRoot(), ASSETS_DIR, assetId);
-}
-
 export function assetImageUrl(assetId: string): string {
   return `/api/comic/character-assets/${assetId}/image`;
 }
 
 /** 找已存盘的资产图路径 */
-export async function resolveAssetFile(assetId: string): Promise<{ filePath: string; mimeType: string } | null> {
-  const dir = assetDir(assetId);
-  for (const [ext, mimeType] of IMAGE_EXTS) {
-    const candidate = path.join(dir, `asset.${ext}`);
-    try {
-      await fs.access(candidate);
-      return { filePath: candidate, mimeType };
-    } catch { /* 继续 */ }
-  }
-  return null;
-}
-
-/** 从三视图 sheetData 构建参考图路径列表 */
-async function resolveSheetRefPaths(characterId: string): Promise<string[]> {
-  const char = await prisma.comicCharacter.findUnique({
-    where: { id: characterId },
-    select: { sheetData: true },
-  });
-  if (!char) return [];
-  const sheet = safeJsonParse<{ status?: string }>(char.sheetData, {});
-  if (sheet.status !== "done") return [];
-
-  // 复用 ComicCharacterImageService 的存储规范
-  const sheetsRoot = path.join(resolveGeneratedImagesRoot(), "comic-characters", characterId);
-  const IMAGE_EXTS_LOCAL: Array<[string]> = [["png"], ["jpg"], ["webp"]];
-  for (const [ext] of IMAGE_EXTS_LOCAL) {
-    const candidate = path.join(sheetsRoot, `character-sheet.${ext}`);
-    try {
-      await fs.access(candidate);
-      return [candidate];
-    } catch { /* 继续 */ }
-  }
-  return [];
+export async function resolveAssetFile(assetId: string, revision?: string): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
+  const asset = await prisma.comicCharacterAsset.findUnique({ where: { id: assetId },
+    include: { character: true, project: { select: { stylePreset: true } } } });
+  return asset ? resolveReferenceImageFile("asset", assetId, asset.imageData,
+    referenceSourceFingerprint(assetImageSource(asset)), revision) : null;
 }
 
 function buildAssetPrompt(params: {
@@ -228,35 +187,17 @@ export class ComicCharacterAssetService {
 
   async deleteAsset(assetId: string) {
     await this.getAsset(assetId);
-    // 清理磁盘
-    try {
-      await fs.rm(assetDir(assetId), { recursive: true, force: true });
-    } catch { /* 忽略：文件可能从未生成 */ }
+    // Retain immutable revisions referenced by generated panels and export snapshots.
     return prisma.comicCharacterAsset.delete({ where: { id: assetId } });
   }
 
   // ── 图片上传 ──────────────────────────────────────────────────────────────
 
   async uploadAssetImage(assetId: string, fileBuffer: Buffer, mimeType: string): Promise<{ url: string }> {
-    const asset = await this.getAsset(assetId);
-    const ext = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : "png";
-    const dir = assetDir(assetId);
-    await fs.mkdir(dir, { recursive: true });
-    const filePath = path.join(dir, `asset.${ext}`);
-    await fs.writeFile(filePath, fileBuffer);
-
-    const url = assetImageUrl(assetId);
-    const imageData: AssetImageData = {
-      status: "done",
-      url,
-      origin: "uploaded",
-      generatedAt: new Date().toISOString(),
-    };
-    await prisma.comicCharacterAsset.update({
-      where: { id: assetId },
-      data: { imageData: JSON.stringify(imageData) },
-    });
-    return { url };
+    const asset = await prisma.comicCharacterAsset.findUnique({ where: { id: assetId },
+      include: { character: true, project: { select: { stylePreset: true } } } });
+    if (!asset) throw new AppError(`资产不存在：${assetId}`, 404);
+    return publishReferenceUpload(createAssetReferenceAdapter<AssetImageData>(asset, true), fileBuffer, mimeType);
   }
 
   // ── AI 生成（prepare / generate 共享 buildContext） ──────────────────────
@@ -271,7 +212,8 @@ export class ComicCharacterAssetService {
     });
     if (!asset) throw new AppError(`资产不存在：${assetId}`, 404);
 
-    const refImagePaths = await resolveSheetRefPaths(asset.characterId);
+    const sheetReference = await comicCharacterImageService.resolveSheetFile(asset.characterId);
+    const refImagePaths = sheetReference ? [sheetReference.filePath] : [];
     const prompt = buildAssetPrompt({
       assetType: asset.assetType as CharacterAssetType,
       name: asset.name,
@@ -285,25 +227,15 @@ export class ComicCharacterAssetService {
 
     // 参考素材元数据（前端预览缩略图用）
     const referenceImages: import("../image/runtime").GeneratedReferenceImageMeta[] = [];
-    const sheetState = safeJsonParse<{ status?: string }>(asset.character.sheetData, {});
-    if (sheetState.status === "done") {
+    if (refImagePaths.length > 0) {
       referenceImages.push({
         kind: "character_sheet",
         label: `${asset.character.name} · 三视图`,
-        url: `/api/comic/character-images/${asset.character.id}/sheet`,
+        url: `/api/comic/character-images/${asset.character.id}/sheet` + (sheetReference?.revision ? `?revision=${sheetReference.revision}` : ""),
       });
     }
 
-    const adapter: import("../image/runtime").ImageTargetAdapter<AssetImageData> = {
-      kind: `comic.character-asset:${assetId}`,
-      loadState: async () => safeJsonParse<AssetImageData>(asset.imageData, { status: "idle" }),
-      saveState: async (next) => {
-        await prisma.comicCharacterAsset.update({ where: { id: assetId }, data: { imageData: JSON.stringify(next) } });
-      },
-      diskPath: (ext) => path.join(assetDir(assetId), `asset.${ext}`),
-      publicUrl: () => assetImageUrl(assetId),
-      buildExtraDoneState: () => ({ origin: "generated" as const }),
-    };
+    const adapter = createAssetReferenceAdapter<AssetImageData>(asset);
 
     return {
       adapter,
@@ -350,8 +282,8 @@ export class ComicCharacterAssetService {
 
   // ── 文件服务 ──────────────────────────────────────────────────────────────
 
-  async serveAssetImage(assetId: string): Promise<{ filePath: string; mimeType: string }> {
-    const resolved = await resolveAssetFile(assetId);
+  async serveAssetImage(assetId: string, revision?: string): Promise<{ filePath: string; mimeType: string }> {
+    const resolved = await resolveAssetFile(assetId, revision);
     if (!resolved) throw new AppError(`资产图片未找到：${assetId}`, 404);
     return resolved;
   }

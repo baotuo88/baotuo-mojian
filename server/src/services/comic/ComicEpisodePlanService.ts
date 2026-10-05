@@ -8,7 +8,7 @@ import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import type { SourceBundle } from "../adaptation/contracts/sourceBundle";
-import { archivePlanningRecords, assertPlanningIdle, claimEpisodeRevision, planningFingerprint, sourceBeatsDigest, validateSourceRange } from "./planning";
+import { archivePlanningRecords, assertPlanningIdle, claimEpisodeRevision, planningFingerprint, readScriptConfig, sourceBeatsDigest, validateSourceRange } from "./planning";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import { comicEpisodeOutlinePrompt } from "../../prompting/prompts/comic/comic.prompts";
 // rhythmEngine 是纯领域知识（零外部依赖），可直接 import
@@ -62,6 +62,20 @@ export class ComicEpisodePlanService {
     }
     await assertPlanningIdle(prisma, projectId, previousEpisodes.map((ep) => ep.id));
 
+    // Existing story decisions constrain continuations and replacements alike.
+    // Exclude only the range being replanned; keep future boundaries to prevent contradictions.
+    const readContinuity = async (db: Pick<typeof prisma, "comicEpisode">) => {
+      const rows = await db.comicEpisode.findMany({
+        where: { projectId }, orderBy: { order: "asc" },
+        select: { id: true, order: true, title: true, outline: true, cliffhanger: true, scriptConfig: true },
+      });
+      return rows.filter((row) => row.order < startOrder || row.order > endOrder).map((row) => ({
+        id: row.id, order: row.order, title: row.title, outline: row.outline, cliffhanger: row.cliffhanger,
+        sourceRange: readScriptConfig(row.scriptConfig).sourceRange,
+      }));
+    };
+    const continuity = await readContinuity(prisma);
+
     const beatsDigest = sourceBeatsDigest(bundle) || "（无结构化节拍，按梗概分话）";
 
     // 付费卡点（有赛道策略时才计算）
@@ -93,6 +107,7 @@ export class ComicEpisodePlanService {
         endOrder,
         paywallOrders,
         hookLibrary,
+        existingEpisodes: continuity,
         requireSourceRange: project.sourceType === "novel_import",
         stylePreset: project.stylePreset
           ? JSON.parse(project.stylePreset).style
@@ -124,6 +139,9 @@ export class ComicEpisodePlanService {
       });
       if (planningFingerprint(currentEpisodes) !== planningFingerprint(previousEpisodes)) {
         throw new AppError("分话内容在规划期间发生变化，请查看最新内容后重试。", 409);
+      }
+      if (planningFingerprint(await readContinuity(tx)) !== planningFingerprint(continuity)) {
+        throw new AppError("相邻分话情节在规划期间发生变化，请查看最新大纲后重试。", 409);
       }
       if (previousEpisodes.length) {
         const facts = await tx.comicFact.findMany({ where: { projectId, episodeOrder: { gte: startOrder, lte: endOrder } } });

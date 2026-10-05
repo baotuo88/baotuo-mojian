@@ -24,8 +24,17 @@ async function fixture(t, overrides = {}) {
     },
     comicEpisode: { findUnique: async () => ({ id: 'episode', projectId: 'project', order: 1, panels: structuredClone(panels) }) },
     comicExportJob: {
-      create: async ({ data }) => { const job = { id: 'export-' + jobs.size, ...data }; jobs.set(job.id, job); return job; },
+      create: async ({ data }) => { const job = { id: 'export-' + jobs.size, updatedAt: new Date(), ...data }; jobs.set(job.id, job); return job; },
       update: async ({ where, data }) => Object.assign(jobs.get(where.id), data),
+      updateMany: async ({ where, data }) => {
+        let count = 0;
+        for (const job of jobs.values()) {
+          if (where.id && job.id !== where.id || where.projectId && job.projectId !== where.projectId || job.status !== where.status) continue;
+          if (where.updatedAt?.lt && !(job.updatedAt < where.updatedAt.lt) || where.updatedAt?.gte && !(job.updatedAt >= where.updatedAt.gte)) continue;
+          Object.assign(job, data, { updatedAt: new Date() }); count++;
+        }
+        return { count };
+      },
       findUnique: async ({ where }) => jobs.get(where.id),
     },
   };
@@ -34,7 +43,7 @@ async function fixture(t, overrides = {}) {
     '/db/prisma': { prisma },
     '/runtime/appPaths': { resolveGeneratedImagesRoot: () => root },
     '/middleware/errorHandler': { AppError: class extends Error { constructor(message, statusCode) { super(message); this.statusCode = statusCode; } } },
-    '/platform/execution': { throwIfExecutionAborted() {} },
+    '/platform/execution': { throwIfExecutionAborted() {}, getExecutionAbortSignal() {} },
     '/image/provider': { isImageProviderSupported: () => true, resolveImageModel: async () => 'fake', generateImagesByProvider: (input) => provider(input) },
     '/comic/ComicCharacterImageService': { isCharacterExpressionId: () => false },
     '/comic/ComicCharacterAssetService': {},
