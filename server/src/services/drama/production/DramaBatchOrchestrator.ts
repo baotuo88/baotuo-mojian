@@ -1,4 +1,5 @@
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
+import type { DramaBatchJob } from "@prisma/client";
 
 import { prisma } from "../../../db/prisma";
 import { AppError } from "../../../middleware/errorHandler";
@@ -21,6 +22,10 @@ export interface DramaBatchProgress {
   provider?: string;
   targetShotIds?: string[];
   currentShotId?: string;
+  completedShotIds?: string[];
+  storyboardId?: string;
+  pauseRequested?: boolean;
+  interruptionReason?: string;
   errors?: Array<{ shotId: string; message: string }>;
   useCharacterRefImages?: boolean;
   cost?: DramaBatchCostBreakdown;
@@ -66,7 +71,7 @@ interface BatchShot {
 
 interface BatchEpisode {
   id: string;
-  storyboards: Array<{ shots: BatchShot[] }>;
+  storyboards: Array<{ id: string; shots: BatchShot[] }>;
   videoPrompts?: BatchVideoPrompt[];
 }
 
@@ -175,6 +180,10 @@ function normalizeProgress(input: Partial<DramaBatchProgress>): DramaBatchProgre
     provider: input.provider,
     targetShotIds: input.targetShotIds,
     currentShotId: input.currentShotId,
+    completedShotIds: input.completedShotIds ?? [],
+    storyboardId: input.storyboardId,
+    pauseRequested: input.pauseRequested ?? false,
+    interruptionReason: input.interruptionReason,
     errors: input.errors ?? [],
     useCharacterRefImages: input.useCharacterRefImages,
     cost: normalizeCostBreakdown(input.cost),
@@ -182,11 +191,19 @@ function normalizeProgress(input: Partial<DramaBatchProgress>): DramaBatchProgre
 }
 
 function readProgress(raw: string | null | undefined): DramaBatchProgress {
-  return normalizeProgress(safeJsonParse<Partial<DramaBatchProgress>>(raw, {}));
+  const parsed = safeJsonParse<Partial<DramaBatchProgress>>(raw, {});
+  // Older workers checkpointed a strictly ordered prefix but had no completed IDs.
+  if (!parsed.completedShotIds && parsed.targetShotIds) {
+    const processed = (parsed.done ?? 0) + (parsed.failed ?? 0);
+    parsed.completedShotIds = parsed.targetShotIds.slice(0, processed)
+      .filter((id) => !parsed.failedShotIds?.includes(id));
+  }
+  return normalizeProgress(parsed);
 }
 
 export class DramaBatchOrchestrator {
   private readonly runningJobs = new Set<string>();
+  private stopping = false;
 
   constructor(
     private readonly keyframeService = new DramaShotKeyframeService(),
@@ -194,12 +211,96 @@ export class DramaBatchOrchestrator {
     private readonly dialogueAudioService = new DramaDialogueAudioService(),
   ) {}
 
+  /** Run before accepting HTTP requests. Never reissue paid work during startup. */
+  async recoverInterruptedJobs() {
+    this.stopping = false;
+    const jobs = await prisma.dramaBatchJob.findMany({ where: { status: { in: ["pending", "running"] } } });
+    for (const job of jobs) {
+      const progress = readProgress(job.progress);
+      progress.pauseRequested = false;
+      progress.interruptionReason = "服务中断，已保留完成进度。请先核对媒体通道中的任务，再确认继续；中断的镜头可能产生额外费用。";
+      await prisma.dramaBatchJob.updateMany({
+        where: { id: job.id, status: job.status, progress: job.progress },
+        data: { status: "paused", progress: JSON.stringify(progress) },
+      });
+    }
+    return jobs.length;
+  }
+
+  async stop() {
+    this.stopping = true;
+    for (const id of this.runningJobs) {
+      const job = await prisma.dramaBatchJob.findUnique({ where: { id } });
+      if (job) await this.pauseBatchJob(job.projectId, id);
+    }
+  }
+
+  private async ownedJob(projectId: string, jobId: string) {
+    const job = await prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
+    if (!job || job.projectId !== projectId) throw new AppError("未找到该项目的制作任务。", 404);
+    return job;
+  }
+
+  async pauseBatchJob(projectId: string, jobId: string): Promise<DramaBatchJob> {
+    const job = await this.ownedJob(projectId, jobId);
+    if (!["pending", "running"].includes(job.status)) return job;
+    const progress = readProgress(job.progress);
+    progress.pauseRequested = true;
+    // CAS avoids replacing a worker checkpoint that advanced while this request read it.
+    const updated = await prisma.dramaBatchJob.updateMany({
+      where: { id: jobId, status: job.status, progress: job.progress },
+      data: { status: job.status === "pending" ? "paused" : "running", progress: JSON.stringify(progress) },
+    });
+    if (!updated.count) return this.pauseBatchJob(projectId, jobId);
+    return this.ownedJob(projectId, jobId);
+  }
+
+  async resumeBatchJob(projectId: string, jobId: string, confirmAdditionalCost: boolean, options: CreateEpisodeBatchJobOptions = {}) {
+    if (!confirmAdditionalCost) throw new AppError("请确认继续制作可能产生额外费用。", 400);
+    if (this.stopping) throw new AppError("服务正在停止，请稍后继续制作。", 503);
+    const job = await this.ownedJob(projectId, jobId);
+    if (!["paused", "failed"].includes(job.status)) return job;
+    const progress = readProgress(job.progress);
+    await this.loadTargetShots(job.episodeId, progress);
+    progress.failed = 0;
+    progress.failedShotIds = [];
+    progress.errors = [];
+    progress.pauseRequested = false;
+    progress.interruptionReason = undefined;
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.dramaProject.update({ where: { id: projectId }, data: { updatedAt: new Date() } });
+      const candidates = await tx.dramaBatchJob.findMany({
+        where: { projectId, episodeId: job.episodeId, type: job.type, id: { not: jobId }, status: { in: ["pending", "running", "paused"] } },
+      });
+      const active = candidates.find((candidate) => {
+        if (candidate.status !== "paused") return true;
+        const other = readProgress(candidate.progress);
+        return other.storyboardId ? other.storyboardId === progress.storyboardId
+          : Boolean(other.targetShotIds?.length && other.targetShotIds.every((id) => progress.targetShotIds?.includes(id)));
+      });
+      if (active) throw new AppError("该集已有同类制作任务，请先处理该任务。", 409);
+      return tx.dramaBatchJob.updateMany({
+        where: { id: jobId, status: job.status, progress: job.progress },
+        data: { status: "pending", progress: JSON.stringify(progress) },
+      });
+    });
+    if (updated.count && (options.autoStart ?? true)) this.startJob(jobId);
+    return this.ownedJob(projectId, jobId);
+  }
+
+  private startJob(jobId: string) {
+    void this.runBatchJob(jobId).catch((error) => {
+      console.error("[drama.batch] failed to checkpoint production task", { jobId, error });
+    });
+  }
+
   async createEpisodeBatchJob(
     projectId: string,
     order: number,
     input: CreateEpisodeBatchJobInput,
     options: CreateEpisodeBatchJobOptions = {},
   ) {
+    if (this.stopping) throw new AppError("服务正在停止，请稍后创建任务。", 503);
     const prepared = await this.prepareEpisodeBatchJob(projectId, order, input);
     const progress = normalizeProgress({
       total: prepared.targetShotIds.length,
@@ -209,23 +310,30 @@ export class DramaBatchOrchestrator {
       failedShotIds: [],
       provider: prepared.provider,
       targetShotIds: prepared.targetShotIds,
+      storyboardId: prepared.episode.storyboards[0].id,
       errors: [],
       useCharacterRefImages: input.useCharacterRefImages ?? false,
       cost: prepared.cost,
     });
-    const job = await prisma.dramaBatchJob.create({
-      data: {
-        projectId,
-        episodeId: prepared.episode.id,
-        type: input.type,
-        status: "pending",
-        progress: JSON.stringify(progress),
-      },
+    // A project row lock serializes creation across requests/processes on PostgreSQL.
+    const job = await prisma.$transaction(async (tx) => {
+      await tx.dramaProject.update({ where: { id: projectId }, data: { updatedAt: new Date() } });
+      const existing = await tx.dramaBatchJob.findFirst({
+        where: { projectId, episodeId: prepared.episode.id, type: input.type, status: { in: ["pending", "running", "paused"] } },
+        orderBy: { createdAt: "desc" },
+      });
+      if (existing) {
+        const previous = readProgress(existing.progress);
+        // Old paused work must not prevent starting production for a new storyboard.
+        if (previous.storyboardId === progress.storyboardId
+          || (!previous.storyboardId && previous.targetShotIds?.every((id) => progress.targetShotIds?.includes(id)))) return existing;
+        if (existing.status !== "paused") throw new AppError("上一版分镜仍有制作任务，请先暂停。", 409);
+      }
+      return tx.dramaBatchJob.create({
+        data: { projectId, episodeId: prepared.episode.id, type: input.type, status: "pending", progress: JSON.stringify(progress) },
+      });
     });
-
-    if (options.autoStart ?? true) {
-      void this.runBatchJob(job.id).catch(() => undefined);
-    }
+    if ((options.autoStart ?? true) && job.status === "pending") this.startJob(job.id);
     return job;
   }
 
@@ -244,73 +352,80 @@ export class DramaBatchOrchestrator {
     };
   }
 
-  async runBatchJob(jobId: string) {
-    if (this.runningJobs.has(jobId)) {
-      return prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
+  private async loadTargetShots(episodeId: string | null, progress: DramaBatchProgress) {
+    if (!episodeId) throw new AppError("制作任务关联的集数不存在。", 409);
+    const episode = await prisma.dramaEpisode.findUnique({
+      where: { id: episodeId },
+      include: { storyboards: { orderBy: { createdAt: "desc" }, take: 1, include: { shots: { orderBy: { order: "asc" } } } } },
+    });
+    const storyboard = episode?.storyboards[0];
+    const targetIds = progress.targetShotIds;
+    if (!storyboard || !targetIds?.length
+      || (progress.storyboardId && progress.storyboardId !== storyboard.id)
+      || targetIds.some((id) => !storyboard.shots.some((shot) => shot.id === id))) {
+      throw new AppError("分镜已变化或镜头缺失，请为当前分镜新建制作任务。", 409);
     }
+    return { episodeId, shots: storyboard.shots.filter((shot) => targetIds.includes(shot.id)) };
+  }
+
+  async runBatchJob(jobId: string) {
+    if (this.stopping || this.runningJobs.has(jobId)) return prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
     this.runningJobs.add(jobId);
+    let progress: DramaBatchProgress | undefined;
+    let claimed = false;
     try {
       const job = await prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
-      if (!job) {
-        throw new AppError(`未找到短剧批量任务：${jobId}`, 404);
-      }
-      if (!job.episodeId) {
-        throw new AppError("短剧批量任务缺少集数关联。", 400);
-      }
-      const episode = await prisma.dramaEpisode.findUnique({
-        where: { id: job.episodeId },
-        include: {
-          storyboards: {
-            orderBy: { createdAt: "desc" },
-            include: { shots: { orderBy: { order: "asc" } } },
-          },
-        },
+      if (!job) throw new AppError("未找到制作任务。", 404);
+      if (job.status !== "pending") return job;
+      const claim = await prisma.dramaBatchJob.updateMany({
+        where: { id: jobId, status: "pending", progress: job.progress }, data: { status: "running" },
       });
-      if (!episode) {
-        throw new AppError(`未找到短剧批量任务关联的集数：${job.episodeId}`, 404);
+      if (!claim.count) return prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
+      claimed = true;
+      progress = readProgress(job.progress);
+      if (!["keyframes", "videos", "tts"].includes(job.type)) throw new AppError("该制作任务类型暂不支持继续。", 400);
+      if (!progress.provider || (progress.provider === "mock" && process.env.NODE_ENV !== "test")) {
+        throw new AppError("任务缺少可用生成通道，请选择已配置通道创建新任务。", 400);
       }
-
-      const progress = readProgress(job.progress);
-      const targetSet = new Set(progress.targetShotIds ?? []);
-      const shots = (episode.storyboards[0]?.shots ?? [])
-        .filter((shot) => targetSet.size === 0 || targetSet.has(shot.id));
-      const nextProgress = normalizeProgress({
-        ...progress,
-        total: shots.length,
-        done: 0,
-        failed: 0,
-        skipped: 0,
-        failedShotIds: [],
-        errors: [],
-        cost: progress.cost ? { ...progress.cost, actual: 0, actualUnits: {} } : undefined,
-      });
-      await this.updateJob(jobId, "running", nextProgress);
-
-      for (const shot of shots) {
-        nextProgress.currentShotId = shot.id;
-        await this.updateJob(jobId, "running", nextProgress);
-        try {
-          const result = await this.processShot(job.type as DramaBatchJobType, job.projectId, episode.id, shot, nextProgress.provider, nextProgress.useCharacterRefImages ?? false);
-          if (result.status === "skipped") {
-            nextProgress.skipped += 1;
-          }
-          if (result.status === "processed" && result.costUnits && nextProgress.cost) {
-            nextProgress.cost = this.addActualCost(nextProgress.cost, result.costUnits);
-          }
-          nextProgress.done += 1;
-        } catch (error) {
-          nextProgress.failed += 1;
-          nextProgress.failedShotIds.push(shot.id);
-          nextProgress.errors = (nextProgress.errors ?? []).concat({
-            shotId: shot.id,
-            message: error instanceof Error ? error.message : String(error),
-          });
+      const target = await this.loadTargetShots(job.episodeId, progress);
+      const completed = new Set(progress.completedShotIds);
+      const failed = new Set(progress.failedShotIds);
+      for (const originalShot of target.shots) {
+        if (completed.has(originalShot.id) || failed.has(originalShot.id)) continue;
+        const checkpoint = await prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
+        if (!checkpoint || checkpoint.status !== "running") return checkpoint;
+        if (this.stopping || readProgress(checkpoint.progress).pauseRequested) {
+          progress.pauseRequested = false;
+          return this.updateJob(jobId, "paused", progress);
         }
-        await this.updateJob(jobId, "running", nextProgress);
+        // Check the pinned storyboard between external calls and read fresh assets.
+        const current = await this.loadTargetShots(job.episodeId, progress);
+        const shot = current.shots.find((item) => item.id === originalShot.id)!;
+        progress.currentShotId = shot.id;
+        await this.updateJob(jobId, "running", progress);
+        try {
+          const result = await this.processShot(job.type as DramaBatchJobType, job.projectId, target.episodeId, shot, progress.provider, progress.useCharacterRefImages ?? false);
+          if (result.status === "skipped") progress.skipped += 1;
+          if (result.status === "processed" && result.costUnits && progress.cost) {
+            progress.cost = this.addActualCost(progress.cost, result.costUnits);
+          }
+          completed.add(shot.id);
+          progress.completedShotIds = [...completed];
+          progress.done += 1;
+        } catch (error) {
+          progress.failed += 1;
+          progress.failedShotIds.push(shot.id);
+          progress.errors = (progress.errors ?? []).concat({ shotId: shot.id, message: error instanceof Error ? error.message : String(error) });
+        }
+        progress.currentShotId = undefined;
+        await this.updateJob(jobId, "running", progress);
       }
-
-      nextProgress.currentShotId = undefined;
-      return this.updateJob(jobId, nextProgress.failed > 0 ? "failed" : "done", nextProgress);
+      progress.pauseRequested = false;
+      return this.updateJob(jobId, progress.failed > 0 ? "failed" : "done", progress);
+    } catch (error) {
+      if (!claimed || !progress) throw error;
+      progress.interruptionReason = error instanceof Error ? error.message : String(error);
+      return this.updateJob(jobId, "failed", progress);
     } finally {
       this.runningJobs.delete(jobId);
     }
@@ -389,10 +504,10 @@ export class DramaBatchOrchestrator {
     if (type === "keyframes") {
       return DEFAULT_IMAGE_PROVIDER;
     }
-    if (type === "tts") {
-      return DEFAULT_TTS_PROVIDER;
-    }
-    return DEFAULT_VIDEO_PROVIDER;
+    const providers = type === "tts" ? ttsProviderRegistry.listProviders() : videoProviderRegistry.listProviders();
+    const provider = providers.find((item) => item.provider !== "mock");
+    if (!provider) throw new AppError("请先在设置的媒体通道中配置配音或视频服务。", 400);
+    return provider.provider;
   }
 
   private async prepareEpisodeBatchJob(
@@ -432,6 +547,9 @@ export class DramaBatchOrchestrator {
     }
 
     const provider = input.provider?.trim() || this.defaultProviderForType(input.type);
+    if (provider === "mock" && process.env.NODE_ENV !== "test") {
+      throw new AppError("请选择已配置的媒体通道，模拟通道仅用于测试。", 400);
+    }
     return {
       episode,
       provider,
@@ -520,14 +638,17 @@ export class DramaBatchOrchestrator {
     jobId: string,
     status: DramaBatchJobStatus,
     progress: DramaBatchProgress,
-  ) {
-    return prisma.dramaBatchJob.update({
-      where: { id: jobId },
-      data: {
-        status,
-        progress: JSON.stringify(progress),
-      },
+  ): Promise<DramaBatchJob | null> {
+    const current = await prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
+    if (!current || current.status !== "running") return current;
+    const saved = readProgress(current.progress);
+    const next = { ...progress, pauseRequested: status === "running" && (saved.pauseRequested || progress.pauseRequested) };
+    const updated = await prisma.dramaBatchJob.updateMany({
+      where: { id: jobId, status: "running", progress: current.progress },
+      data: { status, progress: JSON.stringify(next) },
     });
+    if (!updated.count) return this.updateJob(jobId, status, progress);
+    return prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
   }
 }
 

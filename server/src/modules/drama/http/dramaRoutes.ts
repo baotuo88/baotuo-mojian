@@ -20,7 +20,7 @@ import { dramaStrategyService } from "../../../services/drama/DramaStrategyServi
 import { dramaVideoPromptService } from "../../../services/drama/DramaVideoPromptService";
 import { ttsProviderRegistry } from "../../../services/drama/audio/TTSProviderPort";
 import { rhythmEngine } from "../../../services/drama/engine/rhythmEngine";
-import { dramaBatchOrchestrator } from "../../../services/drama/production/DramaBatchOrchestrator";
+import { dramaBatchOrchestrator } from "../../../services/drama/production";
 import { dramaShotKeyframeService } from "../../../services/drama/visual/DramaShotKeyframeService";
 import { videoProviderRegistry } from "../../../services/drama/video/VideoProviderPort";
 
@@ -49,7 +49,7 @@ const imageProviderBodySchema = z
 const batchJobBodySchema = z.object({
   type: z.enum(["keyframes", "videos", "tts"]),
   provider: z.string().trim().optional(),
-  failedShotIds: z.array(z.string().trim().min(1)).optional(),
+  failedShotIds: z.array(z.string().trim().min(1)).max(5000).optional(),
   useCharacterRefImages: z.boolean().optional(),
 });
 
@@ -64,6 +64,7 @@ const outlineRequestSchema = z
   .optional();
 
 const idParamsSchema = z.object({ id: z.string().trim().min(1) });
+const batchJobParamsSchema = idParamsSchema.extend({ jobId: z.string().trim().min(1) });
 const episodeParamsSchema = z.object({
   id: z.string().trim().min(1),
   order: z.coerce.number().int().min(1),
@@ -135,6 +136,7 @@ const importCharacterSchema = z.object({
 const providerTaskSchema = z
   .object({
     provider: z.string().trim().min(1).optional(),
+    confirmResubmit: z.boolean().optional(),
   })
   .optional();
 
@@ -438,6 +440,24 @@ router.post("/projects/:id/episodes/:order/batch-jobs/estimate", validate({ para
   }
 });
 
+router.post("/projects/:id/batch-jobs/:jobId/pause", validate({ params: batchJobParamsSchema }), async (req, res, next) => {
+  try {
+    const { id, jobId } = req.params as z.infer<typeof batchJobParamsSchema>;
+    const data = await dramaBatchOrchestrator.pauseBatchJob(id, jobId);
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+});
+
+router.post("/projects/:id/batch-jobs/:jobId/resume", validate({
+  params: batchJobParamsSchema, body: z.object({ confirmAdditionalCost: z.literal(true) }),
+}), async (req, res, next) => {
+  try {
+    const { id, jobId } = req.params as z.infer<typeof batchJobParamsSchema>;
+    const data = await dramaBatchOrchestrator.resumeBatchJob(id, jobId, req.body.confirmAdditionalCost);
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+});
+
 router.post("/projects/:id/episodes/:order/storyboard", validate({ params: episodeParamsSchema, body: llmOptionsSchema }), async (req, res, next) => {
   try {
     const { id, order } = req.params as unknown as z.infer<typeof episodeParamsSchema>;
@@ -516,8 +536,8 @@ router.post("/projects/:id/shots/:shotId/keyframe", validate({ params: shotParam
 router.post("/video-prompts/:videoPromptId/provider-task", validate({ params: videoPromptParamsSchema, body: providerTaskSchema }), async (req, res, next) => {
   try {
     const { videoPromptId } = req.params as z.infer<typeof videoPromptParamsSchema>;
-    const body = (req.body ?? {}) as { provider?: string };
-    const data = await dramaVideoPromptService.createProviderTask(videoPromptId, body.provider ?? "mock");
+    const body = (req.body ?? {}) as z.infer<typeof providerTaskSchema>;
+    const data = await dramaVideoPromptService.createProviderTask(videoPromptId, body?.provider, { confirmResubmit: body?.confirmResubmit });
     res.status(200).json({ success: true, data, message: "Drama video task created." });
   } catch (error) {
     next(error);

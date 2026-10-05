@@ -7,7 +7,6 @@ import {
   type DramaBatchCostBreakdown,
   type DramaBatchJob,
   type DramaBatchJobType,
-  type DramaBatchProgress,
   type DramaEpisode,
   type DramaProjectDetail,
   type DramaShot,
@@ -20,6 +19,8 @@ import type { ImageGenerationOverrides } from "@/api/comic";
 import { getAPIKeySettings } from "@/api/settings";
 import { ImageGenerationConfirmDialog } from "@/components/image/ImageGenerationConfirmDialog";
 import { useImageGenerationFlow } from "@/components/image/useImageGenerationFlow";
+import { Link } from "react-router-dom";
+import { DramaBatchJobCard, canRefreshVideoTask, currentVideoPrompts, hasEpisodeProduction, isBatchStoryboardCurrent, latestEpisodeBatch, videoStatusLabel } from "../production";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,8 @@ export function DramaVisualPanel(props: {
   selectedProvider: string;
   onSelectProvider: (provider: string) => void;
   onProviderTask: (prompt: DramaVideoPrompt, provider: string) => void;
+  onPause: (job: DramaBatchJob) => void;
+  onResume: (job: DramaBatchJob) => void;
   onRefreshProviderTask: (prompt: DramaVideoPrompt) => void;
   busy: boolean;
 }) {
@@ -45,11 +48,10 @@ export function DramaVisualPanel(props: {
   const storyboards = selectedEpisode?.storyboards ?? [];
   const storyboard = storyboards[0] as DramaStoryboard | undefined;
   const videoPrompts = props.project.videoPrompts ?? [];
-  const activeVideoPrompts = videoPrompts.filter(isActiveVideoPrompt);
+  const activeVideoPrompts = currentVideoPrompts(props.project);
   const promptsByShot = buildLatestPromptsByShot(activeVideoPrompts);
-  const selectedBatchJobs = (props.project.batchJobs ?? []).filter((job) => job.episodeId === selectedEpisode?.id);
-  const latestKeyframeBatch = selectedBatchJobs.find((job) => job.type === "keyframes");
-  const latestVideoBatch = selectedBatchJobs.find((job) => job.type === "videos");
+  const latestKeyframeBatch = selectedEpisode ? latestEpisodeBatch(props.project.batchJobs, selectedEpisode.id, "keyframes") : undefined;
+  const latestVideoBatch = selectedEpisode ? latestEpisodeBatch(props.project.batchJobs, selectedEpisode.id, "videos") : undefined;
   const [selectedImageProvider, setSelectedImageProvider] = useState("");
   const [useCharacterRefImages, setUseCharacterRefImages] = useState(false);
   const keyframeFlow = useImageGenerationFlow();
@@ -97,8 +99,10 @@ export function DramaVisualPanel(props: {
     });
   };
   const hasStoryboardShots = Boolean(storyboard?.shots?.length);
-  const keyframeBatchActive = isActiveBatch(latestKeyframeBatch);
-  const videoBatchActive = isActiveBatch(latestVideoBatch);
+  const keyframeBatchActive = Boolean(selectedEpisode && hasEpisodeProduction(props.project.batchJobs, selectedEpisode, "keyframes"));
+  const videoBatchActive = Boolean(selectedEpisode && hasEpisodeProduction(props.project.batchJobs, selectedEpisode, "videos"));
+  const episodeProductionActive = Boolean(selectedEpisode && hasEpisodeProduction(props.project.batchJobs, selectedEpisode));
+  const canUseVideoProvider = Boolean(props.selectedProvider && props.videoProviders.some((provider) => provider.provider === props.selectedProvider));
   const keyframeEstimateQuery = useQuery({
     queryKey: [
       "drama",
@@ -130,7 +134,7 @@ export function DramaVisualPanel(props: {
       type: "videos",
       provider: props.selectedProvider,
     }),
-    enabled: Boolean(selectedEpisode && hasStoryboardShots),
+    enabled: Boolean(selectedEpisode && hasStoryboardShots && canUseVideoProvider),
     staleTime: 30_000,
   });
 
@@ -188,7 +192,7 @@ export function DramaVisualPanel(props: {
             {props.videoProviders.length > 0 ? props.videoProviders.map((provider) => (
               <option key={provider.provider} value={provider.provider}>{provider.label}</option>
             )) : (
-              <option value={props.selectedProvider}>{props.selectedProvider}</option>
+              <option value="">请配置视频通道</option>
             )}
           </SelectControl>
           <SelectControl
@@ -196,14 +200,14 @@ export function DramaVisualPanel(props: {
             value={activeImageProvider}
             disabled={imageProviders.length === 0}
             onChange={(event) => setSelectedImageProvider(event.target.value)}
-            aria-label="首帧图片 Provider"
+            aria-label="首帧图片通道"
           >
             {imageProviders.length > 0 ? imageProviders.map((provider) => (
               <option key={provider.provider} value={provider.provider}>
                 {provider.name} · {provider.currentImageModel}
               </option>
             )) : (
-              <option value="">未配置图片 Provider</option>
+              <option value="">请配置图片通道</option>
             )}
           </SelectControl>
           <label className="flex h-10 cursor-pointer items-center gap-2 rounded-md border bg-background px-3 text-sm">
@@ -217,7 +221,7 @@ export function DramaVisualPanel(props: {
           </label>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" disabled={props.busy || !selectedEpisode.content?.trim()} onClick={() => props.onStoryboard(selectedEpisode.order)}>
+          <Button type="button" disabled={props.busy || episodeProductionActive || !selectedEpisode.content?.trim()} onClick={() => props.onStoryboard(selectedEpisode.order)}>
             <Film className="h-4 w-4" />
             生成分镜
           </Button>
@@ -233,7 +237,7 @@ export function DramaVisualPanel(props: {
           <Button
             type="button"
             variant="outline"
-            disabled={props.busy || !hasStoryboardShots || videoBatchActive}
+            disabled={props.busy || !hasStoryboardShots || videoBatchActive || !canUseVideoProvider}
             onClick={() => props.onBatchJob(selectedEpisode.order, { type: "videos", provider: props.selectedProvider })}
           >
             <Sparkles className="h-4 w-4" />
@@ -257,32 +261,14 @@ export function DramaVisualPanel(props: {
       ) : null}
       {latestKeyframeBatch || latestVideoBatch ? (
         <div className="grid gap-3 md:grid-cols-2">
-          {latestKeyframeBatch ? (
-            <BatchJobStatus
-              job={latestKeyframeBatch}
-              title="首帧批量任务"
-              disabled={props.busy || imageProviders.length === 0}
-              onRetry={(failedShotIds) => props.onBatchJob(selectedEpisode.order, {
-                type: "keyframes",
-                provider: activeImageProvider || undefined,
-                failedShotIds,
-              })}
-            />
-          ) : null}
-          {latestVideoBatch ? (
-            <BatchJobStatus
-              job={latestVideoBatch}
-              title="视频批量任务"
-              disabled={props.busy}
-              onRetry={(failedShotIds) => props.onBatchJob(selectedEpisode.order, {
-                type: "videos",
-                provider: props.selectedProvider,
-                failedShotIds,
-              })}
-            />
-          ) : null}
+          {latestKeyframeBatch ? <DramaBatchJobCard job={latestKeyframeBatch} title="本集首帧任务" busy={props.busy}
+            storyboardCurrent={isBatchStoryboardCurrent(latestKeyframeBatch, selectedEpisode)} onPause={props.onPause} onResume={props.onResume} /> : null}
+          {latestVideoBatch ? <DramaBatchJobCard job={latestVideoBatch} title="本集视频任务" busy={props.busy}
+            storyboardCurrent={isBatchStoryboardCurrent(latestVideoBatch, selectedEpisode)} onPause={props.onPause} onResume={props.onResume} /> : null}
         </div>
       ) : null}
+      {!canUseVideoProvider ? <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">添加并启用视频通道后，可生成本集视频。<Button asChild variant="ghost" size="sm"><Link to="/settings/media">设置视频通道</Link></Button></div> : null}
+      {imageProviders.length === 0 ? <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">配置支持生图的模型后，可生成镜头首帧。<Button asChild variant="ghost" size="sm"><Link to="/settings/models">设置图片通道</Link></Button></div> : null}
       {props.videoProviders.length > 0 ? (
         <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
           当前视频通道：{props.videoProviders.find((provider) => provider.provider === props.selectedProvider)?.description || props.selectedProvider}
@@ -317,24 +303,24 @@ export function DramaVisualPanel(props: {
                         size="sm"
                         type="button"
                         variant={keyframe.status === "done" ? "outline" : "default"}
-                        disabled={props.busy || keyframeFlow.dialogProps.loading || keyframeFlow.dialogProps.submitting || imageProviders.length === 0 || keyframe.status === "generating"}
+                        disabled={props.busy || keyframeBatchActive || keyframeFlow.dialogProps.loading || keyframeFlow.dialogProps.submitting || imageProviders.length === 0 || keyframe.status === "generating"}
                         onClick={() => startKeyframeGeneration(shot)}
                       >
                         <ImageIcon className="h-4 w-4" />
                         {keyframe.status === "done" ? "重生成首帧" : "生成首帧"}
                       </Button>
-                      <Button size="sm" type="button" variant="outline" disabled={props.busy} onClick={() => props.onVideoPrompt(shot)}>
+                      <Button size="sm" type="button" variant="outline" disabled={props.busy || videoBatchActive || Boolean(prompt && ["queued", "running", "submitting", "submission_unknown"].includes(prompt.status))} onClick={() => props.onVideoPrompt(shot)}>
                         <Video className="h-4 w-4" />
                         视频提示词
                       </Button>
                       {prompt ? (
                         <>
-                          <Button size="sm" type="button" disabled={props.busy || Boolean(prompt.providerTaskId)} onClick={() => props.onProviderTask(prompt, props.selectedProvider)}>
+                          <Button size="sm" type="button" disabled={props.busy || videoBatchActive || !canUseVideoProvider || !canSubmitVideo(prompt)} onClick={() => props.onProviderTask(prompt, ["failed", "submission_unknown"].includes(prompt.status) ? prompt.provider : props.selectedProvider)}>
                             <Sparkles className="h-4 w-4" />
-                            {prompt.providerTaskId ? "任务已创建" : "创建视频任务"}
+                            {videoTaskButtonLabel(prompt)}
                           </Button>
                           {prompt.providerTaskId ? (
-                            <Button size="sm" type="button" variant="outline" disabled={props.busy} onClick={() => props.onRefreshProviderTask(prompt)}>
+                            <Button size="sm" type="button" variant="outline" disabled={props.busy || !canRefreshVideoTask(prompt)} onClick={() => props.onRefreshProviderTask(prompt)}>
                               <RefreshCw className="h-4 w-4" />
                               刷新状态
                             </Button>
@@ -358,7 +344,7 @@ export function DramaVisualPanel(props: {
         <Card className="rounded-lg">
           <CardHeader>
             <CardTitle className="text-lg">视频任务</CardTitle>
-            <CardDescription>集中查看当前项目已经生成的视频提示词和 provider 任务状态。</CardDescription>
+            <CardDescription>查看各镜头的视频结果和未完成任务，提交结果待确认时请先核对生成通道。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {videoPrompts.map((prompt) => (
@@ -368,24 +354,24 @@ export function DramaVisualPanel(props: {
                     <div className="flex flex-wrap items-center gap-2 text-sm">
                       <Badge variant="secondary">{prompt.provider}</Badge>
                       <Badge variant="outline">v{prompt.version ?? 1}</Badge>
-                      <Badge variant={prompt.status === "failed" ? "destructive" : "outline"}>{prompt.status}</Badge>
-                      {!isActiveVideoPrompt(prompt) ? <Badge variant="secondary">历史版本</Badge> : null}
+                      <Badge variant={prompt.status === "failed" ? "destructive" : "outline"}>{videoStatusLabel(prompt.status)}</Badge>
+                      {!activeVideoPrompts.some((active) => active.id === prompt.id) ? <Badge variant="secondary">历史版本</Badge> : null}
                       {prompt.providerTaskId ? <span className="text-muted-foreground">任务：{prompt.providerTaskId}</span> : null}
                     </div>
                     <p className="line-clamp-2 text-sm text-muted-foreground">{prompt.prompt}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {!prompt.providerTaskId ? (
-                      <Button size="sm" type="button" disabled={props.busy || !isActiveVideoPrompt(prompt)} onClick={() => props.onProviderTask(prompt, props.selectedProvider)}>
+                    {canSubmitVideo(prompt) ? (
+                      <Button size="sm" type="button" disabled={props.busy || videoBatchActive || !canUseVideoProvider || !activeVideoPrompts.some((active) => active.id === prompt.id)} onClick={() => props.onProviderTask(prompt, ["failed", "submission_unknown"].includes(prompt.status) ? prompt.provider : props.selectedProvider)}>
                         <Sparkles className="h-4 w-4" />
-                        创建任务
+                        {videoTaskButtonLabel(prompt)}
                       </Button>
-                    ) : (
-                      <Button size="sm" type="button" variant="outline" disabled={props.busy} onClick={() => props.onRefreshProviderTask(prompt)}>
+                    ) : prompt.providerTaskId ? (
+                      <Button size="sm" type="button" variant="outline" disabled={props.busy || !canRefreshVideoTask(prompt)} onClick={() => props.onRefreshProviderTask(prompt)}>
                         <RefreshCw className="h-4 w-4" />
                         刷新状态
                       </Button>
-                    )}
+                    ) : <span className="text-sm text-muted-foreground">{videoTaskButtonLabel(prompt)}</span>}
                   </div>
                 </div>
                 <VideoPromptDetails prompt={prompt} compact />
@@ -413,19 +399,16 @@ function parseKeyframe(raw: string | null | undefined): DramaShotKeyframeData {
   return safeJson<DramaShotKeyframeData>(raw, { status: "idle" });
 }
 
-function parseBatchProgress(raw: string | null | undefined): DramaBatchProgress {
-  return safeJson<DramaBatchProgress>(raw, {
-    total: 0,
-    done: 0,
-    failed: 0,
-    skipped: 0,
-    failedShotIds: [],
-    errors: [],
-  });
+function canSubmitVideo(prompt: DramaVideoPrompt): boolean {
+  return ["failed", "submission_unknown"].includes(prompt.status)
+    || (!prompt.providerTaskId && !["queued", "running", "submitting", "succeeded", "superseded"].includes(prompt.status));
 }
 
-function isActiveVideoPrompt(prompt: DramaVideoPrompt): boolean {
-  return prompt.status !== "superseded";
+function videoTaskButtonLabel(prompt: DramaVideoPrompt): string {
+  if (prompt.status === "submission_unknown") return "核对并确认重发";
+  if (prompt.status === "failed") return "确认重试视频";
+  if (prompt.status === "submitting") return "正在提交视频";
+  return prompt.providerTaskId ? "任务已创建" : "创建视频任务";
 }
 
 function buildLatestPromptsByShot(prompts: DramaVideoPrompt[]): Map<string, DramaVideoPrompt> {
@@ -436,68 +419,6 @@ function buildLatestPromptsByShot(prompts: DramaVideoPrompt[]): Map<string, Dram
     }
   }
   return result;
-}
-
-function isActiveBatch(job: DramaBatchJob | undefined): boolean {
-  return job?.status === "pending" || job?.status === "running";
-}
-
-function batchStatusLabel(status: DramaBatchJob["status"]): string {
-  const labels: Record<DramaBatchJob["status"], string> = {
-    pending: "等待中",
-    running: "执行中",
-    paused: "已暂停",
-    done: "已完成",
-    failed: "有失败项",
-  };
-  return labels[status] ?? status;
-}
-
-function BatchJobStatus(props: {
-  job: DramaBatchJob;
-  title: string;
-  disabled: boolean;
-  onRetry: (failedShotIds: string[]) => void;
-}) {
-  const progress = parseBatchProgress(props.job.progress);
-  const total = Math.max(0, progress.total ?? 0);
-  const done = Math.max(0, progress.done ?? 0);
-  const percent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
-  const failedShotIds = progress.failedShotIds ?? [];
-  return (
-    <div className="rounded-md border p-3 text-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div className="font-medium">{props.title}</div>
-        <Badge variant={props.job.status === "failed" ? "destructive" : "outline"}>{batchStatusLabel(props.job.status)}</Badge>
-      </div>
-      <div className="mt-3 h-2 overflow-hidden rounded bg-muted">
-        <div className="h-full bg-primary" style={{ width: `${percent}%` }} />
-      </div>
-      <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-        <span>{done}/{total}</span>
-        {progress.skipped ? <span>已跳过 {progress.skipped}</span> : null}
-        {progress.failed ? <span>失败 {progress.failed}</span> : null}
-        {progress.provider ? <span>通道：{progress.provider}</span> : null}
-        {progress.cost ? <span>预计：{formatCost(progress.cost, progress.cost.estimated)}</span> : null}
-        {progress.cost ? <span>实际：{formatCost(progress.cost, progress.cost.actual)}</span> : null}
-      </div>
-      {failedShotIds.length > 0 ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-destructive">失败镜头：{failedShotIds.join("、")}</span>
-          <Button
-            size="sm"
-            type="button"
-            variant="outline"
-            disabled={props.disabled || isActiveBatch(props.job)}
-            onClick={() => props.onRetry(failedShotIds)}
-          >
-            <RefreshCw className="h-4 w-4" />
-            重试失败镜头
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 function KeyframePreview({ shot, keyframe }: { shot: DramaShot; keyframe: DramaShotKeyframeData }) {
@@ -589,7 +510,7 @@ function costUnitLabel(cost: DramaBatchCostBreakdown): string {
   if (cost.unit.costPerSecond) {
     parts.push(`时长 ${formatCost(cost, cost.unit.costPerSecond)}/秒`);
   }
-  return parts.length ? parts.join("，") : "未配置单价";
+  return parts.length ? parts.join("，") : "未配置单价，费用请以生成通道账单为准";
 }
 
 function CostEstimate(props: { title: string; cost?: DramaBatchCostBreakdown; loading: boolean }) {
@@ -626,8 +547,8 @@ function VideoPromptDetails({ prompt, compact = false }: { prompt: DramaVideoPro
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <Badge variant="secondary">{prompt.provider}</Badge>
             <Badge variant="outline">v{prompt.version ?? 1}</Badge>
-            <Badge variant={prompt.status === "failed" ? "destructive" : "outline"}>{prompt.status}</Badge>
-            {!isActiveVideoPrompt(prompt) ? <Badge variant="secondary">历史版本</Badge> : null}
+            <Badge variant={prompt.status === "failed" ? "destructive" : "outline"}>{videoStatusLabel(prompt.status)}</Badge>
+            {prompt.status === "superseded" || Boolean(prompt.supersededById) ? <Badge variant="secondary">历史版本</Badge> : null}
             {prompt.providerTaskId ? <span className="text-muted-foreground">任务：{prompt.providerTaskId}</span> : null}
           </div>
           <pre className="whitespace-pre-wrap rounded-md bg-muted/30 p-3 text-xs leading-5">{prompt.prompt}</pre>
@@ -658,9 +579,10 @@ function VideoPromptDetails({ prompt, compact = false }: { prompt: DramaVideoPro
       ) : null}
       {prompt.status === "failed" ? (
         <div className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">
-          {failureReason ? `视频任务失败：${failureReason}` : "视频任务失败。请刷新状态或重新生成提示词后再创建任务。"}
+          {failureReason ? `视频任务失败：${failureReason}` : "视频任务失败。请核对生成通道后，点击“确认重试视频”。"}
         </div>
       ) : null}
+      {prompt.status === "submission_unknown" ? <p className="rounded-md border p-3 text-sm text-muted-foreground">提交结果待确认。请先查看生成通道中的任务和账单，再决定是否重新提交。</p> : null}
     </div>
   );
 }

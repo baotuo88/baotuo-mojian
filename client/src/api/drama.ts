@@ -253,6 +253,10 @@ export interface DramaBatchProgress {
   failedShotIds: string[];
   provider?: string;
   targetShotIds?: string[];
+  completedShotIds?: string[];
+  storyboardId?: string;
+  pauseRequested?: boolean;
+  interruptionReason?: string;
   currentShotId?: string;
   errors?: Array<{ shotId: string; message: string }>;
   useCharacterRefImages?: boolean;
@@ -509,9 +513,10 @@ export async function prepareDramaShotKeyframe(
   return data;
 }
 
-export async function createDramaVideoProviderTask(videoPromptId: string, provider = "mock") {
+export async function createDramaVideoProviderTask(videoPromptId: string, provider: string, confirmResubmit?: boolean) {
   const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/video-prompts/${videoPromptId}/provider-task`, {
     provider,
+    ...(confirmResubmit ? { confirmResubmit: true } : {}),
   });
   return data;
 }
@@ -543,6 +548,20 @@ export async function estimateDramaEpisodeBatchJob(id: string, order: number, pa
   const { data } = await apiClient.post<ApiResponse<DramaBatchEstimate>>(
     `/drama/projects/${id}/episodes/${order}/batch-jobs/estimate`,
     payload,
+  );
+  return data;
+}
+
+export async function pauseDramaBatchJob(projectId: string, jobId: string) {
+  const { data } = await apiClient.post<ApiResponse<DramaBatchJob>>(
+    `/drama/projects/${projectId}/batch-jobs/${jobId}/pause`, {},
+  );
+  return data;
+}
+
+export async function resumeDramaBatchJob(projectId: string, jobId: string, confirmAdditionalCost: true) {
+  const { data } = await apiClient.post<ApiResponse<DramaBatchJob>>(
+    `/drama/projects/${projectId}/batch-jobs/${jobId}/resume`, { confirmAdditionalCost },
   );
   return data;
 }

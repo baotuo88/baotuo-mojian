@@ -46,7 +46,7 @@ Provider 替换不得影响：
 - 分镜模型。
 - 角色视觉锚点。
 
-当前默认 provider 是 `mock`，用于验证任务抽象和状态流。接入真实 provider 时应新增 adapter，不应把供应商字段写入核心策略或分镜规则。
+用户必须选择已配置的视频或配音通道；`mock` 仅供显式自动化测试。接入真实 provider 时应在共享媒体模块新增 adapter，不应把供应商字段写入核心策略或分镜规则。
 
 ## 失败模式
 
@@ -67,3 +67,9 @@ Provider 替换不得影响：
 - `server/src/services/drama/DramaVideoPromptService.ts`
 - `server/src/services/drama/video/VideoProviderPort.ts`
 - `server/src/prompting/prompts/drama/drama.prompts.ts`
+
+## 制作恢复边界
+
+整集制作由 `services/drama/production` 拥有，外部通过其 `index.ts` 使用。内容源适配器的共享实现位于 `services/adaptation`，短剧保留 source 兼容导出。媒体协议由 `modules/media` 拥有，不能向短剧生产编排泄漏供应商 HTTP 细节。
+
+单实例启动恢复、未知视频提交、素材保护和前端投影规则见[短剧任务恢复与素材保护](../workflows/short-drama-production-recovery.md)。

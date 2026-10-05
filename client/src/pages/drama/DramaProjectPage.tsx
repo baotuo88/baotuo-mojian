@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -28,10 +28,14 @@ import {
   listDramaTTSProviders,
   listDramaVideoProviders,
   repairDramaEpisode,
+  pauseDramaBatchJob,
+  resumeDramaBatchJob,
   refreshDramaVideoProviderTask,
   reviewDramaEpisode,
   saveDramaCharacterToLibrary,
   type DramaBatchCostBreakdown,
+  type DramaBatchJob,
+  type DramaVideoPrompt,
   type DramaEpisodeExportFormat,
   type DramaEpisode,
   type DramaProjectDetail,
@@ -49,6 +53,8 @@ import { dramaTrackLabel } from "@/pages/drama/dramaDisplay";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, AppDialogContent } from "@/components/ui/dialog";
+import { DramaBatchJobCard, isActiveBatch, isBatchStoryboardCurrent, isRecoverableBatch, latestBatchJobs, parseBatchProgress, pollingVideoPrompts, shouldPollProduction, summarizeDramaStages } from "./production";
 import { toast } from "@/components/ui/toast";
 
 type DramaTab = "source" | "strategy" | "episodes" | "quality" | "characters" | "visual" | "export";
@@ -141,6 +147,7 @@ function summarizeBatchCosts(project: DramaProjectDetail): DramaBatchCostBreakdo
     return null;
   }
   const currency = costs[0]?.currency ?? "CNY";
+  if (costs.some((cost) => cost.currency !== currency)) return null;
   return {
     currency,
     estimated: costs.reduce((sum, cost) => sum + (cost.estimated ?? 0), 0),
@@ -158,17 +165,14 @@ function formatBatchCost(cost: DramaBatchCostBreakdown, amount: number): string 
 function ProjectProgress(props: { project: DramaProjectDetail }) {
   const hasBundle = Boolean(props.project.sourceBundle);
   const hasStrategy = Boolean(props.project.strategy);
-  const episodeCount = props.project.episodes?.length ?? 0;
-  const scriptedCount = props.project.episodes?.filter((episode) => Boolean(episode.content?.trim())).length ?? 0;
-  const reviewedCount = props.project.episodes?.filter((episode) =>
-    ["reviewed", "needs_repair", "approved"].includes(episode.status)
-  ).length ?? 0;
+  const counts = summarizeDramaStages(props.project);
+  const target = props.project.targetEpisodes;
   const steps = [
     { label: "素材包", done: hasBundle },
     { label: "策略", done: hasStrategy },
-    { label: "分集", done: episodeCount > 0 },
-    { label: "台本", done: scriptedCount > 0 },
-    { label: "质量", done: reviewedCount > 0 },
+    { label: `分集 ${counts.outlined}/${target}`, done: counts.outlined >= target },
+    { label: `台本 ${counts.scripted}/${target}`, done: counts.scripted >= target },
+    { label: `质量检查 ${counts.reviewed}/${target}`, done: counts.reviewed >= target },
   ];
 
   return (
@@ -289,6 +293,8 @@ function EpisodesPanel(props: {
   onSelectOrder: (order: number) => void;
   ttsProviders: Array<{ provider: string; label: string; description?: string }>;
   onBatchJob: (order: number, input: { type: "tts"; provider?: string; failedShotIds?: string[] }) => void;
+  onPause: (job: DramaBatchJob) => void;
+  onResume: (job: DramaBatchJob) => void;
   onGenerateScript: (order: number) => void;
   onReview: (order: number) => void;
   onRepair: (order: number) => void;
@@ -404,6 +410,8 @@ function EpisodesPanel(props: {
               ttsProviders={props.ttsProviders}
               busy={props.busy}
               onBatchJob={props.onBatchJob}
+              onPause={props.onPause}
+              onResume={props.onResume}
             />
           </CardContent>
         </Card>
@@ -417,12 +425,18 @@ export default function DramaProjectPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<DramaTab>("source");
   const [selectedOrder, setSelectedOrder] = useState<number | null>(null);
-  const [selectedVideoProvider, setSelectedVideoProvider] = useState("mock");
+  const [selectedVideoProvider, setSelectedVideoProvider] = useState("");
+  const [confirmation, setConfirmation] = useState<{ kind: "batch"; job: DramaBatchJob } | { kind: "video"; prompt: DramaVideoPrompt; provider: string } | null>(null);
+  const [videoRefreshError, setVideoRefreshError] = useState(false);
+  const latestProject = useRef<DramaProjectDetail | undefined>(undefined);
+  const refreshingVideos = useRef(false);
+  const videoPollingPaused = useRef(false);
 
   const projectQuery = useQuery({
     queryKey: queryKeys.drama.project(id ?? "none"),
     queryFn: () => getDramaProject(id!),
     enabled: Boolean(id),
+    refetchInterval: (query) => shouldPollProduction(query.state.data?.data) ? 3_000 : false,
   });
   const characterLibraryQuery = useQuery({
     queryKey: queryKeys.drama.characterLibrary(id),
@@ -439,11 +453,11 @@ export default function DramaProjectPage() {
   });
 
   const project = projectQuery.data?.data;
-  const videoProviders = videoProvidersQuery.data?.data ?? [];
-  const ttsProviders = ttsProvidersQuery.data?.data ?? [];
+  const videoProviders = (videoProvidersQuery.data?.data ?? []).filter((provider) => provider.provider !== "mock");
+  const ttsProviders = (ttsProvidersQuery.data?.data ?? []).filter((provider) => provider.provider !== "mock");
   const activeVideoProvider = videoProviders.some((provider) => provider.provider === selectedVideoProvider)
     ? selectedVideoProvider
-    : videoProviders[0]?.provider ?? "mock";
+    : videoProviders[0]?.provider ?? "";
   const selectedOrderValue = useMemo(() => {
     if (selectedOrder) {
       return selectedOrder;
@@ -451,6 +465,41 @@ export default function DramaProjectPage() {
     return project?.episodes?.[0]?.order ?? null;
   }, [project?.episodes, selectedOrder]);
   const batchCostSummary = project ? summarizeBatchCosts(project) : null;
+  latestProject.current = project;
+  const outstandingJobs = latestBatchJobs(project?.batchJobs).filter((job) => isActiveBatch(job) || isRecoverableBatch(job));
+
+  useEffect(() => {
+    videoPollingPaused.current = false;
+    setVideoRefreshError(false);
+    setConfirmation(null);
+    setSelectedOrder(null);
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const refreshVideos = async () => {
+      const snapshot = latestProject.current;
+      const prompts = snapshot ? pollingVideoPrompts(snapshot) : [];
+      if (prompts.length && !refreshingVideos.current && !videoPollingPaused.current) {
+        refreshingVideos.current = true;
+        let failed = false;
+        try {
+          for (const prompt of prompts) {
+            if (stopped) break;
+            try { await refreshDramaVideoProviderTask(prompt.id); } catch { failed = true; break; }
+          }
+          if (!stopped) {
+            setVideoRefreshError(failed);
+            videoPollingPaused.current = failed;
+            await queryClient.invalidateQueries({ queryKey: queryKeys.drama.project(id ?? "none") });
+          }
+        } finally {
+          refreshingVideos.current = false;
+        }
+      }
+      if (!stopped) timer = setTimeout(() => void refreshVideos(), 5_000);
+    };
+    timer = setTimeout(() => void refreshVideos(), 5_000);
+    return () => { stopped = true; clearTimeout(timer); };
+  }, [id, queryClient]);
 
   const invalidateProject = async () => {
     if (!id) {
@@ -474,6 +523,33 @@ export default function DramaProjectPage() {
 
   const runAction = (action: () => Promise<unknown>, message: string) => {
     return actionMutation.mutateAsync({ action, message });
+  };
+
+  const handlePause = (job: DramaBatchJob) => {
+    void runAction(() => pauseDramaBatchJob(job.projectId, job.id), "暂停请求已提交，正在处理的镜头结束后会停止。")
+      .catch(() => undefined);
+  };
+  const handleResume = (job: DramaBatchJob) => setConfirmation({ kind: "batch", job });
+  const handleProviderTask = (prompt: DramaVideoPrompt, provider: string) => {
+    if (["failed", "submission_unknown"].includes(prompt.status)) {
+      setConfirmation({ kind: "video", prompt, provider: prompt.provider });
+      return;
+    }
+    void runAction(() => createDramaVideoProviderTask(prompt.id, provider), "视频任务已提交。")
+      .catch(() => undefined);
+  };
+  const confirmRecovery = async () => {
+    if (!confirmation) return;
+    try {
+      if (confirmation.kind === "batch") {
+        await runAction(() => resumeDramaBatchJob(confirmation.job.projectId, confirmation.job.id, true), "制作任务已继续。完成的镜头会保留。");
+      } else {
+        await runAction(() => createDramaVideoProviderTask(confirmation.prompt.id, confirmation.provider, true), "视频重试任务已提交。");
+      }
+      setConfirmation(null);
+    } catch {
+      // The API client displays the concrete error; keep the confirmation available for review.
+    }
   };
 
   const handleExport = async (format: "markdown" | "json") => {
@@ -549,7 +625,7 @@ export default function DramaProjectPage() {
             <Badge variant="outline">{project.targetEpisodes} 集</Badge>
             {batchCostSummary ? (
               <Badge variant="outline">
-                生产费用：已用 {formatBatchCost(batchCostSummary, batchCostSummary.actual)} / 预计 {formatBatchCost(batchCostSummary, batchCostSummary.estimated)}
+                所列任务费用估算：已用 {formatBatchCost(batchCostSummary, batchCostSummary.actual)} / 预计 {formatBatchCost(batchCostSummary, batchCostSummary.estimated)}
               </Badge>
             ) : null}
           </div>
@@ -563,22 +639,39 @@ export default function DramaProjectPage() {
         </Button>
       </div>
 
+      <Dialog open={Boolean(confirmation)} onOpenChange={(open) => { if (!open && !actionMutation.isPending) setConfirmation(null); }}>
+        <AppDialogContent title={confirmation?.kind === "batch" ? "确认继续制作" : "确认重新提交视频"}
+          description="继续操作可能产生额外费用，请先核对生成通道中的任务和账单。"
+          footer={<><Button variant="outline" disabled={actionMutation.isPending} onClick={() => setConfirmation(null)}>暂不继续</Button><Button disabled={actionMutation.isPending} onClick={() => void confirmRecovery()}>{actionMutation.isPending ? "正在提交..." : "确认费用并继续"}</Button></>}>
+          {confirmation?.kind === "batch" ? <div className="space-y-2 text-sm"><p>继续未完成的镜头，保留已有结果和费用记录。生成通道、角色参考图选项沿用此任务的设置。</p><p className="text-muted-foreground">生成通道：{parseBatchProgress(confirmation.job.progress).provider || "原任务通道"}。中断前的部分请求可能已被生成通道计费，重新处理可能再次收费。</p></div> : <p className="text-sm">提交结果待确认或生成失败时，请先查看生成通道是否已有视频。重新提交可能重复生成并再次收费。</p>}
+        </AppDialogContent>
+      </Dialog>
+
       <ProjectProgress project={project} />
+      {outstandingJobs.length ? <section className="space-y-3" aria-label="制作任务"><h2 className="font-medium">制作任务</h2><div className="grid gap-3 lg:grid-cols-2">{outstandingJobs.map((job) => {
+        const episode = project.episodes?.find((item) => item.id === job.episodeId);
+        const label = job.type === "keyframes" ? "首帧" : job.type === "videos" ? "视频" : "配音";
+        return <DramaBatchJobCard key={job.id} job={job} title={`第 ${episode?.order ?? "—"} 集 · ${label}`} busy={actionMutation.isPending}
+          storyboardCurrent={isBatchStoryboardCurrent(job, episode)} onPause={handlePause} onResume={handleResume}
+          onOpen={() => { if (episode) setSelectedOrder(episode.order); setActiveTab(job.type === "tts" ? "episodes" : "visual"); }} />;
+      })}</div></section> : null}
+      {videoRefreshError ? <div role="status" className="rounded-md border p-3 text-sm text-muted-foreground">部分视频进度暂时无法刷新。可进入“分镜视频”手动刷新任务，已有结果会保留。<Button size="sm" variant="ghost" onClick={() => { videoPollingPaused.current = false; setVideoRefreshError(false); }}>重试自动刷新</Button></div> : null}
 
       <DramaNextStepPanel
         project={project}
         busy={actionMutation.isPending}
+        videoProviderConfigured={Boolean(activeVideoProvider)}
         onSetTab={setActiveTab}
         onSelectEpisode={setSelectedOrder}
         onAssembleSource={() => runAction(() => assembleDramaSourceBundle(project.id), "短剧素材已整理。")}
         onGenerateStrategy={() => runAction(() => generateDramaStrategy(project.id), "短剧策略已生成。")}
-        onGenerateOutline={() => runAction(() => generateDramaOutline(project.id, { startOrder: 1, count: 12 }), "前 12 集分集已生成。")}
+        onGenerateOutline={(range) => runAction(() => generateDramaOutline(project.id, range), `第 ${range.startOrder}–${range.startOrder + range.count - 1} 集分集已生成。`)}
         onGenerateScript={(order) => runAction(() => generateDramaEpisodeScript(project.id, order), `第 ${order} 集台本已生成。`)}
         onReviewEpisode={(order) => runAction(() => reviewDramaEpisode(project.id, order), `第 ${order} 集质量检查完成。`)}
         onRepairEpisode={(order) => runAction(() => repairDramaEpisode(project.id, order), `第 ${order} 集已按质量建议修复。`)}
         onGenerateStoryboard={(order) => runAction(() => generateDramaStoryboard(project.id, order), `第 ${order} 集分镜已生成。`)}
         onGenerateVideoPrompt={(shot) => runAction(() => generateDramaVideoPrompt(project.id, shot.id), `镜头 ${shot.order} 的视频提示词已生成。`)}
-        onCreateProviderTask={(prompt) => runAction(() => createDramaVideoProviderTask(prompt.id, activeVideoProvider), "视频任务已创建。")}
+        onCreateProviderTask={(prompt) => handleProviderTask(prompt, activeVideoProvider)}
         onExportMarkdown={() => void handleExport("markdown")}
       />
 
@@ -604,6 +697,8 @@ export default function DramaProjectPage() {
           selectedOrder={selectedOrderValue}
           onSelectOrder={setSelectedOrder}
           ttsProviders={ttsProviders}
+          onPause={handlePause}
+          onResume={handleResume}
           onBatchJob={(order, input) => runAction(() => createDramaEpisodeBatchJob(project.id, order, input), "配音任务已创建。")}
           busy={actionMutation.isPending}
           onGenerateScript={(order) => runAction(() => generateDramaEpisodeScript(project.id, order), `第 ${order} 集台本已生成。`)}
@@ -670,7 +765,9 @@ export default function DramaProjectPage() {
           videoProviders={videoProviders}
           selectedProvider={activeVideoProvider}
           onSelectProvider={setSelectedVideoProvider}
-          onProviderTask={(prompt, provider) => runAction(() => createDramaVideoProviderTask(prompt.id, provider), "视频任务已创建。")}
+          onPause={handlePause}
+          onResume={handleResume}
+          onProviderTask={handleProviderTask}
           onRefreshProviderTask={(prompt) => runAction(() => refreshDramaVideoProviderTask(prompt.id), "视频任务状态已刷新。")}
         />
       ) : null}

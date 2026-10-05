@@ -1,4 +1,5 @@
 const test = require("node:test");
+process.env.NODE_ENV = "test";
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -134,6 +135,12 @@ function installPipelineStubs() {
       },
     },
     dramaShot: {
+      updateMany: async ({ where, data }) => {
+        const shot = state.shots.find((item) => item.id === where.id && item.storyboardId === where.storyboardId);
+        if (!shot) return { count: 0 };
+        Object.assign(shot, data);
+        return { count: 1 };
+      },
       createMany: async ({ data }) => {
         data.forEach((shot, index) => {
           state.shots.push({ id: `shot_${index + 1}`, createdAt: new Date("2026-06-09T00:00:00.000Z"), ...shot });
@@ -154,6 +161,10 @@ function installPipelineStubs() {
           updatedAt: new Date("2026-06-09T00:00:00.000Z"),
           version: data.version ?? 1,
           supersededById: null,
+          providerTaskId: null,
+          providerResult: null,
+          resultUrl: null,
+          failureReason: null,
           ...data,
         };
         state.videoPrompts.push(created);
@@ -162,6 +173,10 @@ function installPipelineStubs() {
       updateMany: async ({ where, data }) => {
         let count = 0;
         for (const prompt of state.videoPrompts) {
+          if (typeof where.id === "string" && prompt.id !== where.id) continue;
+          if (typeof where.status === "string" && prompt.status !== where.status) continue;
+          if (["provider", "providerTaskId", "providerResult", "supersededById"].some((key) => key in where && prompt[key] !== where[key])) continue;
+          if (where.updatedAt && prompt.updatedAt.getTime() !== where.updatedAt.getTime()) continue;
           if (where.projectId && prompt.projectId !== where.projectId) continue;
           if (where.episodeId && prompt.episodeId !== where.episodeId) continue;
           if (where.shotId && prompt.shotId !== where.shotId) continue;
@@ -227,8 +242,8 @@ function installPipelineStubs() {
     },
     dramaVideoPrompt: {
       create: tx.dramaVideoPrompt.create,
-      findUnique: async ({ where }) => state.videoPrompts.find((prompt) => prompt.id === where.id) ?? null,
-      findFirst: async ({ where }) => [...state.videoPrompts]
+      findUnique: async ({ where }) => structuredClone(state.videoPrompts.find((prompt) => prompt.id === where.id) ?? null),
+      findFirst: async ({ where }) => structuredClone([...state.videoPrompts]
         .filter((prompt) =>
           (!where.projectId || prompt.projectId === where.projectId)
           && (!where.episodeId || prompt.episodeId === where.episodeId)
@@ -238,7 +253,7 @@ function installPipelineStubs() {
         .sort((left, right) =>
           (right.version ?? 1) - (left.version ?? 1)
           || right.createdAt.getTime() - left.createdAt.getTime()
-        )[0] ?? null,
+        )[0] ?? null),
       update: async ({ where, data }) => {
         const prompt = state.videoPrompts.find((item) => item.id === where.id);
         Object.assign(prompt, data);
@@ -247,6 +262,12 @@ function installPipelineStubs() {
       updateMany: tx.dramaVideoPrompt.updateMany,
     },
     dramaBatchJob: {
+      findFirst: async ({ where }) => state.batchJobs.find((job) =>
+        (!where.projectId || job.projectId === where.projectId)
+        && (!where.episodeId || job.episodeId === where.episodeId)
+        && (!where.type || job.type === where.type)
+        && (!where.status?.in || where.status.in.includes(job.status))
+        && (!where.id?.not || job.id !== where.id.not)) ?? null,
       create: async ({ data }) => {
         const created = {
           id: `batch_job_${state.batchJobs.length + 1}`,
@@ -263,8 +284,23 @@ function installPipelineStubs() {
         Object.assign(job, data, { updatedAt: new Date("2026-06-10T00:00:00.000Z") });
         return job;
       },
+      updateMany: async ({ where, data }) => {
+        let count = 0;
+        for (const job of state.batchJobs) {
+          if (where.id && job.id !== where.id) continue;
+          if (where.status && job.status !== where.status) continue;
+          if (where.progress && job.progress !== where.progress) continue;
+          Object.assign(job, data);
+          count += 1;
+        }
+        return { count };
+      },
     },
   };
+  tx.dramaProject = { update: async () => buildProject() };
+  tx.dramaBatchJob = prisma.dramaBatchJob;
+  tx.dramaVideoPrompt.findFirst = prisma.dramaVideoPrompt.findFirst;
+  tx.dramaVideoPrompt.findUnique = prisma.dramaVideoPrompt.findUnique;
 
   const promptRunnerPath = require.resolve("../dist/prompting/core/promptRunner.js");
   require.cache[promptRunnerPath] = {
@@ -539,6 +575,9 @@ test("drama service pipeline keeps repairable quality issues before storyboard a
 
   const { DramaVideoPromptService } = require("../dist/services/drama/DramaVideoPromptService.js");
   const videoPromptService = new DramaVideoPromptService();
+  await assert.rejects(() => videoPromptService.generateVideoPromptForShot("project_1", "shot_1"), /尚未结束/);
+  prompt.status = "succeeded";
+  prompt.resultUrl = "https://example.test/completed-video.mp4";
   const regeneratedPrompt = await videoPromptService.generateVideoPromptForShot("project_1", "shot_1");
   assert.equal(regeneratedPrompt.version, 2);
   assert.equal(regeneratedPrompt.status, "prompted");

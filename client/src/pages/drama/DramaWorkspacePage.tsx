@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, BookOpenText, FileText, Layers3, Lightbulb, ListVideo, Plus, RefreshCw, Sparkles } from "lucide-react";
 import {
-  assembleDramaSourceBundle,
   createDramaProject,
   generateDramaOutline,
   generateDramaStrategy,
@@ -20,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { getNovelList } from "@/api/novel/core";
+import { nextOutlineRange } from "./production";
+import { getDramaProject } from "@/api/drama";
 import { DRAMA_SOURCE_LABELS, DRAMA_TRACK_OPTIONS, dramaTrackLabel } from "./dramaDisplay";
 import SelectControl from "@/components/common/SelectControl";
 
@@ -98,7 +99,6 @@ function buildCreatePayload(form: {
 function ProjectCard(props: {
   project: DramaProject;
   busyProjectId: string;
-  onAssemble: (project: DramaProject) => void;
   onStrategy: (project: DramaProject) => void;
   onOutline: (project: DramaProject) => void;
 }) {
@@ -130,16 +130,6 @@ function ProjectCard(props: {
           size="sm"
           variant="outline"
           disabled={isBusy}
-          onClick={() => props.onAssemble(props.project)}
-        >
-          <Layers3 className="h-4 w-4" />
-          整理素材
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={isBusy}
           onClick={() => props.onStrategy(props.project)}
         >
           <Sparkles className="h-4 w-4" />
@@ -152,7 +142,7 @@ function ProjectCard(props: {
           onClick={() => props.onOutline(props.project)}
         >
           <ListVideo className="h-4 w-4" />
-          生成前 12 集
+          继续规划分集
         </Button>
       </CardContent>
     </Card>
@@ -386,7 +376,7 @@ export default function DramaWorkspacePage() {
                     </label>
                     {selectedNovel ? (
                       <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                        已选择 {selectedNovel.title || "未命名小说"}，共 {selectedNovel._count.chapters} 章。创建后会先整理为短剧素材包。
+                        已选择 {selectedNovel.title || "未命名小说"}，共 {selectedNovel._count.chapters} 章。创建后，从项目中的“整理素材”开始改编。
                       </div>
                     ) : null}
                   </>
@@ -556,12 +546,16 @@ export default function DramaWorkspacePage() {
                 key={project.id}
                 project={project}
                 busyProjectId={busyProjectId}
-                onAssemble={(item) => void runProjectAction(item, assembleDramaSourceBundle, "短剧素材已整理。")}
                 onStrategy={(item) => void runProjectAction(item, generateDramaStrategy, "短剧策略已生成。")}
                 onOutline={(item) => void runProjectAction(
                   item,
-                  (projectId) => generateDramaOutline(projectId, { startOrder: 1, count: 12 }),
-                  "前 12 集分集已生成。",
+                  async (projectId) => {
+                    const detail = (await getDramaProject(projectId)).data;
+                    const range = detail ? nextOutlineRange(detail) : undefined;
+                    if (!range) return;
+                    await generateDramaOutline(projectId, range);
+                  },
+                  "分集规划已检查；可进入项目继续制作。",
                 )}
               />
             ))}

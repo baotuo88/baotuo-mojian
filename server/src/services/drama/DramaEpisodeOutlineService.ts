@@ -6,6 +6,7 @@
  */
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { prisma } from "../../db/prisma";
+import { AppError } from "../../middleware/errorHandler";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import { dramaEpisodeOutlinePrompt } from "../../prompting/prompts/drama/drama.prompts";
 import { rhythmEngine, type TrackId } from "./engine/rhythmEngine";
@@ -51,6 +52,7 @@ export class DramaEpisodeOutlineService {
     const startOrder = Math.max(1, input.startOrder ?? 1);
     const count = Math.min(40, Math.max(1, input.count ?? 12));
     const endOrder = Math.min(project.targetEpisodes, startOrder + count - 1);
+    if (startOrder > endOrder) throw new AppError("分集范围超出项目的目标集数。", 400);
 
     // 内容节拍摘要（截断，避免超预算）
     let beats: SourceBeatLite[] = [];
@@ -101,12 +103,17 @@ export class DramaEpisodeOutlineService {
     const episodes = result.output.episodes.filter(
       (episode) => episode.order >= startOrder && episode.order <= endOrder,
     );
+    const orders = new Set(episodes.map((episode) => episode.order));
+    if (episodes.length !== endOrder - startOrder + 1 || orders.size !== episodes.length) {
+      throw new AppError("AI 未返回完整且连续的分集，请重试本次规划。", 422);
+    }
 
     // Persist the whole outline batch + the project status flip atomically so a
     // mid-loop failure can't leave a half-outlined project. Sequential for...of
     // (not Promise.all) — the SQLite adapter can't run parallel writes in one tx.
     // Mirrors ComicEpisodePlanService.generateOutline.
     await prisma.$transaction(async (tx) => {
+      await tx.dramaProject.update({ where: { id: projectId }, data: { updatedAt: new Date() } });
       for (const episode of episodes) {
         const isPaywall = rhythmEngine.isPaywallEpisode(episode.order, project.targetEpisodes, paywallPlan);
         const sourceMap = episode.sourceBeatRefs && episode.sourceBeatRefs.length > 0
@@ -117,17 +124,8 @@ export class DramaEpisodeOutlineService {
         });
         await tx.dramaEpisode.upsert({
           where: { projectId_order: { projectId, order: episode.order } },
-          update: {
-            title: episode.title,
-            hookOpening: episode.hookOpening,
-            hookType: episode.hookType,
-            cliffhanger: episode.cliffhanger,
-            emotionNet: episode.emotionNet,
-            isPaywall,
-            beatSheet,
-            sourceMap,
-            status: "planned",
-          },
+          // Continuing the plan must preserve existing scripts, audits and media.
+          update: {},
           create: {
             projectId,
             order: episode.order,

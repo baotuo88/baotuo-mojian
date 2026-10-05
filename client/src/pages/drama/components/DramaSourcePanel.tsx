@@ -85,7 +85,7 @@ function readinessLabel(readiness: DramaSourceSupplementGuidance["readiness"]): 
   const labels: Record<DramaSourceSupplementGuidance["readiness"], string> = {
     ready: "可继续",
     needs_supplement: "建议补充",
-    needs_rebuild: "建议重整素材",
+    needs_rebuild: "建议完善素材",
   };
   return labels[readiness];
 }
@@ -94,7 +94,7 @@ function nextActionLabel(nextAction: DramaSourceSupplementGuidance["nextAction"]
   const labels: Record<DramaSourceSupplementGuidance["nextAction"], string> = {
     continue: "继续生成策略",
     supplement_notes: "先补充说明",
-    rebuild_source_bundle: "补充后重整素材",
+    rebuild_source_bundle: "查看素材补充建议",
   };
   return labels[nextAction];
 }

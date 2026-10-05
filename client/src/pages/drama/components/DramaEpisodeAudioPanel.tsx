@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Headphones, RefreshCw } from "lucide-react";
+import { Headphones } from "lucide-react";
 import {
   estimateDramaEpisodeBatchJob,
   type DramaBatchCostBreakdown,
   type DramaBatchJob,
-  type DramaBatchProgress,
   type DramaDialogueAudioData,
   type DramaEpisode,
   type DramaTTSProvider,
 } from "@/api/drama";
+import { Link } from "react-router-dom";
+import { DramaBatchJobCard, hasEpisodeProduction, isBatchStoryboardCurrent, latestEpisodeBatch } from "../production";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import SelectControl from "@/components/common/SelectControl";
@@ -25,34 +26,8 @@ function safeJson<T>(input: string | null | undefined, fallback: T): T {
   }
 }
 
-function parseBatchProgress(raw: string | null | undefined): DramaBatchProgress {
-  return safeJson<DramaBatchProgress>(raw, {
-    total: 0,
-    done: 0,
-    failed: 0,
-    skipped: 0,
-    failedShotIds: [],
-    errors: [],
-  });
-}
-
 function parseAudioData(raw: string | null | undefined): DramaDialogueAudioData {
   return safeJson<DramaDialogueAudioData>(raw, { status: "idle", items: [] });
-}
-
-function isActiveBatch(job: DramaBatchJob | undefined): boolean {
-  return job?.status === "pending" || job?.status === "running";
-}
-
-function batchStatusLabel(status: DramaBatchJob["status"]): string {
-  const labels: Record<DramaBatchJob["status"], string> = {
-    pending: "等待中",
-    running: "执行中",
-    paused: "已暂停",
-    done: "已完成",
-    failed: "有失败项",
-  };
-  return labels[status] ?? status;
 }
 
 export function DramaEpisodeAudioPanel(props: {
@@ -61,15 +36,16 @@ export function DramaEpisodeAudioPanel(props: {
   batchJobs?: DramaBatchJob[];
   ttsProviders: DramaTTSProvider[];
   busy: boolean;
+  onPause: (job: DramaBatchJob) => void;
+  onResume: (job: DramaBatchJob) => void;
   onBatchJob: (order: number, input: { type: "tts"; provider?: string; failedShotIds?: string[] }) => void;
 }) {
   const [selectedProvider, setSelectedProvider] = useState("");
   const activeProvider = props.ttsProviders.some((provider) => provider.provider === selectedProvider)
     ? selectedProvider
-    : props.ttsProviders[0]?.provider ?? "mock";
-  const latestTtsBatch = props.batchJobs?.find((job) => job.episodeId === props.episode.id && job.type === "tts");
-  const latestProgress = parseBatchProgress(latestTtsBatch?.progress);
-  const ttsActive = isActiveBatch(latestTtsBatch);
+    : props.ttsProviders[0]?.provider ?? "";
+  const latestTtsBatch = latestEpisodeBatch(props.batchJobs, props.episode.id, "tts");
+  const ttsActive = hasEpisodeProduction(props.batchJobs, props.episode, "tts");
   const hasStoryboardShots = Boolean(props.episode.storyboards?.[0]?.shots?.length);
   const estimateQuery = useQuery({
     queryKey: ["drama", "batch-estimate", props.projectId, props.episode.order, "tts", activeProvider],
@@ -77,7 +53,7 @@ export function DramaEpisodeAudioPanel(props: {
       type: "tts",
       provider: activeProvider,
     }),
-    enabled: hasStoryboardShots,
+    enabled: hasStoryboardShots && Boolean(activeProvider),
     staleTime: 30_000,
   });
   const audioItems = useMemo(() => {
@@ -97,11 +73,6 @@ export function DramaEpisodeAudioPanel(props: {
     }
   }, [props.ttsProviders, selectedProvider]);
 
-  const total = Math.max(0, latestProgress.total ?? 0);
-  const done = Math.max(0, latestProgress.done ?? 0);
-  const percent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
-  const failedShotIds = latestProgress.failedShotIds ?? [];
-
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -116,14 +87,14 @@ export function DramaEpisodeAudioPanel(props: {
             {props.ttsProviders.length > 0 ? props.ttsProviders.map((provider) => (
               <option key={provider.provider} value={provider.provider}>{provider.label}</option>
             )) : (
-              <option value="mock">模拟配音通道</option>
+              <option value="">请配置配音通道</option>
             )}
           </SelectControl>
           <Button
             size="sm"
             type="button"
             variant="outline"
-            disabled={props.busy || ttsActive || !hasStoryboardShots}
+            disabled={props.busy || ttsActive || !hasStoryboardShots || !activeProvider}
             onClick={() => props.onBatchJob(props.episode.order, { type: "tts", provider: activeProvider })}
           >
             <Headphones className="h-4 w-4" />
@@ -136,43 +107,12 @@ export function DramaEpisodeAudioPanel(props: {
         loading={estimateQuery.isFetching}
       />
 
+      {!activeProvider ? (
+        <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">添加并启用配音通道后，可合成本集配音。<Button asChild variant="ghost" size="sm"><Link to="/settings/media">设置配音通道</Link></Button></div>
+      ) : null}
       {latestTtsBatch ? (
-        <div className="rounded-md border p-3 text-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div className="font-medium">本集配音任务</div>
-            <Badge variant={latestTtsBatch.status === "failed" ? "destructive" : "outline"}>{batchStatusLabel(latestTtsBatch.status)}</Badge>
-          </div>
-          <div className="mt-3 h-2 overflow-hidden rounded bg-muted">
-            <div className="h-full bg-primary" style={{ width: `${percent}%` }} />
-          </div>
-          <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-            <span>{done}/{total}</span>
-            {latestProgress.skipped ? <span>已跳过 {latestProgress.skipped}</span> : null}
-            {latestProgress.failed ? <span>失败 {latestProgress.failed}</span> : null}
-            {latestProgress.provider ? <span>通道：{latestProgress.provider}</span> : null}
-            {latestProgress.cost ? <span>预计：{formatCost(latestProgress.cost, latestProgress.cost.estimated)}</span> : null}
-            {latestProgress.cost ? <span>实际：{formatCost(latestProgress.cost, latestProgress.cost.actual)}</span> : null}
-          </div>
-          {failedShotIds.length > 0 ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-destructive">失败镜头：{failedShotIds.join("、")}</span>
-              <Button
-                size="sm"
-                type="button"
-                variant="outline"
-                disabled={props.busy || ttsActive}
-                onClick={() => props.onBatchJob(props.episode.order, {
-                  type: "tts",
-                  provider: activeProvider,
-                  failedShotIds,
-                })}
-              >
-                <RefreshCw className="h-4 w-4" />
-                重试失败镜头
-              </Button>
-            </div>
-          ) : null}
-        </div>
+        <DramaBatchJobCard job={latestTtsBatch} title="本集配音任务" busy={props.busy}
+          storyboardCurrent={isBatchStoryboardCurrent(latestTtsBatch, props.episode)} onPause={props.onPause} onResume={props.onResume} />
       ) : null}
 
       {audioItems.length > 0 ? (
@@ -209,7 +149,7 @@ function CostEstimate(props: { cost?: DramaBatchCostBreakdown; loading: boolean 
       </div>
       {props.cost ? (
         <div className="mt-1 text-xs text-muted-foreground">
-          {props.cost.unit.costPerSecond ? `时长 ${formatCost(props.cost, props.cost.unit.costPerSecond)}/秒` : "未配置单价"}
+          {props.cost.unit.costPerSecond ? `时长 ${formatCost(props.cost, props.cost.unit.costPerSecond)}/秒` : "未配置单价，费用请以生成通道账单为准"}
           {props.cost.estimatedUnits.shots ? ` · ${props.cost.estimatedUnits.shots} 个镜头` : ""}
         </div>
       ) : null}

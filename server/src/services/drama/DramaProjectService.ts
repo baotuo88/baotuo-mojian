@@ -8,6 +8,7 @@
  * 不 import 任何 services/novel/* 业务逻辑。
  */
 import { prisma } from "../../db/prisma";
+import { AppError } from "../../middleware/errorHandler";
 import { sourceContentRegistry } from "./source/SourceContentPort";
 import { novelSourceAdapter } from "./source/NovelSourceAdapter";
 import { originalSourceAdapter } from "./source/OriginalSourceAdapter";
@@ -52,7 +53,7 @@ export class DramaProjectService {
   }
 
   async getProject(projectId: string) {
-    return prisma.dramaProject.findUnique({
+    const project = await prisma.dramaProject.findUnique({
       where: { id: projectId },
       include: {
         sourceBundle: true,
@@ -71,6 +72,13 @@ export class DramaProjectService {
         batchJobs: { orderBy: { createdAt: "desc" }, take: 20 },
       },
     });
+    if (!project) return null;
+    const recoverable = await prisma.dramaBatchJob.findMany({
+      where: { projectId, status: { in: ["pending", "running", "paused", "failed"] } },
+      orderBy: { createdAt: "desc" },
+    });
+    const jobs = new Map([...project.batchJobs, ...recoverable].map((job) => [job.id, job]));
+    return { ...project, batchJobs: [...jobs.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()) };
   }
 
   /**
@@ -80,9 +88,12 @@ export class DramaProjectService {
    * 3) DramaFact（初始事实账本，episodeOrder=0 表示源初始事实）
    */
   async assembleSourceBundle(projectId: string): Promise<SourceBundle> {
-    const project = await prisma.dramaProject.findUnique({ where: { id: projectId } });
+    const project = await prisma.dramaProject.findUnique({ where: { id: projectId }, include: { sourceBundle: true } });
     if (!project) {
       throw new Error(`未找到短剧项目：${projectId}`);
+    }
+    if (project.sourceBundle) {
+      throw new AppError("素材已整理。可在素材页查看补充建议、在角色页编辑角色；改编其他素材请创建新项目。", 409);
     }
 
     const adapter = sourceContentRegistry.resolve(project.source as DramaSourceType);
@@ -95,6 +106,10 @@ export class DramaProjectService {
     const bundle = await adapter.loadBundle(ref);
 
     await prisma.$transaction(async (tx) => {
+      await tx.dramaProject.update({ where: { id: projectId }, data: { updatedAt: new Date() } });
+      if (await tx.dramaSourceBundle.findUnique({ where: { projectId } })) {
+        throw new AppError("素材已整理，请刷新项目查看。", 409);
+      }
       await tx.dramaSourceBundle.upsert({
         where: { projectId },
         update: {
@@ -114,11 +129,12 @@ export class DramaProjectService {
         },
       });
 
-      // 角色资源导入（重置后重建，保证幂等）
-      await tx.dramaCharacter.deleteMany({ where: { projectId } });
+      // Source assembly is an initial import. Never replace manually created assets.
+      const existingCharacters = await tx.dramaCharacter.findMany({ where: { projectId }, select: { name: true } });
+      const existingNames = new Set(existingCharacters.map((character) => character.name));
       if (bundle.characters.length > 0) {
         await tx.dramaCharacter.createMany({
-          data: bundle.characters.map((character) => ({
+          data: bundle.characters.filter((character) => !existingNames.has(character.name)).map((character) => ({
             projectId,
             name: character.name,
             persona: character.persona ?? null,
@@ -132,7 +148,6 @@ export class DramaProjectService {
       }
 
       // 初始事实账本（episodeOrder=0 表示源带入的初始硬事实）
-      await tx.dramaFact.deleteMany({ where: { projectId, episodeOrder: 0 } });
       if (bundle.hardFacts && bundle.hardFacts.length > 0) {
         await tx.dramaFact.createMany({
           data: bundle.hardFacts.map((fact) => ({
