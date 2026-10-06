@@ -4,6 +4,7 @@ import type { DramaBatchJob } from "@prisma/client";
 import { prisma } from "../../../db/prisma";
 import { AppError } from "../../../middleware/errorHandler";
 import { safeJsonParse } from "../utils/json";
+import { assertCurrentStoryboard, withCurrentShot } from "../revisions";
 import { DramaVideoPromptService } from "../DramaVideoPromptService";
 import { DramaDialogueAudioService } from "../audio/DramaDialogueAudioService";
 import { ttsProviderRegistry } from "../audio/TTSProviderPort";
@@ -87,9 +88,7 @@ type BatchProcessResult = {
   costUnits?: DramaBatchCostUnits;
 };
 
-const DEFAULT_VIDEO_PROVIDER = "mock";
 const DEFAULT_IMAGE_PROVIDER = "openai";
-const DEFAULT_TTS_PROVIDER = "mock";
 
 function normalizeDurationSec(value: number | null | undefined, fallback = 5): number {
   return Number.isFinite(value) && Number(value) > 0 ? Number(value) : fallback;
@@ -214,6 +213,22 @@ export class DramaBatchOrchestrator {
   /** Run before accepting HTTP requests. Never reissue paid work during startup. */
   async recoverInterruptedJobs() {
     this.stopping = false;
+    // This runs only at single-API startup, before requests are accepted. A
+    // restarted process cannot still own these synchronous media invocations.
+    const shots = await prisma.dramaShot.findMany({
+      where: { OR: [{ keyframeData: { contains: '"generating"' } }, { dialogueAudioData: { contains: '"generating"' } }] },
+      select: { id: true, keyframeData: true, dialogueAudioData: true },
+    });
+    for (const shot of shots) {
+      for (const field of ["keyframeData", "dialogueAudioData"] as const) {
+        const state = safeJsonParse<Record<string, unknown> | null>(shot[field], null);
+        if (state?.status !== "generating") continue;
+        await prisma.dramaShot.updateMany({
+          where: { id: shot.id, [field]: shot[field] },
+          data: { [field]: JSON.stringify({ ...state, status: "error", error: "制作因服务中断而停止，请核对通道费用后重新生成。" }) },
+        });
+      }
+    }
     const jobs = await prisma.dramaBatchJob.findMany({ where: { status: { in: ["pending", "running"] } } });
     for (const job of jobs) {
       const progress = readProgress(job.progress);
@@ -267,8 +282,7 @@ export class DramaBatchOrchestrator {
     progress.errors = [];
     progress.pauseRequested = false;
     progress.interruptionReason = undefined;
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.dramaProject.update({ where: { id: projectId }, data: { updatedAt: new Date() } });
+    const updated = await withCurrentShot(progress.targetShotIds![0], async (tx) => {
       const candidates = await tx.dramaBatchJob.findMany({
         where: { projectId, episodeId: job.episodeId, type: job.type, id: { not: jobId }, status: { in: ["pending", "running", "paused"] } },
       });
@@ -315,9 +329,9 @@ export class DramaBatchOrchestrator {
       useCharacterRefImages: input.useCharacterRefImages ?? false,
       cost: prepared.cost,
     });
-    // A project row lock serializes creation across requests/processes on PostgreSQL.
-    const job = await prisma.$transaction(async (tx) => {
-      await tx.dramaProject.update({ where: { id: projectId }, data: { updatedAt: new Date() } });
+    // The episode lock serializes creation across requests and media types. Do not
+    // acquire a project lock here: planning takes project then episode locks.
+    const job = await withCurrentShot(prepared.targetShotIds[0], async (tx) => {
       const existing = await tx.dramaBatchJob.findFirst({
         where: { projectId, episodeId: prepared.episode.id, type: input.type, status: { in: ["pending", "running", "paused"] } },
         orderBy: { createdAt: "desc" },
@@ -356,7 +370,7 @@ export class DramaBatchOrchestrator {
     if (!episodeId) throw new AppError("制作任务关联的集数不存在。", 409);
     const episode = await prisma.dramaEpisode.findUnique({
       where: { id: episodeId },
-      include: { storyboards: { orderBy: { createdAt: "desc" }, take: 1, include: { shots: { orderBy: { order: "asc" } } } } },
+      include: { storyboards: { orderBy: [{ version: "desc" }, { createdAt: "desc" }, { id: "desc" }], take: 1, include: { shots: { orderBy: { order: "asc" } } } } },
     });
     const storyboard = episode?.storyboards[0];
     const targetIds = progress.targetShotIds;
@@ -365,6 +379,7 @@ export class DramaBatchOrchestrator {
       || targetIds.some((id) => !storyboard.shots.some((shot) => shot.id === id))) {
       throw new AppError("分镜已变化或镜头缺失，请为当前分镜新建制作任务。", 409);
     }
+    await assertCurrentStoryboard(storyboard.id);
     return { episodeId, shots: storyboard.shots.filter((shot) => targetIds.includes(shot.id)) };
   }
 
@@ -420,8 +435,13 @@ export class DramaBatchOrchestrator {
         progress.currentShotId = undefined;
         await this.updateJob(jobId, "running", progress);
       }
+      // A final external call may have crossed a script edit. Never finish the
+      // whole job successfully against a storyboard that is no longer current.
+      await this.loadTargetShots(job.episodeId, progress);
       progress.pauseRequested = false;
-      return this.updateJob(jobId, progress.failed > 0 ? "failed" : "done", progress);
+      const finishedProgress = progress;
+      return await withCurrentShot(target.shots[0].id, async (tx) =>
+        this.updateJob(jobId, finishedProgress.failed > 0 ? "failed" : "done", finishedProgress, tx));
     } catch (error) {
       if (!claimed || !progress) throw error;
       progress.interruptionReason = error instanceof Error ? error.message : String(error);
@@ -443,7 +463,7 @@ export class DramaBatchOrchestrator {
     if (hasDoneDialogueAudio(shot.dialogueAudioData)) {
       return { status: "skipped" };
     }
-    const data = await this.dialogueAudioService.synthesizeShotDialogue(shot.id, provider || DEFAULT_TTS_PROVIDER);
+    const data = await this.dialogueAudioService.synthesizeShotDialogue(shot.id, provider);
     const seconds = (data.items ?? []).reduce((sum, item) => {
       return sum + normalizeDurationSec(item.durationSec, Math.max(1, Math.ceil(item.text.length / 5)));
     }, 0);
@@ -473,7 +493,7 @@ export class DramaBatchOrchestrator {
     if (!prompt) {
       prompt = await this.videoPromptService.generateVideoPromptForShot(projectId, shotId);
     }
-    await this.videoPromptService.createProviderTask(prompt.id, provider || DEFAULT_VIDEO_PROVIDER);
+    await this.videoPromptService.createProviderTask(prompt.id, provider);
     return "processed";
   }
 
@@ -524,7 +544,7 @@ export class DramaBatchOrchestrator {
       where: { projectId_order: { projectId, order } },
       include: {
         storyboards: {
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ version: "desc" }, { createdAt: "desc" }, { id: "desc" }],
           include: { shots: { orderBy: { order: "asc" } } },
         },
         videoPrompts: { orderBy: [{ version: "desc" }, { createdAt: "desc" }] },
@@ -537,6 +557,7 @@ export class DramaBatchOrchestrator {
     if (!shots.length) {
       throw new AppError(`第 ${order} 集还没有分镜，不能创建批量任务。`, 400);
     }
+    await assertCurrentStoryboard(episode.storyboards[0].id);
     const allowedShotIds = new Set(shots.map((shot) => shot.id));
     const targetShots = (input.failedShotIds?.length
       ? shots.filter((shot) => input.failedShotIds?.includes(shot.id))
@@ -638,17 +659,18 @@ export class DramaBatchOrchestrator {
     jobId: string,
     status: DramaBatchJobStatus,
     progress: DramaBatchProgress,
+    db: Pick<typeof prisma, "dramaBatchJob"> = prisma,
   ): Promise<DramaBatchJob | null> {
-    const current = await prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
+    const current = await db.dramaBatchJob.findUnique({ where: { id: jobId } });
     if (!current || current.status !== "running") return current;
     const saved = readProgress(current.progress);
     const next = { ...progress, pauseRequested: status === "running" && (saved.pauseRequested || progress.pauseRequested) };
-    const updated = await prisma.dramaBatchJob.updateMany({
+    const updated = await db.dramaBatchJob.updateMany({
       where: { id: jobId, status: "running", progress: current.progress },
       data: { status, progress: JSON.stringify(next) },
     });
-    if (!updated.count) return this.updateJob(jobId, status, progress);
-    return prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
+    if (!updated.count) return this.updateJob(jobId, status, progress, db);
+    return db.dramaBatchJob.findUnique({ where: { id: jobId } });
   }
 }
 

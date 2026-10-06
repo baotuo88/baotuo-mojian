@@ -79,6 +79,8 @@ const PROMPT_CATALOG_SHORT_DESCRIPTIONS: Record<string, string> = {
   "drama.episode.quality": "短剧单集审校",
   "drama.episode.compliance": "短剧合规检查",
   "drama.episode.repair": "短剧单集修复",
+  "drama.episode.facts": "短剧台本事实整理",
+  "drama.shot.keyframe": "短剧镜头首帧",
   "drama.storyboard": "短剧分镜生成",
   "drama.video.prompt": "短剧视频提示词",
   "comic.episodeOutline": "漫画分集大纲",

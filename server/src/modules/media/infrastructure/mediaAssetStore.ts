@@ -74,6 +74,26 @@ export async function saveMediaAsset(input: {
   };
 }
 
+/** 发布后端生成的大文件；流式复制后原子改名，不把整个成片读入内存。 */
+export async function publishMediaAssetFile(input: {
+  kind: MediaAssetKind;
+  filePath: string;
+  contentType: string;
+}): Promise<{ url: string; fileName: string; contentType: string }> {
+  const fileName = `${Date.now().toString(36)}-${randomUUID()}.${extensionForContentType(input.contentType)}`;
+  const target = resolveMediaAssetPath(input.kind, fileName);
+  const temporary = `${target}.partial`;
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  try {
+    await fs.copyFile(input.filePath, temporary);
+    await fs.rename(temporary, target);
+  } catch (error) {
+    await fs.unlink(temporary).catch(() => undefined);
+    throw error;
+  }
+  return { url: mediaAssetUrl(input.kind, fileName), fileName, contentType: input.contentType };
+}
+
 /** 解析并校验落盘路径，阻断路径穿越。 */
 export function resolveMediaAssetPath(kind: string, fileName: string): string {
   if (!isMediaAssetKind(kind)) {

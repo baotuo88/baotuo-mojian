@@ -1,4 +1,4 @@
-import { prisma } from "../../db/prisma";
+import { commitEpisodeEdit } from "./revisions";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import { dramaRepairPrompt } from "../../prompting/prompts/drama/drama.prompts";
 import { dramaContextAssembler } from "./DramaContextAssembler";
@@ -7,7 +7,7 @@ import type { DramaLLMOptions } from "./DramaStrategyService";
 
 export class DramaRepairService {
   async repairEpisode(projectId: string, episodeOrder: number, instruction?: string, options: DramaLLMOptions = {}) {
-    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder);
+    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder, options);
     if (!context.episode.content?.trim()) {
       throw new Error(`第 ${episodeOrder} 集尚未生成台本，不能修复。`);
     }
@@ -29,15 +29,13 @@ export class DramaRepairService {
       },
     });
     const output = result.output;
-    await prisma.dramaEpisode.update({
-      where: { id: context.episode.id },
-      data: {
-        content: output.content,
-        durationSec: output.durationSec,
-        status: "scripted",
-        qualityFlags: null,
-      },
+    await commitEpisodeEdit({
+      episodeId: context.episode.id, expectedRevision: context.episode.revision,
+      changes: { content: output.content, durationSec: output.durationSec },
+      source: "repair",
+      facts: output.newlyIntroducedFacts,
     });
+
     return output;
   }
 }

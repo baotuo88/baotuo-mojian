@@ -10,10 +10,12 @@ const { PrismaClient } = require('@prisma/client');
 const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3');
 
 class AppError extends Error { constructor(message, statusCode) { super(message); this.statusCode = statusCode; } }
-function loadService(f) {
-  const file = path.resolve(__dirname, '../src/services/drama/DramaVideoPromptService.ts');
+function loadModule(f, relative) {
+  const file = path.resolve(__dirname, '../src/services/drama', relative);
   const module = { exports: {} };
   const sandbox = { module, exports: module.exports, process: { env: { NODE_ENV: f.nodeEnv ?? 'test' } }, console, Date, Set, Map, JSON, require(id) {
+    if (id === './revisions') return loadModule(f, 'revisions/index.ts');
+    if (id === './episodeLock') return loadModule(f, 'revisions/episodeLock.ts');
     if (id.endsWith('/db/prisma')) return { prisma: f.db };
     if (id.endsWith('/middleware/errorHandler')) return { AppError };
     if (id.endsWith('/prompting/core/promptRunner')) return { runStructuredPrompt: (...args) => f.prompt(...args) };
@@ -24,8 +26,9 @@ function loadService(f) {
     return require(id);
   } };
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, sandbox, { filename: file });
-  return new module.exports.DramaVideoPromptService();
+  return module.exports;
 }
+function loadService(f) { return new (loadModule(f, 'DramaVideoPromptService.ts').DramaVideoPromptService)(); }
 function matches(row, where) {
   return Object.entries(where ?? {}).every(([key, value]) => {
     if (value === undefined) return true;
@@ -41,7 +44,7 @@ function matches(row, where) {
 }
 function fixture() {
   const row = { id: 'vp', projectId: 'p', episodeId: 'e', shotId: 's', provider: 'paid', prompt: '镜头画面', negativePrompt: null, aspectRatio: '9:16', durationSec: 5, status: 'prompted', version: 1, supersededById: null, providerTaskId: null, resultUrl: null, failureReason: null, providerResult: null, updatedAt: new Date(0), createdAt: new Date(0) };
-  const f = { rows: [row], calls: 0, promptCalls: 0, shot: { id: 's', storyboardId: 'storyboard', order: 1, action: '主角打开门', dialogue: null, visualPrompt: '开门', characterRefs: null, keyframeData: null, durationSec: 5, updatedAt: new Date(0), storyboard: { id: 'storyboard', projectId: 'p', episodeId: 'e', episode: { id: 'e', projectId: 'p', order: 1 } } } };
+  const f = { rows: [row], calls: 0, promptCalls: 0, shot: { id: 's', storyboardId: 'storyboard', order: 1, action: '主角打开门', dialogue: null, visualPrompt: '开门', characterRefs: null, keyframeData: null, durationSec: 5, updatedAt: new Date(0), storyboard: { id: 'storyboard', projectId: 'p', episodeId: 'e', sourceRevision: 0, status: 'draft', episode: { id: 'e', projectId: 'p', order: 1, revision: 0, updatedAt: new Date(0) } } } };
   f.adapter = { supportsRefImages: false, createTask: async () => { f.calls++; return { providerTaskId: `task-${f.calls}`, status: 'queued' }; }, getTask: async id => ({ providerTaskId: id, status: 'queued' }) };
   f.prompt = async () => { f.promptCalls++; return { output: { prompt: '新镜头画面', aspectRatio: '9:16', durationSec: 5 } }; };
   f.db = {
@@ -52,9 +55,12 @@ function fixture() {
       update: async ({ where, data }) => { const row = f.rows.find(row => matches(row, where)); assert.ok(row); Object.assign(row, data); return structuredClone(row); },
       create: async ({ data }) => { const row = { ...data, id: `vp-${f.rows.length + 1}`, updatedAt: new Date(), createdAt: new Date() }; f.rows.push(row); return structuredClone(row); },
     },
-    dramaShot: { findUnique: async () => structuredClone(f.shot), updateMany: async ({ where }) => ({ count: matches(f.shot, where) ? 1 : 0 }) },
+    dramaShot: { findUnique: async () => structuredClone(f.shot), findUniqueOrThrow: async () => structuredClone(f.shot), updateMany: async ({ where }) => ({ count: matches(f.shot, where) ? 1 : 0 }) },
     dramaCharacter: { findMany: async () => [] },
+    dramaStoryboard: { findUnique: async () => structuredClone(f.shot.storyboard), findUniqueOrThrow: async () => structuredClone(f.shot.storyboard), findFirst: async () => ({ id: f.shot.storyboard.id }) },
+    dramaEpisode: { findUnique: async () => structuredClone(f.shot.storyboard.episode), findUniqueOrThrow: async () => structuredClone(f.shot.storyboard.episode), updateMany: async ({ where }) => ({ count: matches(f.shot.storyboard.episode, where) ? 1 : 0 }) },
   };
+  f.db.$executeRaw = async (_sql, episodeId, revision) => Number(matches(f.shot.storyboard.episode, { id: episodeId, revision }));
   f.db.$transaction = async work => work(f.db);
   f.service = loadService(f);
   return f;
@@ -67,7 +73,7 @@ async function sqliteFixture(t) {
   try {
     sqlite.pragma('journal_mode = WAL');
     for (const migration of ['20260609120000_drama_forge_pipeline', '20260609170000_drama_video_task_projection',
-      '20260610090000_drama_shot_keyframes', '20260610130000_drama_dialogue_audio', '20260610143000_drama_generation_versions']) {
+      '20260610090000_drama_shot_keyframes', '20260610130000_drama_dialogue_audio', '20260610143000_drama_generation_versions', '20261006090000_drama_revision_render']) {
       sqlite.exec(fs.readFileSync(path.resolve(__dirname, '../src/prisma/migrations.sqlite', migration, 'migration.sql'), 'utf8'));
     }
   } finally { sqlite.close(); }
@@ -192,6 +198,9 @@ test('SQLite CAS prevents duplicate paid requests across service instances shari
   let readers = 0; let release;
   const captured = new Promise(resolve => { release = resolve; });
   const gated = db => ({
+    $transaction: db.$transaction.bind(db),
+    dramaStoryboard: db.dramaStoryboard,
+    dramaEpisode: db.dramaEpisode,
     dramaShot: db.dramaShot,
     dramaCharacter: db.dramaCharacter,
     dramaVideoPrompt: new Proxy(db.dramaVideoPrompt, { get(target, key) {
@@ -225,4 +234,35 @@ test('SQLite prompt version transaction retains a completed asset and guards a c
   await assert.rejects(f.service.generateVideoPromptForShot('p', 's'), error => error.statusCode === 409);
   assert.equal(await f.db.dramaVideoPrompt.count(), 2);
   assert.equal((await f.db.dramaVideoPrompt.findUnique({ where: { id: generated.id } })).status, 'queued');
+});
+
+
+test('SQLite late provider acceptance keeps the paid task id only as historical output', async t => {
+  const f = await sqliteFixture(t);
+  f.adapter.createTask = async () => {
+    f.calls++;
+    await f.db.dramaEpisode.update({ where: { id: 'e' }, data: { revision: 1, content: '人工新稿' } });
+    await f.db.dramaStoryboard.update({ where: { id: 'storyboard' }, data: { status: 'stale' } });
+    return { providerTaskId: 'paid-before-edit', status: 'queued' };
+  };
+  const result = await f.service.createProviderTask('vp', 'paid');
+  assert.equal(result.providerTaskId, 'paid-before-edit');
+  assert.equal(result.status, 'superseded');
+  await assert.rejects(f.service.createProviderTask('vp', 'paid'), error => error.statusCode === 409);
+  assert.equal(f.calls, 1);
+  f.adapter.getTask = async id => ({ providerTaskId: id, status: 'succeeded', resultUrl: 'https://video.test/historical.mp4' });
+  const refreshed = await f.service.refreshProviderTask('vp');
+  assert.equal(refreshed.status, 'superseded');
+  assert.equal(refreshed.resultUrl, 'https://video.test/historical.mp4');
+});
+
+test('SQLite script edits during video prompt generation cannot publish a new prompt', async t => {
+  const f = await sqliteFixture(t);
+  f.prompt = async () => {
+    await f.db.dramaEpisode.update({ where: { id: 'e' }, data: { revision: 1 } });
+    return { output: { prompt: '旧台本的迟到结果', aspectRatio: '9:16' } };
+  };
+  await assert.rejects(f.service.generateVideoPromptForShot('p', 's'), error => error.statusCode === 409);
+  assert.equal(await f.db.dramaVideoPrompt.count(), 1);
+  assert.equal((await f.db.dramaVideoPrompt.findUnique({ where: { id: 'vp' } })).status, 'prompted');
 });

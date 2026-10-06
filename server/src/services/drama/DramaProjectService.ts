@@ -62,7 +62,7 @@ export class DramaProjectService {
           orderBy: { order: "asc" },
           include: {
             storyboards: {
-              orderBy: { createdAt: "desc" },
+              orderBy: [{ version: "desc" }, { createdAt: "desc" }, { id: "desc" }],
               include: { shots: { orderBy: { order: "asc" } } },
             },
             videoPrompts: { orderBy: [{ version: "desc" }, { createdAt: "desc" }] },

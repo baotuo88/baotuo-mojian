@@ -11,7 +11,6 @@ import {
   type DramaProjectDetail,
   type DramaShot,
   type DramaShotKeyframeData,
-  type DramaStoryboard,
   type DramaVideoPrompt,
   type DramaVideoProvider,
 } from "@/api/drama";
@@ -20,7 +19,7 @@ import { getAPIKeySettings } from "@/api/settings";
 import { ImageGenerationConfirmDialog } from "@/components/image/ImageGenerationConfirmDialog";
 import { useImageGenerationFlow } from "@/components/image/useImageGenerationFlow";
 import { Link } from "react-router-dom";
-import { DramaBatchJobCard, canRefreshVideoTask, currentVideoPrompts, hasEpisodeProduction, isBatchStoryboardCurrent, latestEpisodeBatch, videoStatusLabel } from "../production";
+import { DramaBatchJobCard, canRefreshVideoTask, currentStoryboard, currentVideoPrompts, hasEpisodeProduction, isBatchStoryboardCurrent, latestEpisodeBatch, videoStatusLabel } from "../production";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,7 +45,7 @@ export function DramaVisualPanel(props: {
   const episodes = props.project.episodes ?? [];
   const selectedEpisode: DramaEpisode | undefined = episodes.find((episode) => episode.order === props.selectedOrder) ?? episodes[0];
   const storyboards = selectedEpisode?.storyboards ?? [];
-  const storyboard = storyboards[0] as DramaStoryboard | undefined;
+  const storyboard = currentStoryboard(selectedEpisode);
   const videoPrompts = props.project.videoPrompts ?? [];
   const activeVideoPrompts = currentVideoPrompts(props.project);
   const promptsByShot = buildLatestPromptsByShot(activeVideoPrompts);
@@ -109,6 +108,8 @@ export function DramaVisualPanel(props: {
       "batch-estimate",
       props.project.id,
       selectedEpisode?.order,
+      storyboard?.id,
+      selectedEpisode?.revision,
       "keyframes",
       activeImageProvider,
       useCharacterRefImages,
@@ -127,6 +128,8 @@ export function DramaVisualPanel(props: {
       "batch-estimate",
       props.project.id,
       selectedEpisode?.order,
+      storyboard?.id,
+      selectedEpisode?.revision,
       "videos",
       props.selectedProvider,
     ],
@@ -275,7 +278,7 @@ export function DramaVisualPanel(props: {
         </div>
       ) : null}
       {!storyboard ? (
-        <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">当前集还没有分镜。</div>
+        <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">{storyboards.length ? "台本与分镜的版本不同，请生成分镜后继续制作。历史素材会保留。" : "当前集还没有分镜。"}</div>
       ) : (
         <Card className="rounded-lg">
           <CardHeader>
@@ -320,7 +323,7 @@ export function DramaVisualPanel(props: {
                             {videoTaskButtonLabel(prompt)}
                           </Button>
                           {prompt.providerTaskId ? (
-                            <Button size="sm" type="button" variant="outline" disabled={props.busy || !canRefreshVideoTask(prompt)} onClick={() => props.onRefreshProviderTask(prompt)}>
+                            <Button size="sm" type="button" variant="outline" disabled={props.busy || !canRefreshVideoTask(prompt) || !activeVideoPrompts.some((active) => active.id === prompt.id)} onClick={() => props.onRefreshProviderTask(prompt)}>
                               <RefreshCw className="h-4 w-4" />
                               刷新状态
                             </Button>
@@ -367,7 +370,7 @@ export function DramaVisualPanel(props: {
                         {videoTaskButtonLabel(prompt)}
                       </Button>
                     ) : prompt.providerTaskId ? (
-                      <Button size="sm" type="button" variant="outline" disabled={props.busy || !canRefreshVideoTask(prompt)} onClick={() => props.onRefreshProviderTask(prompt)}>
+                      <Button size="sm" type="button" variant="outline" disabled={props.busy || !canRefreshVideoTask(prompt) || !activeVideoPrompts.some((active) => active.id === prompt.id)} onClick={() => props.onRefreshProviderTask(prompt)}>
                         <RefreshCw className="h-4 w-4" />
                         刷新状态
                       </Button>

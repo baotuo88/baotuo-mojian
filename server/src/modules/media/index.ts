@@ -45,4 +45,4 @@ export { HttpMusicProvider, HttpTTSProvider, HttpVideoProvider } from "./infrast
 export { MockMusicProvider, MockTTSProvider, MockVideoProvider } from "./infrastructure/mockMediaProviders";
 export { OpenAiSpeechProvider, OpenAiVideoProvider } from "./infrastructure/openAiProviders";
 export { registerEnvMediaProviders } from "./infrastructure/envMediaProviders";
-export { saveMediaAsset, resolveMediaAssetPath, contentTypeForFileName } from "./infrastructure/mediaAssetStore";
+export { saveMediaAsset, publishMediaAssetFile, resolveMediaAssetPath, contentTypeForFileName } from "./infrastructure/mediaAssetStore";

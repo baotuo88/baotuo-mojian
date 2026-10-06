@@ -40,7 +40,6 @@ import {
   type DramaEpisode,
   type DramaProjectDetail,
   updateDramaCharacter,
-  updateDramaEpisode,
 } from "@/api/drama";
 import { queryKeys } from "@/api/queryKeys";
 import { DramaCharactersPanel } from "@/pages/drama/components/DramaCharactersPanel";
@@ -56,6 +55,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, AppDialogContent } from "@/components/ui/dialog";
 import { DramaBatchJobCard, isActiveBatch, isBatchStoryboardCurrent, isRecoverableBatch, latestBatchJobs, parseBatchProgress, pollingVideoPrompts, shouldPollProduction, summarizeDramaStages } from "./production";
 import { toast } from "@/components/ui/toast";
+import { DramaDraftProtection, isDraftDirty, useEpisodeDrafts } from "./script";
+import { DramaRenderPanel } from "./render";
 
 type DramaTab = "source" | "strategy" | "episodes" | "quality" | "characters" | "visual" | "export";
 
@@ -298,28 +299,19 @@ function EpisodesPanel(props: {
   onGenerateScript: (order: number) => void;
   onReview: (order: number) => void;
   onRepair: (order: number) => void;
-  onSave: (order: number, input: { title: string; hookOpening: string; cliffhanger: string; content: string; durationSec: string }) => void;
+  drafts: ReturnType<typeof useEpisodeDrafts>;
   busy: boolean;
 }) {
   const episodes = props.project.episodes ?? [];
   const selectedEpisode = episodes.find((episode) => episode.order === props.selectedOrder) ?? episodes[0];
-  const [draft, setDraft] = useState({
-    title: "",
-    hookOpening: "",
-    cliffhanger: "",
-    content: "",
-    durationSec: "",
-  });
-
-  useEffect(() => {
-    setDraft({
-      title: selectedEpisode?.title ?? "",
-      hookOpening: selectedEpisode?.hookOpening ?? "",
-      cliffhanger: selectedEpisode?.cliffhanger ?? "",
-      content: selectedEpisode?.content ?? "",
-      durationSec: selectedEpisode?.durationSec != null ? String(selectedEpisode.durationSec) : "",
-    });
-  }, [selectedEpisode?.id, selectedEpisode?.title, selectedEpisode?.hookOpening, selectedEpisode?.cliffhanger, selectedEpisode?.content, selectedEpisode?.durationSec]);
+  const state = selectedEpisode ? props.drafts.get(selectedEpisode) : undefined;
+  const draft = state?.draft;
+  const dirty = state ? isDraftDirty(state) : false;
+  const saving = Boolean(selectedEpisode && props.drafts.savingIds.includes(selectedEpisode.id));
+  const busy = props.busy || saving;
+  const edit = (patch: Partial<NonNullable<typeof draft>>) => {
+    if (selectedEpisode) props.drafts.edit(selectedEpisode, patch);
+  };
 
   if (episodes.length === 0) {
     return <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">还没有分集大纲。先生成前 12 集分集。</div>;
@@ -337,7 +329,7 @@ function EpisodesPanel(props: {
           />
         ))}
       </div>
-      {selectedEpisode ? (
+      {selectedEpisode && draft && state ? (
         <Card className="rounded-lg">
           <CardHeader className="gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
@@ -345,25 +337,27 @@ function EpisodesPanel(props: {
               <CardDescription>{selectedEpisode.hookOpening || "本集尚未写入开场钩子。"}</CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" type="button" disabled={props.busy} onClick={() => props.onGenerateScript(selectedEpisode.order)}>
+              <Button size="sm" type="button" disabled={busy || dirty || state.conflict} onClick={() => props.onGenerateScript(selectedEpisode.order)}>
                 <Wand2 className="h-4 w-4" />
                 生成台本
               </Button>
-              <Button size="sm" type="button" variant="outline" disabled={props.busy || !selectedEpisode.content?.trim()} onClick={() => props.onReview(selectedEpisode.order)}>
+              <Button size="sm" type="button" variant="outline" disabled={busy || dirty || state.conflict || !selectedEpisode.content?.trim()} onClick={() => props.onReview(selectedEpisode.order)}>
                 <CheckCircle2 className="h-4 w-4" />
                 质量检查
               </Button>
-              <Button size="sm" type="button" variant="outline" disabled={props.busy || !selectedEpisode.content?.trim()} onClick={() => props.onRepair(selectedEpisode.order)}>
+              <Button size="sm" type="button" variant="outline" disabled={busy || dirty || state.conflict || !selectedEpisode.content?.trim()} onClick={() => props.onRepair(selectedEpisode.order)}>
                 <RefreshCw className="h-4 w-4" />
                 修复
               </Button>
-              <Button size="sm" type="button" variant="outline" disabled={props.busy} onClick={() => props.onSave(selectedEpisode.order, draft)}>
+              <Button size="sm" type="button" variant="outline" disabled={busy || !dirty || state.conflict} onClick={() => void props.drafts.save(selectedEpisode)}>
                 <Save className="h-4 w-4" />
-                保存编辑
+                {saving ? "保存中..." : "保存编辑"}
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <DramaDraftProtection key={selectedEpisode.id} projectId={props.project.id} episode={selectedEpisode} state={state}
+              busy={busy} onReload={props.drafts.reload} />
             <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded-md border p-3 text-sm">时长：{selectedEpisode.durationSec ?? "待生成"} 秒</div>
               <div className="rounded-md border p-3 text-sm">情绪净值：{selectedEpisode.emotionNet ?? "待生成"}</div>
@@ -374,19 +368,19 @@ function EpisodesPanel(props: {
               <div className="grid gap-3 lg:grid-cols-2">
                 <label className="block space-y-1.5 text-sm">
                   <span className="font-medium">标题</span>
-                  <input className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} />
+                  <input className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={draft.title} onChange={(event) => edit({ title: event.target.value })} />
                 </label>
                 <label className="block space-y-1.5 text-sm">
                   <span className="font-medium">预计时长（秒）</span>
-                  <input className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={draft.durationSec} onChange={(event) => setDraft((current) => ({ ...current, durationSec: event.target.value }))} />
+                  <input className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={draft.durationSec} onChange={(event) => edit({ durationSec: event.target.value })} />
                 </label>
                 <label className="block space-y-1.5 text-sm lg:col-span-2">
                   <span className="font-medium">开场钩子</span>
-                  <textarea className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" value={draft.hookOpening} onChange={(event) => setDraft((current) => ({ ...current, hookOpening: event.target.value }))} />
+                  <textarea className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" value={draft.hookOpening} onChange={(event) => edit({ hookOpening: event.target.value })} />
                 </label>
                 <label className="block space-y-1.5 text-sm lg:col-span-2">
                   <span className="font-medium">结尾卡点</span>
-                  <textarea className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" value={draft.cliffhanger} onChange={(event) => setDraft((current) => ({ ...current, cliffhanger: event.target.value }))} />
+                  <textarea className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" value={draft.cliffhanger} onChange={(event) => edit({ cliffhanger: event.target.value })} />
                 </label>
               </div>
             </section>
@@ -396,7 +390,7 @@ function EpisodesPanel(props: {
                 className="min-h-[420px] w-full rounded-md border bg-background px-3 py-2 text-sm leading-6"
                 value={draft.content}
                 placeholder="还没有生成台本。可以先生成，也可以手动写入。"
-                onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))}
+                onChange={(event) => edit({ content: event.target.value })}
               />
             </section>
             <section className="space-y-2">
@@ -408,7 +402,7 @@ function EpisodesPanel(props: {
               episode={selectedEpisode}
               batchJobs={props.project.batchJobs}
               ttsProviders={props.ttsProviders}
-              busy={props.busy}
+              busy={busy || dirty || state.conflict}
               onBatchJob={props.onBatchJob}
               onPause={props.onPause}
               onResume={props.onResume}
@@ -453,6 +447,7 @@ export default function DramaProjectPage() {
   });
 
   const project = projectQuery.data?.data;
+  const drafts = useEpisodeDrafts(id ?? "none", project?.episodes);
   const videoProviders = (videoProvidersQuery.data?.data ?? []).filter((provider) => provider.provider !== "mock");
   const ttsProviders = (ttsProvidersQuery.data?.data ?? []).filter((provider) => provider.provider !== "mock");
   const activeVideoProvider = videoProviders.some((provider) => provider.provider === selectedVideoProvider)
@@ -569,32 +564,6 @@ export default function DramaProjectPage() {
     downloadBlob(blob, `${project.title}-E${order}.${suffix}`);
   };
 
-  const handleSaveEpisode = (order: number, input: {
-    title: string;
-    hookOpening: string;
-    cliffhanger: string;
-    content: string;
-    durationSec: string;
-  }) => {
-    if (!project) {
-      return;
-    }
-    const durationSec = input.durationSec.trim() ? Number(input.durationSec) : undefined;
-    if (!input.title.trim()) {
-      toast.error("请填写本集标题。");
-      return;
-    }
-    runAction(
-      () => updateDramaEpisode(project.id, order, {
-        title: input.title.trim(),
-        hookOpening: input.hookOpening.trim() || null,
-        cliffhanger: input.cliffhanger.trim() || null,
-        content: input.content,
-        durationSec: durationSec !== undefined && Number.isFinite(durationSec) ? durationSec : null,
-      }),
-      `第 ${order} 集已保存。`,
-    );
-  };
 
   if (projectQuery.isLoading) {
     return <div className="rounded-md border p-4 text-sm text-muted-foreground">正在加载短剧项目...</div>;
@@ -657,9 +626,10 @@ export default function DramaProjectPage() {
       })}</div></section> : null}
       {videoRefreshError ? <div role="status" className="rounded-md border p-3 text-sm text-muted-foreground">部分视频进度暂时无法刷新。可进入“分镜视频”手动刷新任务，已有结果会保留。<Button size="sm" variant="ghost" onClick={() => { videoPollingPaused.current = false; setVideoRefreshError(false); }}>重试自动刷新</Button></div> : null}
 
+      {drafts.hasUnsaved ? <div role="status" className="rounded-md border p-3 text-sm text-muted-foreground">分集台本有未保存的编辑。请先保存或下载本地稿，再继续制作。<Button variant="ghost" size="sm" onClick={() => setActiveTab("episodes")}>查看台本编辑</Button></div> : null}
       <DramaNextStepPanel
         project={project}
-        busy={actionMutation.isPending}
+        busy={actionMutation.isPending || drafts.hasUnsaved}
         videoProviderConfigured={Boolean(activeVideoProvider)}
         onSetTab={setActiveTab}
         onSelectEpisode={setSelectedOrder}
@@ -672,7 +642,6 @@ export default function DramaProjectPage() {
         onGenerateStoryboard={(order) => runAction(() => generateDramaStoryboard(project.id, order), `第 ${order} 集分镜已生成。`)}
         onGenerateVideoPrompt={(shot) => runAction(() => generateDramaVideoPrompt(project.id, shot.id), `镜头 ${shot.order} 的视频提示词已生成。`)}
         onCreateProviderTask={(prompt) => handleProviderTask(prompt, activeVideoProvider)}
-        onExportMarkdown={() => void handleExport("markdown")}
       />
 
       <div className="flex gap-2 overflow-x-auto border-b pb-2">
@@ -704,7 +673,7 @@ export default function DramaProjectPage() {
           onGenerateScript={(order) => runAction(() => generateDramaEpisodeScript(project.id, order), `第 ${order} 集台本已生成。`)}
           onReview={(order) => runAction(() => reviewDramaEpisode(project.id, order), `第 ${order} 集质量检查完成。`)}
           onRepair={(order) => runAction(() => repairDramaEpisode(project.id, order), `第 ${order} 集已按质量建议修复。`)}
-          onSave={handleSaveEpisode}
+          drafts={drafts}
         />
       ) : null}
       {activeTab === "quality" ? (
@@ -772,6 +741,8 @@ export default function DramaProjectPage() {
         />
       ) : null}
       {activeTab === "export" ? (
+        <div className="space-y-4">
+        <DramaRenderPanel project={project} selectedOrder={selectedOrderValue} onSelectOrder={setSelectedOrder} busy={actionMutation.isPending || drafts.hasUnsaved} />
         <Card className="rounded-lg">
           <CardHeader>
             <CardTitle className="text-lg">导出短剧资料</CardTitle>
@@ -800,6 +771,7 @@ export default function DramaProjectPage() {
             ) : null}
           </CardContent>
         </Card>
+        </div>
       ) : null}
     </div>
   );

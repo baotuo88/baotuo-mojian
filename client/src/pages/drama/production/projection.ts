@@ -34,9 +34,18 @@ export function latestEpisodeBatch(jobs: DramaBatchJob[] | undefined, episodeId:
   return latestBatchJobs(jobs).find((job) => job.episodeId === episodeId && job.type === type);
 }
 
+/** A storyboard is current only while its source script revision is still current. */
+export function currentStoryboard(episode?: DramaEpisode) {
+  if (!episode || !Number.isInteger(episode.revision)) return undefined;
+  return [...(episode.storyboards ?? [])]
+    .sort((a, b) => b.version - a.version)
+    .find((board) => board.sourceRevision === episode.revision && !["stale", "superseded"].includes(board.status));
+}
+
 export function isBatchStoryboardCurrent(job: DramaBatchJob, episode?: DramaEpisode): boolean {
   const storyboardId = parseBatchProgress(job.progress).storyboardId;
-  return Boolean(episode?.storyboards?.[0] && (!storyboardId || episode.storyboards[0].id === storyboardId));
+  const board = currentStoryboard(episode);
+  return Boolean(board && (!storyboardId || board.id === storyboardId));
 }
 
 export function hasEpisodeProduction(jobs: DramaBatchJob[] | undefined, episode: DramaEpisode, type?: DramaBatchJobType): boolean {
@@ -47,12 +56,12 @@ export function hasEpisodeProduction(jobs: DramaBatchJob[] | undefined, episode:
 
 /** Only the current storyboard and latest non-superseded prompt belong to active production. */
 export function currentVideoPrompts(project: DramaProjectDetail): DramaVideoPrompt[] {
-  const shots = new Set((project.episodes ?? []).flatMap((episode) => episode.storyboards?.[0]?.shots?.map((shot) => shot.id) ?? []));
+  const shots = new Set((project.episodes ?? []).flatMap((episode) => currentStoryboard(episode)?.shots?.map((shot) => shot.id) ?? []));
   const seen = new Set<string>();
   return [...(project.videoPrompts ?? [])]
     .sort((a, b) => (b.version ?? 1) - (a.version ?? 1))
     .filter((prompt) => {
-      if (!prompt.shotId || !shots.has(prompt.shotId) || prompt.status === "superseded" || prompt.supersededById || seen.has(prompt.shotId)) return false;
+      if (!prompt.shotId || !shots.has(prompt.shotId) || ["stale", "superseded"].includes(prompt.status) || prompt.supersededById || seen.has(prompt.shotId)) return false;
       seen.add(prompt.shotId);
       return true;
     });
@@ -75,7 +84,7 @@ export function shouldPollProduction(project?: DramaProjectDetail): boolean {
 export function videoStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     draft: "等待提交", queued: "等待生成", running: "生成中", succeeded: "生成成功",
-    failed: "生成失败", submitting: "正在提交", submission_unknown: "提交结果待确认", superseded: "历史版本",
+    failed: "生成失败", stale: "需按台本重新制作", submitting: "正在提交", submission_unknown: "提交结果待确认", superseded: "历史版本",
   };
   return labels[status] ?? status;
 }

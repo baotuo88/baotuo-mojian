@@ -1,4 +1,4 @@
-import { prisma } from "../../db/prisma";
+import { commitEpisodeEdit } from "./revisions";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import { dramaScriptPrompt } from "../../prompting/prompts/drama/drama.prompts";
 import { dramaContextAssembler } from "./DramaContextAssembler";
@@ -6,7 +6,7 @@ import type { DramaLLMOptions } from "./DramaStrategyService";
 
 export class DramaScriptService {
   async generateEpisodeScript(projectId: string, episodeOrder: number, options: DramaLLMOptions = {}) {
-    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder);
+    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder, options);
     const result = await runStructuredPrompt({
       asset: dramaScriptPrompt,
       promptInput: {
@@ -26,27 +26,11 @@ export class DramaScriptService {
     });
 
     const output = result.output;
-    await prisma.$transaction(async (tx) => {
-      await tx.dramaEpisode.update({
-        where: { id: context.episode.id },
-        data: {
-          content: output.content,
-          durationSec: output.durationSec,
-          status: "scripted",
-          qualityFlags: null,
-        },
-      });
-      if (output.newlyIntroducedFacts?.length) {
-        await tx.dramaFact.createMany({
-          data: output.newlyIntroducedFacts.map((fact) => ({
-            projectId,
-            episodeOrder,
-            text: fact.text,
-            category: fact.category,
-            source: "script",
-          })),
-        });
-      }
+    await commitEpisodeEdit({
+      episodeId: context.episode.id, expectedRevision: context.episode.revision,
+      changes: { content: output.content, durationSec: output.durationSec },
+      source: "script",
+      facts: output.newlyIntroducedFacts,
     });
 
     return output;

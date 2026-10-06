@@ -378,7 +378,7 @@ export const dramaScriptOutputSchema = z.object({
   sceneCount: z.number().int().min(1).max(12),
   opening3s: z.string().trim().min(1),
   endingCliffhanger: z.string().trim().min(1),
-  newlyIntroducedFacts: z.array(sourceFactSchema).optional(),
+  newlyIntroducedFacts: z.array(sourceFactSchema),
   episodeSummary: z.string().trim().min(1),
 });
 
@@ -396,7 +396,7 @@ export interface DramaScriptPromptInput {
 
 export const dramaScriptPrompt: PromptAsset<DramaScriptPromptInput, DramaScriptOutput> = {
   id: "drama.episode.script",
-  version: "v1",
+  version: "v2",
   taskType: "chapter_drafting",
   mode: "structured",
   language: "zh",
@@ -407,6 +407,7 @@ export const dramaScriptPrompt: PromptAsset<DramaScriptPromptInput, DramaScriptO
       "你是竖屏付费短剧台本编剧。输出必须可拍、对白密集、冲突推进快。",
       "台本要包含角色名、动作提示和对白；不要写小说化大段心理描写。",
       "开场 3 秒必须有冲突/悬念/反差，结尾必须有强卡点。",
+      "newlyIntroducedFacts 必须列出当前完整台本中本集发生、揭示或改变的全部剧情事实（不是相较旧稿的差量）；确实没有时返回空数组。",
       "只输出符合 schema 的 JSON。",
     ].join("\n")),
     new HumanMessage([
@@ -537,7 +538,7 @@ export const dramaRepairPrompt: PromptAsset<{
   episodeJson: string;
 }, DramaScriptOutput> = {
   id: "drama.episode.repair",
-  version: "v1",
+  version: "v2",
   taskType: "chapter_repair",
   mode: "structured",
   language: "zh",
@@ -547,6 +548,7 @@ export const dramaRepairPrompt: PromptAsset<{
     new SystemMessage([
       "你是竖屏短剧台本修复编剧。基于明确修复指令重写这一集台本。",
       "保持本集大纲目标不变，修复钩子、卡点、时长、事实或角色问题。",
+      "newlyIntroducedFacts 必须列出修复后完整台本中本集发生、揭示或改变的全部剧情事实，包含保留下来的剧情，不只列修改部分；确实没有时返回空数组。",
       "只输出符合 schema 的 JSON。",
     ].join("\n")),
     new HumanMessage([

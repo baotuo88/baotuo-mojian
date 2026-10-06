@@ -1,4 +1,6 @@
 import { prisma } from "../../db/prisma";
+import { ensurePendingDramaFacts, revisionConflict } from "./revisions";
+import type { DramaLLMOptions } from "./DramaStrategyService";
 import { compactText, safeJsonParse } from "./utils/json";
 
 interface BeatLite {
@@ -7,13 +9,14 @@ interface BeatLite {
 }
 
 export class DramaContextAssembler {
-  async buildEpisodeContext(projectId: string, episodeOrder: number) {
+  async buildEpisodeContext(projectId: string, episodeOrder: number, options: DramaLLMOptions = {}) {
+    await ensurePendingDramaFacts(projectId, Number(episodeOrder), options);
     const project = await prisma.dramaProject.findUnique({
       where: { id: projectId },
       include: {
         sourceBundle: true,
         characters: true,
-        facts: { orderBy: [{ episodeOrder: "asc" }, { createdAt: "asc" }] },
+        facts: { where: { stale: false, episodeOrder: { lt: Number(episodeOrder) } }, orderBy: [{ episodeOrder: "asc" }, { createdAt: "asc" }] },
         episodes: { orderBy: { order: "asc" } },
       },
     });
@@ -22,6 +25,11 @@ export class DramaContextAssembler {
     }
     // 防御：即使调用方传入字符串型 order 也能正确匹配
     const targetOrder = Number(episodeOrder);
+    if (project.episodes.some((item) => item.order < targetOrder && item.content?.trim() && item.factsStatus === "pending")) {
+      // A prior script may have changed after extraction. Do not build an AI
+      // context that silently drops the freshly invalidated fact ledger.
+      throw revisionConflict();
+    }
     const episode = project.episodes.find((item) => item.order === targetOrder);
     if (!episode) {
       throw new Error(`未找到短剧第 ${episodeOrder} 集大纲。`);

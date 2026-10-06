@@ -2,15 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildNextStep } from "../../src/pages/drama/production/nextStep.ts";
 import {
-  batchCompletion, canRefreshVideoTask, currentVideoPrompts, hasEpisodeProduction, isBatchStoryboardCurrent,
+  batchCompletion, canRefreshVideoTask, currentStoryboard, currentVideoPrompts, hasEpisodeProduction, isBatchStoryboardCurrent,
   latestBatchJobs, latestEpisodeBatch, nextOutlineRange, parseBatchProgress, pollingVideoPrompts,
   shouldPollProduction, summarizeDramaStages,
 } from "../../src/pages/drama/production/projection.ts";
 
 function episode(order = 1) {
   return {
-    id: `e${order}`, order, content: "台本", status: "approved",
-    storyboards: [{ id: `b${order}`, version: 2, shots: [{ id: `s${order}`, order: 1 }] }],
+    id: `e${order}`, order, revision: 3, content: "台本", status: "approved",
+    storyboards: [{ id: `b${order}`, version: 2, sourceRevision: 3, status: "generated", shots: [{ id: `s${order}`, order: 1 }] }],
   };
 }
 function prompt(overrides = {}) {
@@ -138,4 +138,30 @@ test("processed progress counts completed and failed items, with reuse included 
 test("reusing a shot cannot advance unfinished production progress twice", () => {
   const result = batchCompletion(job({ status: "running", progress: JSON.stringify({ total: 3, done: 1, failed: 0, skipped: 1 }) }));
   assert.deepEqual(result, { total: 3, done: 1, processed: 1, percent: 33 });
+});
+
+
+test("script revision changes invalidate storyboard, video, and batch recovery projections together", () => {
+  const edited = { ...episode(), revision: 4 };
+  const data = project({ episodes: [edited], batchJobs: [job()] });
+  assert.equal(currentStoryboard(edited), undefined);
+  assert.deepEqual(currentVideoPrompts(data), []);
+  assert.equal(isBatchStoryboardCurrent(job(), edited), false);
+  assert.equal(hasEpisodeProduction(data.batchJobs, edited), false);
+  assert.equal(buildNextStep(data).kind, "storyboard");
+});
+
+test("a matching source revision still cannot revive stale or superseded storyboards", () => {
+  for (const status of ["stale", "superseded"]) {
+    const item = episode();
+    item.storyboards[0].status = status;
+    assert.equal(currentStoryboard(item), undefined);
+    assert.equal(buildNextStep(project({ episodes: [item] })).kind, "storyboard");
+  }
+});
+
+test("current storyboard selection does not depend on response ordering", () => {
+  const item = episode();
+  item.storyboards.unshift({ id: "earlier", version: 1, sourceRevision: 3, status: "generated", shots: [{ id: "old-shot" }] });
+  assert.equal(currentStoryboard(item).id, "b1");
 });

@@ -3609,6 +3609,7 @@ model DramaProject {
   storyboards    DramaStoryboard[]
   videoPrompts   DramaVideoPrompt[]
   batchJobs      DramaBatchJob[]
+  renderJobs     DramaRenderJob[]
 
   @@index([source])
   @@index([status])
@@ -3665,6 +3666,8 @@ model DramaCharacter {
 
 model DramaEpisode {
   id           String   @id @default(cuid())
+  revision     Int      @default(0)
+  factsStatus  String   @default("ready")
   projectId    String
   order        Int
   title        String
@@ -3696,6 +3699,8 @@ model DramaEpisode {
   storyboards  DramaStoryboard[]
   videoPrompts DramaVideoPrompt[]
   batchJobs    DramaBatchJob[]
+  revisions    DramaEpisodeRevision[]
+  renderJobs   DramaRenderJob[]
 
   @@unique([projectId, order])
   @@index([projectId, status])
@@ -3709,6 +3714,8 @@ model DramaFact {
   text         String
   // completed/revealed/state_changed
   category     String   @default("completed")
+  sourceRevision Int?
+  stale        Boolean  @default(false)
   source       String   @default("auto")
   createdAt    DateTime @default(now())
 
@@ -3742,6 +3749,7 @@ model DramaStoryboard {
   id        String   @id @default(cuid())
   projectId String
   episodeId String
+  sourceRevision Int @default(0)
   version   Int      @default(1)
   status    String   @default("draft")
   summary   String?
@@ -4117,4 +4125,39 @@ model MediaProvider {
 
   @@unique([kind, providerKey])
   @@index([kind, isActive])
+}
+
+// Immutable script snapshots. Never overwrite or delete them during editing.
+model DramaEpisodeRevision {
+  id           String @id @default(cuid())
+  episodeId    String
+  revision     Int
+  title        String
+  content      String?
+  hookOpening  String?
+  cliffhanger  String?
+  durationSec  Int?
+  source       String
+  createdAt    DateTime @default(now())
+  episode      DramaEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  @@unique([episodeId, revision])
+}
+
+model DramaRenderJob {
+  id             String @id @default(cuid())
+  projectId      String
+  episodeId      String
+  storyboardId   String
+  sourceRevision Int
+  snapshotJson   String
+  status         String @default("queued")
+  progress       Int @default(0)
+  resultUrl      String?
+  failureReason  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        DramaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  episode        DramaEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  @@index([projectId, episodeId, createdAt])
+  @@index([status])
 }

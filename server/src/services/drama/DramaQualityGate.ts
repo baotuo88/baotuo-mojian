@@ -1,4 +1,4 @@
-import { prisma } from "../../db/prisma";
+import { saveEpisodeAssessment } from "./revisions";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import {
   dramaQualityPrompt,
@@ -103,7 +103,7 @@ export function applyPaywallQualityRules(
 
 export class DramaQualityGate {
   async reviewEpisode(projectId: string, episodeOrder: number, options: DramaLLMOptions = {}) {
-    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder);
+    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder, options);
     if (!context.episode.content?.trim()) {
       throw new Error(`第 ${episodeOrder} 集尚未生成台本，不能执行质量闸。`);
     }
@@ -136,13 +136,8 @@ export class DramaQualityGate {
     const status = output.status === "approved" ? "approved"
       : output.status === "repairable" || output.status === "blocked" ? "needs_repair"
         : "reviewed";
-    await prisma.dramaEpisode.update({
-      where: { id: context.episode.id },
-      data: {
-        status,
-        qualityFlags: JSON.stringify(output),
-      },
-    });
+    await saveEpisodeAssessment(context.episode.id, context.episode.revision, context.episode.qualityFlags,
+      { status, qualityFlags: JSON.stringify(output) });
     return output;
   }
 }

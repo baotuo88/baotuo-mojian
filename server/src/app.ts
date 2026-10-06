@@ -32,6 +32,7 @@ import novelRouter from "./modules/novel/http/novel";
 import creationStudioRouter from "./modules/novel/creation-studio/http/creationStudioRoutes";
 import { shortStoryProductionService } from "./modules/novel/short-story/application/ShortStoryProductionService";
 import dramaRouter from "./modules/drama/http/dramaRoutes";
+import { dramaRenderService } from "./services/drama/render";
 import { dramaBatchOrchestrator } from "./services/drama/production";
 import { dramaVideoPromptService } from "./services/drama/DramaVideoPromptService";
 import mediaAssetRouter from "./modules/media/http/mediaAssetRoutes";
@@ -313,7 +314,7 @@ function initializeBackgroundServices(): BackgroundServicesHandle {
 
   return {
     stop: async () => {
-      await dramaBatchOrchestrator.stop();
+      await Promise.all([dramaBatchOrchestrator.stop(), dramaRenderService.shutdown()]);
       directorWorker.stop();
       novelSideEffectWorker.stop();
       ragServices.ragWorker.stop();
@@ -342,6 +343,7 @@ export async function startServer(options?: ServerStartOptions): Promise<Started
   const { host, port, allowLan } = resolveServerStartOptions(options);
   assertProductionNetworkBoundary(host);
 
+  await dramaRenderService.recoverInterruptedJobs();
   await dramaBatchOrchestrator.recoverInterruptedJobs();
   await dramaVideoPromptService.recoverInterruptedSubmissions();
 

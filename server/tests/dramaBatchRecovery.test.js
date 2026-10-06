@@ -146,3 +146,40 @@ test("project ownership and empty legacy targets cannot bypass recovery validati
   assert.equal(result.status, "failed");
   assert.match(progress(result).interruptionReason, /镜头缺失/);
 });
+
+
+test("script revision invalidates a paused batch even before replacement storyboards exist", async () => {
+  const { project, episode } = await fixture(1);
+  const worker = new DramaBatchOrchestrator({ generateKeyframe: async () => assert.fail("stale work must not call provider") });
+  const job = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
+  await worker.pauseBatchJob(project.id, job.id);
+  await prisma.dramaEpisode.update({ where: { id: episode.id }, data: { revision: { increment: 1 } } });
+  await assert.rejects(worker.resumeBatchJob(project.id, job.id, true, manual), /新的版本/);
+  await assert.rejects(worker.createEpisodeBatchJob(project.id, 1, input, manual), /新的版本/);
+});
+
+test("startup recovers synchronous media claims while preserving previously usable assets", async () => {
+  const { storyboard } = await fixture(1);
+  const shotId = storyboard.shots[0].id;
+  await prisma.dramaShot.update({ where: { id: shotId }, data: {
+    keyframeData: JSON.stringify({ status: "generating", url: "/previous-image.png", fileName: "retained.png" }),
+    dialogueAudioData: JSON.stringify({ status: "generating", items: [{ audioUrl: "/previous-audio.wav" }] }),
+  } });
+  await new DramaBatchOrchestrator().recoverInterruptedJobs();
+  const shot = await prisma.dramaShot.findUnique({ where: { id: shotId } });
+  assert.equal(JSON.parse(shot.keyframeData).status, "error");
+  assert.equal(JSON.parse(shot.keyframeData).url, "/previous-image.png");
+  assert.equal(JSON.parse(shot.dialogueAudioData).status, "error");
+  assert.equal(JSON.parse(shot.dialogueAudioData).items[0].audioUrl, "/previous-audio.wav");
+});
+
+test("an edit during the final paid call prevents a successful batch completion", async () => {
+  const { project, episode } = await fixture(1);
+  const worker = new DramaBatchOrchestrator({ generateKeyframe: async () => {
+    await prisma.dramaEpisode.update({ where: { id: episode.id }, data: { revision: { increment: 1 } } });
+  } });
+  const job = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
+  const result = await worker.runBatchJob(job.id);
+  assert.equal(result.status, "failed");
+  assert.match(progress(result).interruptionReason, /新的版本/);
+});

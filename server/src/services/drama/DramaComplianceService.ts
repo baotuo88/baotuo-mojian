@@ -1,3 +1,4 @@
+import { saveEpisodeAssessment } from "./revisions";
 import { prisma } from "../../db/prisma";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import {
@@ -117,15 +118,12 @@ export function mergeComplianceIntoStoredQuality(
 
 export class DramaComplianceService {
   async checkEpisode(projectId: string, episodeOrder: number, options: DramaLLMOptions = {}) {
-    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder);
+    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder, options);
     const compliance = await this.checkEpisodeContext(context, options);
     const qualityFlags = mergeComplianceIntoStoredQuality(context.episode.qualityFlags, compliance);
-    await prisma.dramaEpisode.update({
-      where: { id: context.episode.id },
-      data: {
-        status: compliance.level === "block" ? "needs_repair" : context.episode.status,
-        qualityFlags: JSON.stringify(qualityFlags),
-      },
+    await saveEpisodeAssessment(context.episode.id, context.episode.revision, context.episode.qualityFlags, {
+      status: compliance.level === "block" ? "needs_repair" : context.episode.status,
+      qualityFlags: JSON.stringify(qualityFlags),
     });
     return compliance;
   }

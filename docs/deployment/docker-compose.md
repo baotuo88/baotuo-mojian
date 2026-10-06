@@ -188,3 +188,14 @@ comic_compose stop
 ## 公网部署边界
 
 当前 Compose 只发布 Web 端口，API 和数据库不发布端口。对外提供服务时，还应在 Web 前增加 HTTPS 反向代理、防火墙、访问控制和备份监控。当前服务端没有完整多用户认证，不适合直接向不可信公网开放。
+
+
+## 短剧 MP4 合成
+
+API 镜像包含 FFmpeg、FFprobe 和中文字体。完成当前分镜全部视频后，从短剧项目“导出”页合成竖屏 MP4；合成文件持久保存于媒体卷，更新服务前应连同数据库和图片卷一起备份。
+
+默认单个 API 实例一次处理一个合成任务，最多排队 20 个。单集默认上限 600 秒、80 个镜头，单素材 256 MiB、总输入 2 GiB、成片 512 MiB、处理 30 分钟。磁盘检查需预留至少约 3.6 GiB 的可用空间。CPU 默认使用 2 个线程。
+
+可通过 `.env` 的 `DRAMA_RENDER_THREADS`、`DRAMA_RENDER_MAX_DURATION_SEC`、`DRAMA_RENDER_MAX_CLIPS`、`DRAMA_RENDER_MAX_ASSET_MB`、`DRAMA_RENDER_MAX_INPUT_MB`、`DRAMA_RENDER_MAX_OUTPUT_MB`、`DRAMA_RENDER_TIMEOUT_SEC` 调整。详细硬上限和下载边界见[成片模块说明](../../server/src/services/drama/render/README.md)。
+
+重启后遗留合成任务显示失败并说明中断原因，可在页面重新合成，不自动调用付费模型。当前部署只支持单 API 实例；多副本运行需要先引入全局任务租约。

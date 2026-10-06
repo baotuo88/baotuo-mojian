@@ -166,7 +166,7 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/drama/drama.prompts").dramaEpisodeOutlinePrompt as UnknownPromptAsset,
   },
   {
-    key: "drama.episode.script@v1",
+    key: "drama.episode.script@v2",
     load: () => require("../prompts/drama/drama.prompts").dramaScriptPrompt as UnknownPromptAsset,
   },
   {
@@ -178,8 +178,16 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/drama/drama.prompts").dramaCompliancePrompt as UnknownPromptAsset,
   },
   {
-    key: "drama.episode.repair@v1",
+    key: "drama.episode.repair@v2",
     load: () => require("../prompts/drama/drama.prompts").dramaRepairPrompt as UnknownPromptAsset,
+  },
+  {
+    key: "drama.episode.facts@v1",
+    load: () => require("../prompts/drama/drama-facts.prompt").dramaEpisodeFactsPrompt as UnknownPromptAsset,
+  },
+  {
+    key: "drama.shot.keyframe@v1",
+    load: () => require("../prompts/drama/drama-keyframe.prompt").dramaKeyframePrompt as UnknownPromptAsset,
   },
   {
     key: "drama.storyboard@v1",

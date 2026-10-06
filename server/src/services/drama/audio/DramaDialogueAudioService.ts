@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "../../../db/prisma";
 import { AppError } from "../../../middleware/errorHandler";
 import { safeJsonParse } from "../utils/json";
 import { ttsProviderRegistry } from "./TTSProviderPort";
+import { assertCurrentStoryboard, withCurrentShot } from "../revisions";
 
 export type DialogueAudioStatus = "idle" | "generating" | "done" | "error";
 
@@ -17,6 +19,8 @@ export interface DialogueAudioItem {
 
 export interface DialogueAudioData {
   status: DialogueAudioStatus;
+  generationId?: string;
+  history?: Array<{ provider?: string; items: DialogueAudioItem[]; generatedAt?: string }>;
   provider?: string;
   items?: DialogueAudioItem[];
   generatedAt?: string;
@@ -35,8 +39,6 @@ interface CharacterVoice {
   emotion?: string;
   speed?: number;
 }
-
-const DEFAULT_TTS_PROVIDER = "mock";
 
 function parseDialogueLines(raw: string | null | undefined): DialogueLine[] {
   return (raw ?? "")
@@ -103,8 +105,14 @@ function buildVoiceMap(characters: Array<{ name: string; voiceProfile?: string |
 export class DramaDialogueAudioService {
   async synthesizeShotDialogue(
     shotId: string,
-    provider = DEFAULT_TTS_PROVIDER,
+    requestedProvider?: string,
   ): Promise<DialogueAudioData> {
+    const provider = requestedProvider?.trim()
+      || ttsProviderRegistry.listProviders().find((item) => item.provider !== "mock")?.provider;
+    if (!provider || (provider === "mock" && process.env.NODE_ENV !== "test")) {
+      throw new AppError("请先配置并选择可用的配音通道。", 400);
+    }
+    const adapter = ttsProviderRegistry.resolve(provider);
     const shot = await prisma.dramaShot.findUnique({
       where: { id: shotId },
       include: {
@@ -119,27 +127,36 @@ export class DramaDialogueAudioService {
       throw new AppError(`未找到短剧镜头：${shotId}`, 404);
     }
 
+    await assertCurrentStoryboard(shot.storyboardId);
     const lines = parseDialogueLines(shot.dialogue);
-    if (!lines.length) {
-      const idleData: DialogueAudioData = { status: "idle", provider, items: [] };
-      await prisma.dramaShot.update({
-        where: { id: shotId },
-        data: { dialogueAudioData: JSON.stringify(idleData) },
+    const generationId = randomUUID();
+    const existing = safeJsonParse<DialogueAudioData>(shot.dialogueAudioData, { status: "idle" });
+    if (existing.status === "generating") throw new AppError("本镜头的配音正在生成，请等待结果。", 409);
+    let expectedJson = shot.dialogueAudioData;
+    const saveState = async (data: DialogueAudioData) => {
+      const serialized = JSON.stringify(data);
+      await withCurrentShot(shotId, async (tx, current) => {
+        if (current.dialogue !== shot.dialogue) throw new AppError("镜头对白发生变化，请重新生成配音。", 409);
+        const saved = await tx.dramaShot.updateMany({
+          where: { id: shotId, dialogueAudioData: expectedJson },
+          data: { dialogueAudioData: serialized },
+        });
+        if (saved.count !== 1) throw new AppError("本镜头的配音任务有变化，请查看最新结果。", 409);
       });
+      expectedJson = serialized;
+    };
+    if (!lines.length) {
+      const idleData: DialogueAudioData = { ...existing, status: "idle", provider, generationId };
+      await saveState(idleData);
       return idleData;
     }
-
-    const generatingData: DialogueAudioData = { status: "generating", provider, items: [] };
-    await prisma.dramaShot.update({
-      where: { id: shotId },
-      data: { dialogueAudioData: JSON.stringify(generatingData) },
-    });
-
+    await saveState({ ...existing, status: "generating", provider, generationId, error: undefined });
     try {
-      const adapter = ttsProviderRegistry.resolve(provider);
       const voiceMap = buildVoiceMap(shot.storyboard.project.characters);
       const items: DialogueAudioItem[] = [];
       for (const line of lines) {
+        // Do not keep spending on later lines after the script is replaced.
+        await assertCurrentStoryboard(shot.storyboardId);
         const voice = line.speaker ? voiceMap.get(normalizeKey(line.speaker) ?? "") : undefined;
         const result = await adapter.synthesize({
           text: line.text,
@@ -161,25 +178,26 @@ export class DramaDialogueAudioService {
       const doneData: DialogueAudioData = {
         status: "done",
         provider,
+        generationId,
+        history: [...(existing.history ?? []), ...(existing.items?.length
+          ? [{ provider: existing.provider, items: existing.items, generatedAt: existing.generatedAt }] : [])],
         items,
         generatedAt: new Date().toISOString(),
       };
-      await prisma.dramaShot.update({
-        where: { id: shotId },
-        data: { dialogueAudioData: JSON.stringify(doneData) },
-      });
+      await saveState(doneData);
       return doneData;
     } catch (error) {
       const errorData: DialogueAudioData = {
+        ...existing,
         status: "error",
         provider,
-        items: [],
+        generationId,
         error: error instanceof Error ? error.message : String(error),
       };
-      await prisma.dramaShot.update({
-        where: { id: shotId },
-        data: { dialogueAudioData: JSON.stringify(errorData) },
-      });
+      // A late error must not clear a replacement task or a newer script's data.
+      try { await saveState(errorData); } catch (saveError) {
+        if (!(saveError instanceof AppError && saveError.statusCode === 409)) throw saveError;
+      }
       throw error;
     }
   }

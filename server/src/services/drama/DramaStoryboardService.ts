@@ -1,3 +1,4 @@
+import { lockEpisodeRevision } from "./revisions";
 import { prisma } from "../../db/prisma";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import { dramaStoryboardPrompt } from "../../prompting/prompts/drama/drama.prompts";
@@ -6,7 +7,7 @@ import type { DramaLLMOptions } from "./DramaStrategyService";
 
 export class DramaStoryboardService {
   async generateStoryboard(projectId: string, episodeOrder: number, options: DramaLLMOptions = {}) {
-    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder);
+    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder, options);
     if (!context.episode.content?.trim()) {
       throw new Error(`第 ${episodeOrder} 集尚未生成台本，不能生成分镜。`);
     }
@@ -24,11 +25,20 @@ export class DramaStoryboardService {
     });
     const output = result.output;
     const storyboard = await prisma.$transaction(async (tx) => {
+      await lockEpisodeRevision(tx, context.episode.id, context.episode.revision);
+      const previous = await tx.dramaStoryboard.findFirst({
+        where: { episodeId: context.episode.id }, orderBy: { version: "desc" },
+      });
+      await tx.dramaStoryboard.updateMany({
+        where: { episodeId: context.episode.id, status: { not: "stale" } }, data: { status: "superseded" },
+      });
       const created = await tx.dramaStoryboard.create({
         data: {
           projectId,
           episodeId: context.episode.id,
           summary: output.summary,
+          sourceRevision: context.episode.revision,
+          version: (previous?.version ?? 0) + 1,
           status: "draft",
         },
       });

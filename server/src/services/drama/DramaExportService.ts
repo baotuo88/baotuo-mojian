@@ -1,3 +1,6 @@
+import type { Prisma } from "@prisma/client";
+import { assertCurrentStoryboard } from "./revisions";
+import { AppError } from "../../middleware/errorHandler";
 import { prisma } from "../../db/prisma";
 import { safeJsonParse } from "./utils/json";
 
@@ -181,17 +184,17 @@ export class DramaExportService {
     };
   }
 
-  async exportEpisode(projectId: string, order: number, format: DramaEpisodeExportFormat = "srt") {
+  async exportEpisode(projectId: string, order: number, format: DramaEpisodeExportFormat = "srt", tx?: Prisma.TransactionClient) {
     if (!["srt", "timeline-json"].includes(format)) {
       throw new Error(`暂不支持的短剧单集导出格式：${format}`);
     }
-    const episode = await prisma.dramaEpisode.findUnique({
+    const episode = await (tx ?? prisma).dramaEpisode.findUnique({
       where: { projectId_order: { projectId, order } },
       include: {
         project: { select: { title: true } },
         videoPrompts: { orderBy: [{ version: "desc" }, { createdAt: "desc" }] },
         storyboards: {
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ version: "desc" }, { createdAt: "desc" }, { id: "desc" }],
           include: { shots: { orderBy: { order: "asc" } } },
         },
       },
@@ -200,6 +203,8 @@ export class DramaExportService {
       throw new Error(`未找到短剧第 ${order} 集。`);
     }
     const storyboard = episode.storyboards[0];
+    if (storyboard) await assertCurrentStoryboard(storyboard.id, tx);
+    if (!storyboard && format === "timeline-json") throw new AppError("请先生成分镜，再导出剪辑时间线。", 409);
     const entries: SubtitleEntry[] = [];
     let cursor = 0;
     const videoPromptsByShot = new Map<string, typeof episode.videoPrompts[number]>();
@@ -229,7 +234,7 @@ export class DramaExportService {
           startSec: shotStart,
           endSec: shotEnd,
           durationSec: shotEntries.effectiveDurationSec,
-          sourceUrl: prompt?.resultUrl ?? null,
+          sourceUrl: prompt?.status === "succeeded" ? prompt.resultUrl : null,
           status: prompt?.status ?? "missing",
           provider: prompt?.provider ?? null,
           version: prompt?.version ?? null,
@@ -271,7 +276,7 @@ export class DramaExportService {
       }
     }
 
-    if (!entries.length) {
+    if (!entries.length && !storyboard) {
       const lines = splitDialogueLines(episode.content);
       let fallbackCursor = 0;
       for (const line of lines) {
@@ -290,6 +295,8 @@ export class DramaExportService {
         format: "ai-novel.drama.timeline.v1",
         exportType: "rough_cut_timeline",
         projectTitle: episode.project.title,
+        storyboardId: storyboard?.id,
+        sourceRevision: episode.revision,
         episode: {
           id: episode.id,
           order: episode.order,

@@ -1,4 +1,6 @@
 import fs from "fs/promises";
+import { randomUUID } from "node:crypto";
+import { constants } from "node:fs";
 import path from "path";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 
@@ -7,11 +9,14 @@ import { AppError } from "../../../middleware/errorHandler";
 import { resolveGeneratedImagesRoot } from "../../../runtime/appPaths";
 import { filterImageGenerationReferences, runImageGeneration, type ImageTargetAdapter } from "../../image/runtime";
 import { safeJsonParse } from "../utils/json";
+import { assertCurrentStoryboard, withCurrentShot } from "../revisions";
+import { renderDramaKeyframePrompt } from "../../../prompting/prompts/drama/drama-keyframe.prompt";
 
 export type ShotKeyframeStatus = "idle" | "generating" | "done" | "error";
 
 export interface ShotKeyframeHistoryItem {
   version: number;
+  fileName?: string;
   url?: string;
   prompt?: string;
   provider?: string;
@@ -21,6 +26,8 @@ export interface ShotKeyframeHistoryItem {
 export interface ShotKeyframeData {
   status: ShotKeyframeStatus;
   version?: number;
+  fileName?: string;
+  generationId?: string;
   url?: string;
   prompt?: string;
   provider?: string;
@@ -65,11 +72,8 @@ const KEYFRAME_EXTS: Array<[string, string]> = [
 ];
 
 function dramaShotDir(shotId: string): string {
+  if (!/^[a-zA-Z0-9_-]+$/.test(shotId)) throw new AppError("镜头编号无效。", 400);
   return path.join(resolveGeneratedImagesRoot(), DRAMA_SHOT_IMAGES_DIR, shotId);
-}
-
-function currentKeyframeUrl(shotId: string): string {
-  return `/api/drama/shot-images/${shotId}/keyframe`;
 }
 
 function archivedKeyframeUrl(shotId: string, version: number): string {
@@ -101,6 +105,7 @@ function normalizeHistoryItem(input: unknown): ShotKeyframeHistoryItem | null {
   }
   return {
     version,
+    fileName: typeof record.fileName === "string" ? record.fileName : undefined,
     url: typeof record.url === "string" && record.url.trim() ? record.url.trim() : undefined,
     prompt: typeof record.prompt === "string" ? record.prompt : undefined,
     provider: typeof record.provider === "string" ? record.provider : undefined,
@@ -112,18 +117,6 @@ function readKeyframeHistory(data: ShotKeyframeData): ShotKeyframeHistoryItem[] 
   return Array.isArray(data.history)
     ? data.history.map(normalizeHistoryItem).filter((item): item is ShotKeyframeHistoryItem => Boolean(item))
     : [];
-}
-
-async function removeCurrentKeyframeVariants(shotId: string, keepExt: string): Promise<void> {
-  await Promise.all(KEYFRAME_EXTS
-    .filter(([ext]) => ext !== keepExt)
-    .map(async ([ext]) => {
-      try {
-        await fs.unlink(path.join(dramaShotDir(shotId), `keyframe.${ext}`));
-      } catch {
-        // Missing alternate formats are expected.
-      }
-    }));
 }
 
 function normalizeReferenceKey(value: unknown): string | null {
@@ -195,22 +188,7 @@ function buildCharacterPromptLine(character: CharacterLite): string {
 }
 
 function buildShotKeyframePrompt(shot: ShotKeyframeSource): string {
-  const characters = selectReferencedCharacters(shot).map(buildCharacterPromptLine);
-  const lines = [
-    "vertical 9:16 short drama keyframe, photorealistic cinematic still frame",
-    "single decisive first frame for image-to-video generation",
-    "clean composition, strong subject focus, commercial Chinese vertical micro-drama style",
-    shot.location ? `location: ${shot.location}` : "",
-    shot.shotSize ? `shot size: ${shot.shotSize}` : "",
-    shot.cameraMove ? `camera movement intention: ${shot.cameraMove}` : "",
-    `screen action: ${shot.action}`,
-    shot.dialogue ? `dialogue context, do not render subtitles: ${shot.dialogue}` : "",
-    shot.visualPrompt ? `visual prompt: ${shot.visualPrompt}` : "",
-    characters.length ? `characters: ${characters.join(" | ")}` : "",
-    "preserve consistent costume, hairstyle, face, age, and mood for all recurring characters",
-    "no text, no watermark, no subtitles, no logo",
-  ];
-  return lines.filter(Boolean).join(", ");
+  return renderDramaKeyframePrompt({ ...shot, characters: selectReferencedCharacters(shot).map(buildCharacterPromptLine) });
 }
 
 export class DramaShotKeyframeService {
@@ -232,6 +210,7 @@ export class DramaShotKeyframeService {
       throw new AppError(`未找到短剧镜头：${shotId}`, 404);
     }
 
+    await assertCurrentStoryboard(shot.storyboardId);
     const prompt = buildShotKeyframePrompt(shot);
     const refImages: string[] = [];
     const referenceImages: import("../../image/runtime").GeneratedReferenceImageMeta[] = [];
@@ -250,18 +229,53 @@ export class DramaShotKeyframeService {
       }
     }
 
+    // A request owns its files before it owns a database revision. Late results can
+    // leave an unused file, but can never replace the bytes of a published image.
+    const generationId = randomUUID();
+    let expectedJson: string | null | undefined;
+    let fileName: string | undefined;
+    let outputVersion = 1;
     const adapter: ImageTargetAdapter<ShotKeyframeData> = {
       kind: `drama.shot.keyframe:${shotId}`,
-      loadState: async () => safeJsonParse<ShotKeyframeData>(shot.keyframeData, { status: "idle" }),
+      loadState: async () => withCurrentShot(shotId, async (_tx, current) => {
+        if (current.action !== shot.action || current.dialogue !== shot.dialogue
+          || current.visualPrompt !== shot.visualPrompt || current.characterRefs !== shot.characterRefs) {
+          throw new AppError("镜头内容发生变化，请重新确认首帧画面。", 409);
+        }
+        const state = safeJsonParse<ShotKeyframeData>(current.keyframeData, { status: "idle" });
+        if (state.status === "generating") throw new AppError("本镜头的首帧正在生成，请等待结果。", 409);
+        expectedJson = current.keyframeData;
+        return state;
+      }),
       saveState: async (next) => {
-        await prisma.dramaShot.update({ where: { id: shotId }, data: { keyframeData: JSON.stringify(next) } });
+        outputVersion = next.version ?? 1;
+        // Mutating the object also keeps runImageGeneration's returned state exact.
+        next.generationId = generationId;
+        if (next.status === "done") next.fileName = fileName;
+        const serialized = JSON.stringify(next);
+        await withCurrentShot(shotId, async (tx) => {
+          const saved = await tx.dramaShot.updateMany({
+            where: { id: shotId, keyframeData: expectedJson ?? null },
+            data: { keyframeData: serialized },
+          });
+          if (saved.count !== 1) throw new AppError("本镜头的首帧任务有变化，请查看最新结果。", 409);
+        });
+        expectedJson = serialized;
       },
-      diskPath: (ext) => path.join(dramaShotDir(shotId), `keyframe.${ext}`),
-      publicUrl: () => currentKeyframeUrl(shotId),
-      cleanupOtherExts: (keepExt) => removeCurrentKeyframeVariants(shotId, keepExt),
+      diskPath: (ext) => {
+        const supportedExt = ext === "jpeg" ? "jpg" : ext;
+        if (!KEYFRAME_EXTS.some(([allowed]) => allowed === supportedExt)) {
+          throw new AppError("图片通道返回了不支持的格式，请使用 PNG、JPEG 或 WebP。", 422);
+        }
+        fileName = `keyframe.${generationId}.${supportedExt}`;
+        return path.join(dramaShotDir(shotId), fileName);
+      },
+      publicUrl: () => archivedKeyframeUrl(shotId, outputVersion),
       versioning: {
         enabled: true,
-        maxHistory: 5,
+        // Version URLs are also provider references; keep their immutable file
+        // mapping even after more than five regenerations.
+        maxHistory: Number.MAX_SAFE_INTEGER,
         archiveCurrent: (current) => this.archiveCurrentKeyframe(shotId, current),
       },
     };
@@ -324,6 +338,10 @@ export class DramaShotKeyframeService {
     if (!version) {
       return null;
     }
+    if (data.fileName) {
+      return { version, fileName: data.fileName, url: archivedKeyframeUrl(shotId, version),
+        prompt: data.prompt, provider: data.provider, generatedAt: data.generatedAt };
+    }
     const resolved = await this.resolveExistingKeyframePath(shotId);
     const historyItem: ShotKeyframeHistoryItem = {
       version,
@@ -336,7 +354,11 @@ export class DramaShotKeyframeService {
     }
     const ext = path.extname(resolved.filePath).replace(".", "").toLowerCase() || "png";
     const archivePath = path.join(dramaShotDir(shotId), `keyframe.v${version}.${ext}`);
-    await fs.copyFile(resolved.filePath, archivePath);
+    try {
+      await fs.copyFile(resolved.filePath, archivePath, constants.COPYFILE_EXCL);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
     return {
       ...historyItem,
       url: archivedKeyframeUrl(shotId, version),
@@ -344,6 +366,10 @@ export class DramaShotKeyframeService {
   }
 
   async resolveExistingKeyframePath(shotId: string): Promise<{ filePath: string; mimeType: string } | null> {
+    const shot = await prisma.dramaShot.findUnique({ where: { id: shotId }, select: { keyframeData: true } });
+    if (!shot) return null;
+    const state = safeJsonParse<ShotKeyframeData>(shot.keyframeData, { status: "idle" });
+    if (state.fileName) return this.resolveImmutableFile(shotId, state.fileName);
     const dir = dramaShotDir(shotId);
     for (const [ext, mimeType] of KEYFRAME_EXTS) {
       const filePath = path.join(dir, `keyframe.${ext}`);
@@ -357,7 +383,21 @@ export class DramaShotKeyframeService {
     return null;
   }
 
+  private async resolveImmutableFile(shotId: string, fileName: string) {
+    if (!/^keyframe\.[a-f0-9-]{36}\.(png|jpg|webp)$/.test(fileName)) return null;
+    const mimeType = KEYFRAME_EXTS.find(([ext]) => fileName.endsWith(`.${ext}`))?.[1];
+    if (!mimeType) return null;
+    const filePath = path.join(dramaShotDir(shotId), fileName);
+    try { await fs.access(filePath); return { filePath, mimeType }; } catch { return null; }
+  }
+
   async resolveArchivedKeyframePath(shotId: string, version: number): Promise<{ filePath: string; mimeType: string } | null> {
+    const shot = await prisma.dramaShot.findUnique({ where: { id: shotId }, select: { keyframeData: true } });
+    if (!shot) return null;
+    const state = safeJsonParse<ShotKeyframeData>(shot.keyframeData, { status: "idle" });
+    const entry = readKeyframeVersion(state) === version && state.status === "done"
+      ? state : readKeyframeHistory(state).find((item) => item.version === version);
+    if (entry?.fileName) return this.resolveImmutableFile(shotId, entry.fileName);
     const dir = dramaShotDir(shotId);
     for (const [ext, mimeType] of KEYFRAME_EXTS) {
       const filePath = path.join(dir, `keyframe.v${version}.${ext}`);

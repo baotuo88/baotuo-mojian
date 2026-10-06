@@ -1,4 +1,4 @@
-import { currentVideoPrompts, isActiveBatch, isBatchStoryboardCurrent, isRecoverableBatch, latestBatchJobs, nextOutlineRange } from "./projection.ts";
+import { currentStoryboard, currentVideoPrompts, isActiveBatch, isBatchStoryboardCurrent, isRecoverableBatch, latestBatchJobs, nextOutlineRange } from "./projection.ts";
 import type { DramaEpisode, DramaProjectDetail, DramaShot, DramaVideoPrompt } from "@/api/drama";
 type NextStepKind =
   | "source"
@@ -43,7 +43,7 @@ function firstRepairableEpisode(episodes: DramaEpisode[]): DramaEpisode | undefi
 }
 
 function firstEpisodeWithoutStoryboard(episodes: DramaEpisode[]): DramaEpisode | undefined {
-  return episodes.find((episode) => Boolean(episode.content?.trim()) && !episode.storyboards?.[0]?.shots?.length);
+  return episodes.find((episode) => Boolean(episode.content?.trim()) && !currentStoryboard(episode)?.shots?.length);
 }
 
 function firstShotWithoutVideoPrompt(episodes: DramaEpisode[], videoPrompts: DramaVideoPrompt[]): {
@@ -52,7 +52,8 @@ function firstShotWithoutVideoPrompt(episodes: DramaEpisode[], videoPrompts: Dra
 } | undefined {
   const promptedShotIds = new Set(videoPrompts.filter(isActiveVideoPrompt).map((prompt) => prompt.shotId).filter(Boolean));
   for (const episode of episodes) {
-    for (const storyboard of episode.storyboards?.slice(0, 1) ?? []) {
+    const storyboard = currentStoryboard(episode);
+    if (storyboard) {
       for (const shot of storyboard.shots ?? []) {
         if (!promptedShotIds.has(shot.id)) {
           return { episode, shot };
@@ -151,7 +152,9 @@ export function buildNextStep(project: DramaProjectDetail, videoProviderConfigur
     return {
       kind: "storyboard",
       title: `下一步：生成第 ${unstagedStoryboard.order} 集分镜`,
-      description: "把已通过检查的台本拆成可拍摄镜头，保留角色视觉锚点和动作重点。",
+      description: unstagedStoryboard.storyboards?.length
+        ? "台本与分镜的版本不同，请按当前台本重新生成分镜。历史素材会保留。"
+        : "把通过检查的台本拆成可拍摄镜头，保留角色视觉锚点和动作重点。",
       button: "生成分镜",
       tab: "visual",
       icon: "video",
@@ -198,9 +201,9 @@ export function buildNextStep(project: DramaProjectDetail, videoProviderConfigur
   if (outlineRange) return outlineStep(outlineRange);
   return {
     kind: "export",
-    title: "下一步：导出短剧资料",
-    description: "导出当前角色、分集、台本、质量结果和后续生产资料，方便继续编辑或交付。",
-    button: "导出 Markdown",
+    title: "下一步：合成与导出成片",
+    description: "在导出中选择集数，将镜头视频、配音和字幕合成为 MP4，也可下载台本和剪辑资料。",
+    button: "合成与导出",
     tab: "export",
     icon: "export",
   };

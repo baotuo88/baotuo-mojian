@@ -24,7 +24,10 @@ import { dramaBatchOrchestrator } from "../../../services/drama/production";
 import { dramaShotKeyframeService } from "../../../services/drama/visual/DramaShotKeyframeService";
 import { videoProviderRegistry } from "../../../services/drama/video/VideoProviderPort";
 
+import dramaRenderRoutes from "./dramaRenderRoutes";
+
 const router = Router();
+router.use(dramaRenderRoutes);
 
 const llmOptionsSchema = z
   .object({
@@ -106,6 +109,7 @@ const repairRequestSchema = z
   .optional();
 
 const episodeUpdateSchema = z.object({
+  expectedRevision: z.number().int().min(0),
   title: z.string().trim().min(1).max(120).optional(),
   content: z.string().max(200000).optional(),
   hookOpening: z.string().trim().max(1000).nullable().optional(),
@@ -329,6 +333,14 @@ router.post("/projects/:id/outline", validate({ params: idParamsSchema, body: ou
   } catch (error) {
     next(error);
   }
+});
+
+router.get("/projects/:id/episodes/:order/revisions", validate({ params: episodeParamsSchema }), async (req, res, next) => {
+  try {
+    const { id, order } = req.params as unknown as z.infer<typeof episodeParamsSchema>;
+    const data = await dramaEpisodeService.listRevisions(id, order);
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
 });
 
 router.post("/projects/:id/episodes/:order/script", validate({ params: episodeParamsSchema, body: llmOptionsSchema }), async (req, res, next) => {

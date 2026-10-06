@@ -42,7 +42,6 @@ export function DramaNextStepPanel(props: {
   onGenerateStoryboard: (order: number) => void;
   onGenerateVideoPrompt: (shot: DramaShot) => void;
   onCreateProviderTask: (prompt: DramaVideoPrompt) => void;
-  onExportMarkdown: () => void;
 }) {
   const step = buildNextStep(props.project, props.videoProviderConfigured);
   const runStep = () => {
@@ -59,7 +58,6 @@ export function DramaNextStepPanel(props: {
     if (step.kind === "storyboard" && step.episodeOrder) props.onGenerateStoryboard(step.episodeOrder);
     if (step.kind === "videoPrompt" && step.shot) props.onGenerateVideoPrompt(step.shot);
     if (step.kind === "providerTask" && step.videoPrompt) props.onCreateProviderTask(step.videoPrompt);
-    if (step.kind === "export") props.onExportMarkdown();
   };
 
   return (

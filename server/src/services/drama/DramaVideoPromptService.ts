@@ -1,11 +1,12 @@
 import { prisma } from "../../db/prisma";
 import { randomUUID } from "node:crypto";
-import type { DramaVideoPrompt } from "@prisma/client";
+import type { DramaVideoPrompt, Prisma } from "@prisma/client";
 import { AppError } from "../../middleware/errorHandler";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import { dramaVideoPromptPrompt } from "../../prompting/prompts/drama/drama.prompts";
 import { dramaContextAssembler } from "./DramaContextAssembler";
 import { safeJsonParse } from "./utils/json";
+import { assertCurrentStoryboard, withCurrentShot } from "./revisions";
 import { videoProviderRegistry } from "./video/VideoProviderPort";
 import type { DramaLLMOptions } from "./DramaStrategyService";
 import type { VideoGenerationRequest, VideoGenerationResult } from "./video/VideoProviderPort";
@@ -80,9 +81,7 @@ function normalizeRefImageUrl(url: string): string {
 }
 
 async function collectShotReferenceImages(videoPrompt: VideoPromptReferenceSource): Promise<string[]> {
-  if (!videoPrompt.shotId) {
-    return [];
-  }
+  if (!videoPrompt.shotId) throw new AppError("视频任务缺少关联镜头，请从当前分镜创建。", 409);
   const shot = await prisma.dramaShot.findUnique({
     where: { id: videoPrompt.shotId },
     include: { storyboard: { include: { episode: true } } },
@@ -92,6 +91,7 @@ async function collectShotReferenceImages(videoPrompt: VideoPromptReferenceSourc
     || (videoPrompt.episodeId && shot.storyboard.episodeId !== videoPrompt.episodeId)) {
     throw new AppError("镜头不属于当前短剧项目，请重新选择镜头。", 409);
   }
+  await assertCurrentStoryboard(shot.storyboardId);
   const urls: string[] = [];
   const keyframe = safeJsonParse<KeyframeReferenceData>(shot?.keyframeData, {});
   if (keyframe.status === "done" && typeof keyframe.url === "string" && keyframe.url.trim()) {
@@ -130,6 +130,7 @@ export class DramaVideoPromptService {
     if (!shot || shot.storyboard.projectId !== projectId || shot.storyboard.episode.projectId !== projectId) {
       throw new AppError("未找到当前短剧项目的镜头。", 404);
     }
+    await assertCurrentStoryboard(shot.storyboardId);
     const latest = await prisma.dramaVideoPrompt.findFirst({ where: { projectId, shotId }, orderBy: [{ version: "desc" }, { createdAt: "desc" }] });
     assertPromptReplaceable(latest);
     const context = await dramaContextAssembler.buildEpisodeContext(projectId, shot.storyboard.episode.order);
@@ -157,7 +158,7 @@ export class DramaVideoPromptService {
     });
     const output = result.output;
     const version = (latest?.version ?? 0) + 1;
-    return prisma.$transaction(async (tx) => {
+    return withCurrentShot(shotId, async (tx) => {
       const shotClaim = await tx.dramaShot.updateMany({
         where: { id: shotId, storyboardId: shot.storyboardId, updatedAt: shot.updatedAt, action: shot.action, dialogue: shot.dialogue, visualPrompt: shot.visualPrompt },
         data: { updatedAt: shot.updatedAt },
@@ -197,7 +198,7 @@ export class DramaVideoPromptService {
         },
       });
       return created;
-    }, { isolationLevel: "Serializable" });
+    });
   }
 
   async createProviderTask(videoPromptId: string, provider?: string, options: { confirmResubmit?: boolean } = {}) {
@@ -205,6 +206,8 @@ export class DramaVideoPromptService {
     if (!videoPrompt) {
       throw new AppError("未找到视频提示词。", 404);
     }
+    // Even completed work from an older script must not be returned as current.
+    await this.assertCurrentPromptShot(videoPrompt);
     if (videoPrompt.status === "superseded" || videoPrompt.supersededById) {
       throw new AppError("该视频提示词已有新版，请使用当前版本创建视频任务。", 409);
     }
@@ -238,12 +241,12 @@ export class DramaVideoPromptService {
     } : undefined;
     const submission = { submissionId, startedAt: new Date().toISOString(), previousAttempt };
     const claimJson = JSON.stringify(submission);
-    const claim = await prisma.dramaVideoPrompt.updateMany({
+    const claim = await withCurrentShot(videoPrompt.shotId!, async (tx) => tx.dramaVideoPrompt.updateMany({
       where: revisionWhere(videoPrompt),
       data: {
         provider: selectedProvider, status: "submitting", providerTaskId: null, providerResult: claimJson, failureReason: null,
       },
-    });
+    }));
     if (claim.count !== 1) {
       const current = await prisma.dramaVideoPrompt.findUnique({ where: { id: videoPromptId } });
       if (current?.providerTaskId && !current.supersededById && (current.status === "queued" || current.status === "running" || SUCCESS_STATUSES.has(current.status))) return current;
@@ -255,16 +258,16 @@ export class DramaVideoPromptService {
       result = await adapter.createTask(request);
       if (!result.providerTaskId?.trim()) throw new Error("视频通道未返回任务编号。");
     } catch {
-      await prisma.dramaVideoPrompt.updateMany({ where: claimedWhere, data: {
+      await this.saveProviderResult(videoPrompt, claimedWhere, {
         status: "submission_unknown",
         failureReason: "无法确认视频通道是否接受了上次提交，请核对后再决定是否重新提交。",
-      } });
+      });
       throw new AppError("无法确认视频提交结果，请先到视频通道核对；重新提交可能再次计费。", 409);
     }
-    const saved = await prisma.dramaVideoPrompt.updateMany({ where: claimedWhere, data: {
+    const saved = await this.saveProviderResult(videoPrompt, claimedWhere, {
       providerTaskId: result.providerTaskId, status: result.status, resultUrl: result.resultUrl ?? videoPrompt.resultUrl,
       failureReason: result.failureReason ?? null, providerResult: JSON.stringify({ ...result, ...submission }),
-    } });
+    });
     if (saved.count !== 1) throw new AppError("视频通道接收了任务，但本地状态有变化，请先查询任务，避免重复提交。", 409);
     return prisma.dramaVideoPrompt.findUnique({ where: { id: videoPromptId } });
   }
@@ -285,16 +288,43 @@ export class DramaVideoPromptService {
       : completed ? videoPrompt.status
         : videoPrompt.status === "running" && result.status === "queued" ? "running" : result.status;
     const resultUrl = videoPrompt.resultUrl || result.resultUrl || null;
-    await prisma.dramaVideoPrompt.updateMany({
-      where: revisionWhere(videoPrompt),
-      data: {
-        status,
-        resultUrl,
-        failureReason: completed ? videoPrompt.failureReason : result.failureReason ?? null,
-        providerResult: JSON.stringify({ ...safeJsonParse<Record<string, unknown>>(videoPrompt.providerResult, {}), ...result, status, resultUrl }),
-      },
+    await this.saveProviderResult(videoPrompt, revisionWhere(videoPrompt), {
+      status,
+      resultUrl,
+      failureReason: completed ? videoPrompt.failureReason : result.failureReason ?? null,
+      providerResult: JSON.stringify({ ...safeJsonParse<Record<string, unknown>>(videoPrompt.providerResult, {}), ...result, providerStatus: result.status, status, resultUrl }),
     });
     return prisma.dramaVideoPrompt.findUnique({ where: { id: videoPromptId } });
+  }
+
+  private async assertCurrentPromptShot(prompt: DramaVideoPrompt) {
+    if (!prompt.shotId) throw new AppError("视频任务缺少关联镜头，请从当前分镜创建。", 409);
+    const shot = await prisma.dramaShot.findUnique({ where: { id: prompt.shotId } });
+    if (!shot) throw new AppError("视频任务的镜头不存在。", 409);
+    const storyboard = await assertCurrentStoryboard(shot.storyboardId);
+    if (storyboard.projectId !== prompt.projectId || (prompt.episodeId && storyboard.episodeId !== prompt.episodeId)) {
+      throw new AppError("视频任务不属于当前短剧分镜。", 409);
+    }
+  }
+
+  /** Preserve paid upstream IDs for reconciliation, but never publish stale results as current. */
+  private async saveProviderResult(
+    prompt: DramaVideoPrompt,
+    where: Prisma.DramaVideoPromptWhereInput,
+    data: Prisma.DramaVideoPromptUpdateManyMutationInput,
+  ) {
+    if (!prompt.shotId) throw new AppError("视频任务缺少关联镜头。", 409);
+    try {
+      return await withCurrentShot(prompt.shotId, async (tx) => tx.dramaVideoPrompt.updateMany({ where, data }));
+    } catch (error) {
+      if (!(error instanceof AppError && error.statusCode === 409)) throw error;
+      // Only the same provider attempt may be archived. This CAS intentionally
+      // retains task IDs/results after an episode edit; it cannot revive a task.
+      return prisma.$transaction(async (tx) => tx.dramaVideoPrompt.updateMany({
+        where,
+        data: { ...data, status: "superseded" },
+      }));
+    }
   }
 
   /** Run once before accepting traffic in the supported single-API deployment. Never resubmits upstream. */

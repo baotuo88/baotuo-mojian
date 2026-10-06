@@ -10,7 +10,7 @@
 
 ## Current Rule
 
-整集制作、视频提交和素材保护的状态细节以[短剧任务恢复与素材保护](short-drama-production-recovery.md)为准。
+整集制作和视频提交的状态细节见[短剧任务恢复与素材保护](short-drama-production-recovery.md)；台本版本、事实重整与 MP4 输出见[台本版本与成片交付](short-drama-revisions-and-rendering.md)。
 
 - `/drama` 是短剧入口和项目列表，不承载完整生产链。
 - 工作台开放时，桌面导航（展开/收起）和移动端菜单必须提供可点击入口，不能保留“即将推出”的禁用状态。SPA 页面返回 200 只说明应用外壳可访问，不能证明用户能从导航进入；代码级验收应包含实际导航组件生成的链接。
@@ -47,7 +47,7 @@
 - 分镜视频页的首帧图生成使用图片 Provider 配置，只展示已配置、已启用且支持图片生成的 Provider；视频 Provider 选择与图片 Provider 选择是两条独立能力，不应混用。
 - TTS provider 通过 `TTSProviderPort` 抽象接入，可用 provider 由 `/api/drama/tts-providers` 暴露给前端。`mock` 只用于显式自动化测试，用户必须选择已配置的媒体通道；通用 HTTP 配音通道只在配置 `DRAMA_TTS_HTTP_SYNTHESIZE_URL` 后注册，并把外部服务返回的 `audioUrl` / `url` / `resultUrl` 和 `durationSec` / `duration` / `seconds` 标准化为镜头台词音频。
 - `DramaShot.dialogueAudioData` 是镜头级配音状态字段，保存 `{ status, provider, items, generatedAt, error }`。`items` 按台词行记录 `{ lineIndex, speaker, text, voiceId, audioUrl, durationSec, provider }`，其中 `voiceId` 来自说话人匹配到的 `DramaCharacter.voiceProfile`。说话人无法匹配角色时可以继续合成，但不会绑定角色声线。
-- 单集 SRT 导出属于成片组装前的确定性时间轴产物，入口为 `/api/drama/projects/:id/episodes/:order/export?format=srt`。有分镜时按最新分镜的镜头顺序和 `DramaShot.durationSec` 推算字幕时间；当镜头已有 `dialogueAudioData.status === "done"` 且台词项包含音频时长，优先使用真实配音时长生成字幕区间；没有配音时在镜头内部按台词文本长度分配时间；没有可用分镜台词时，退回到单集台本正文逐行导出。
+- 单集 SRT 导出属于成片组装前的确定性时间轴产物，入口为 `/api/drama/projects/:id/episodes/:order/export?format=srt`。有分镜时按最新分镜的镜头顺序和 `DramaShot.durationSec` 推算字幕时间；当镜头已有 `dialogueAudioData.status === "done"` 且台词项包含音频时长，优先使用真实配音时长生成字幕区间；没有配音时在镜头内部按台词文本长度分配时间；没有分镜时可退回台本文本字幕；有分镜但无对白时输出空字幕，不把动作说明当作对白。
 - 单集剪辑草稿导出入口为 `/api/drama/projects/:id/episodes/:order/export?format=timeline-json`。草稿使用 `ai-novel.drama.timeline.v1` 稳定 JSON 格式，按最新分镜输出镜头顺序、视频轨、配音轨和字幕轨。视频轨读取 `DramaVideoPrompt.resultUrl / status / providerTaskId`，没有可用视频结果时保留缺口 warning；配音轨读取 `DramaShot.dialogueAudioData`；字幕轨复用 SRT 时间轴规则。该格式是内部粗剪交接格式，不等同于已经完成 mp4 合成。
 - `DramaBatchJob` 是短剧生产管理层的整集队列记录，入口为 `/api/drama/projects/:id/episodes/:order/batch-jobs`。当前支持 `keyframes`、`videos` 和 `tts` 三类任务，任务状态使用 `pending / running / paused / done / failed` 字符串，`progress` 保存 `{ total, done, failed, skipped, failedShotIds, provider, targetShotIds, currentShotId, errors }`。
 - 批量任务成本估算入口为 `/api/drama/projects/:id/episodes/:order/batch-jobs/estimate`，使用与创建任务相同的目标镜头筛选规则。`progress.cost` 保存 `{ currency, estimated, actual, estimatedUnits, actualUnits, unit }`；创建任务时写入预计费用，运行时只把真正处理的镜头计入实际费用，跳过项不增加实际成本。

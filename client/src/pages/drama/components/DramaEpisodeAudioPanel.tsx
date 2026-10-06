@@ -10,7 +10,7 @@ import {
   type DramaTTSProvider,
 } from "@/api/drama";
 import { Link } from "react-router-dom";
-import { DramaBatchJobCard, hasEpisodeProduction, isBatchStoryboardCurrent, latestEpisodeBatch } from "../production";
+import { DramaBatchJobCard, currentStoryboard, hasEpisodeProduction, isBatchStoryboardCurrent, latestEpisodeBatch } from "../production";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import SelectControl from "@/components/common/SelectControl";
@@ -46,9 +46,9 @@ export function DramaEpisodeAudioPanel(props: {
     : props.ttsProviders[0]?.provider ?? "";
   const latestTtsBatch = latestEpisodeBatch(props.batchJobs, props.episode.id, "tts");
   const ttsActive = hasEpisodeProduction(props.batchJobs, props.episode, "tts");
-  const hasStoryboardShots = Boolean(props.episode.storyboards?.[0]?.shots?.length);
+  const hasStoryboardShots = Boolean(currentStoryboard(props.episode)?.shots?.length);
   const estimateQuery = useQuery({
-    queryKey: ["drama", "batch-estimate", props.projectId, props.episode.order, "tts", activeProvider],
+    queryKey: ["drama", "batch-estimate", props.projectId, props.episode.order, props.episode.revision, currentStoryboard(props.episode)?.id, "tts", activeProvider],
     queryFn: () => estimateDramaEpisodeBatchJob(props.projectId, props.episode.order, {
       type: "tts",
       provider: activeProvider,
@@ -57,7 +57,7 @@ export function DramaEpisodeAudioPanel(props: {
     staleTime: 30_000,
   });
   const audioItems = useMemo(() => {
-    const storyboard = props.episode.storyboards?.[0];
+    const storyboard = currentStoryboard(props.episode);
     return (storyboard?.shots ?? []).flatMap((shot) => {
       const audio = parseAudioData(shot.dialogueAudioData);
       return (audio.items ?? []).map((item) => ({
@@ -65,7 +65,7 @@ export function DramaEpisodeAudioPanel(props: {
         shotOrder: shot.order,
       }));
     });
-  }, [props.episode.storyboards]);
+  }, [props.episode]);
 
   useEffect(() => {
     if (props.ttsProviders.length > 0 && !selectedProvider) {

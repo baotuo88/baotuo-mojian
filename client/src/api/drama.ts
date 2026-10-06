@@ -66,6 +66,7 @@ export interface DramaProject {
 }
 
 export interface DramaEpisode {
+  revision: number;
   id: string;
   projectId: string;
   order: number;
@@ -198,6 +199,7 @@ export interface DramaShot {
 }
 
 export interface DramaStoryboard {
+  sourceRevision: number;
   id: string;
   projectId: string;
   episodeId: string;
@@ -391,13 +393,14 @@ export async function generateDramaEpisodeScript(id: string, order: number, payl
 }
 
 export async function updateDramaEpisode(id: string, order: number, payload: {
+  expectedRevision: number;
   title?: string;
   content?: string;
   hookOpening?: string | null;
   cliffhanger?: string | null;
   durationSec?: number | null;
 }) {
-  const { data } = await apiClient.patch<ApiResponse<DramaEpisode>>(`/drama/projects/${id}/episodes/${order}`, payload);
+  const { data } = await apiClient.patch<ApiResponse<DramaEpisode>>(`/drama/projects/${id}/episodes/${order}`, payload, { silentErrorStatuses: [409] });
   return data;
 }
 
@@ -635,6 +638,62 @@ export async function generateDramaCharacterThreeView(id: string, characterId: s
   const { data } = await apiClient.post<ApiResponse<DramaCharacterThreeViewItem[]>>(
     `/drama/projects/${id}/characters/${characterId}/generate-three-view`,
     provider ? { provider } : {},
+  );
+  return data;
+}
+
+export interface DramaEpisodeRevision {
+  id: string;
+  episodeId: string;
+  revision: number;
+  title: string;
+  content?: string | null;
+  hookOpening?: string | null;
+  cliffhanger?: string | null;
+  durationSec?: number | null;
+  source: string;
+  createdAt: string;
+}
+
+export async function listDramaEpisodeRevisions(projectId: string, order: number) {
+  const { data } = await apiClient.get<ApiResponse<DramaEpisodeRevision[]>>(
+    `/drama/projects/${projectId}/episodes/${order}/revisions`,
+  );
+  return data;
+}
+
+export interface DramaRenderJob {
+  isCurrent?: boolean;
+  id: string;
+  projectId: string;
+  episodeId: string;
+  storyboardId: string;
+  sourceRevision: number;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  progress: number;
+  resultUrl?: string | null;
+  failureReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listDramaEpisodeRenders(projectId: string, order: number) {
+  const { data } = await apiClient.get<ApiResponse<DramaRenderJob[]>>(
+    `/drama/projects/${projectId}/episodes/${order}/renders`,
+  );
+  return data;
+}
+
+export async function createDramaEpisodeRender(projectId: string, order: number) {
+  const { data } = await apiClient.post<ApiResponse<DramaRenderJob>>(
+    `/drama/projects/${projectId}/episodes/${order}/renders`, {},
+  );
+  return data;
+}
+
+export async function cancelDramaEpisodeRender(projectId: string, jobId: string) {
+  const { data } = await apiClient.post<ApiResponse<DramaRenderJob>>(
+    `/drama/projects/${projectId}/renders/${jobId}/cancel`, {},
   );
   return data;
 }

@@ -13,11 +13,13 @@ test("drama prompt assets are registered", () => {
     ["drama.source.supplement", "v1"],
     ["drama.strategy", "v1"],
     ["drama.episodeOutline", "v1"],
-    ["drama.episode.script", "v1"],
+    ["drama.episode.script", "v2"],
     ["drama.episode.quality", "v1"],
     ["drama.episode.compliance", "v1"],
-    ["drama.episode.repair", "v1"],
+    ["drama.episode.repair", "v2"],
     ["drama.storyboard", "v1"],
+    ["drama.episode.facts", "v1"],
+    ["drama.shot.keyframe", "v1"],
     ["drama.video.prompt", "v1"],
   ];
   for (const [id, version] of prompts) {
