@@ -37,3 +37,21 @@
 - 模型生成内容质量、角色视觉一致性和真实通道计费仍需有明确费用范围的实测；不据本次 fixture 验证宣称全面稳定上线。
 
 长期规则见 [台本版本与成片交付](../wiki/workflows/short-drama-revisions-and-rendering.md)。发布说明与 README 按 2026-10-06 日期维护。
+
+
+## 本地 beta 与部署结果
+
+功能提交 `c6ed6e5` 已快进合入本地 `beta`，文件树与上述验证一致，因此复用同一构建和测试证据。未推广 `main`、推送远端或发布桌面包。
+
+现有 Docker API/Web 已切换为上述最终镜像，API、Web、PostgreSQL 均健康。实际地址 `http://localhost:8080/drama` 返回 200；健康接口、项目列表和历史稿接口正常，成片接口可识别不存在的集并返回 404。实际下发的短剧页面资源含版本保存及 MP4 界面代码；前端 API 为拆分资源，未把仅查找单个 bundle 的字符串当成整体接口验证。
+
+更新前停止 API/Web 并生成完整备份，数据库归档可列出、媒体归档可读、SHA256 已记录：
+
+- 备份目录：`.codex-backups/drama-revision-render-20261006-otn6dxzd/`
+- 数据库：`database.dump`（5421380 bytes）
+- 图片和媒体：`image-storage.tar.gz`、`media-storage.tar.gz`
+- 更新后作品数量一致：1 部小说、80 章，漫画和短剧项目当时均为 0。
+- 章节正文与短剧台本内容哈希更新前后一致，证明此次升级未改写既有作品。
+- 完整记录：备份目录内 `verification.json`，含运行镜像、健康状态、数量与内容哈希检查。
+
+此节是部署验收记录，没有新增用户可见功能，因此不重复添加发布说明。长期契约已写入相关 Wiki。
