@@ -5,16 +5,21 @@ import type { PromptAsset } from "../../core/promptTypes";
 // ─── 分话规划 ───────────────────────────────────────────────────────────────
 
 export const comicEpisodeOutlineOutputSchema = z.object({
-  episodes: z.array(z.object({
-    order: z.number().int().min(1),
-    title: z.string().trim().min(1).max(30),
-    synopsis: z.string().trim().min(10).max(300),
-    hookType: z.string().trim().optional(),
-    cliffhanger: z.string().trim().max(100).optional(),
-    isPaywalled: z.boolean().default(false),
-    sourceChapterStart: z.number().int().min(1).optional(),
-    sourceChapterEnd: z.number().int().min(1).optional(),
-  })).min(1).max(40),
+  episodes: z
+    .array(
+      z.object({
+        order: z.number().int().min(1),
+        title: z.string().trim().min(1).max(30),
+        synopsis: z.string().trim().min(10).max(300),
+        hookType: z.string().trim().optional(),
+        cliffhanger: z.string().trim().max(100).optional(),
+        isPaywalled: z.boolean().default(false),
+        sourceChapterStart: z.number().int().min(1).optional(),
+        sourceChapterEnd: z.number().int().min(1).optional(),
+      }),
+    )
+    .min(1)
+    .max(40),
 });
 
 export type ComicEpisodeOutlineOutput = z.infer<typeof comicEpisodeOutlineOutputSchema>;
@@ -29,7 +34,13 @@ export interface ComicEpisodeOutlinePromptInput {
   hookLibrary: string;
   stylePreset?: string;
   requireSourceRange?: boolean;
-  existingEpisodes?: Array<{ order: number; title: string | null; outline: string | null; cliffhanger: string | null; sourceRange?: unknown }>;
+  existingEpisodes?: Array<{
+    order: number;
+    title: string | null;
+    outline: string | null;
+    cliffhanger: string | null;
+    sourceRange?: unknown;
+  }>;
 }
 
 export const comicEpisodeOutlinePrompt: PromptAsset<
@@ -46,12 +57,30 @@ export const comicEpisodeOutlinePrompt: PromptAsset<
   semanticRetryPolicy: { maxAttempts: 1 },
   postValidate(output, input) {
     const count = input.endOrder - input.startOrder + 1;
-    const orders = new Set(output.episodes.map(episode => episode.order));
-    if (output.episodes.length !== count || orders.size !== count || output.episodes.some(episode => episode.order < input.startOrder || episode.order > input.endOrder)) {
-      throw new Error(`请逐一返回第 ${input.startOrder}-${input.endOrder} 话，不能重复、遗漏或超出范围。`);
+    const orders = new Set(output.episodes.map((episode) => episode.order));
+    if (
+      output.episodes.length !== count ||
+      orders.size !== count ||
+      output.episodes.some(
+        (episode) => episode.order < input.startOrder || episode.order > input.endOrder,
+      )
+    ) {
+      throw new Error(
+        `请逐一返回第 ${input.startOrder}-${input.endOrder} 话，不能重复、遗漏或超出范围。`,
+      );
     }
-    if (input.requireSourceRange && output.episodes.some(episode => !episode.sourceChapterStart || !episode.sourceChapterEnd || episode.sourceChapterEnd < episode.sourceChapterStart)) {
-      throw new Error("每话必须提供有效的 sourceChapterStart/sourceChapterEnd，只能使用源节拍中的小说章节编号。");
+    if (
+      input.requireSourceRange &&
+      output.episodes.some(
+        (episode) =>
+          !episode.sourceChapterStart ||
+          !episode.sourceChapterEnd ||
+          episode.sourceChapterEnd < episode.sourceChapterStart,
+      )
+    ) {
+      throw new Error(
+        "每话必须提供有效的 sourceChapterStart/sourceChapterEnd，只能使用源节拍中的小说章节编号。",
+      );
     }
     return output;
   },
@@ -72,7 +101,7 @@ ${input.synopsis}
 ${input.beatsDigest}
 
 ## 已确定的其他分话（保持其情节和结尾）
-${input.existingEpisodes?.length ? input.existingEpisodes.map(episode => `第 ${episode.order} 话「${episode.title ?? "未命名"}」：${episode.outline ?? "无大纲"}\n结尾：${episode.cliffhanger ?? "无"}\n源章节范围：${episode.sourceRange ? JSON.stringify(episode.sourceRange) : "未标注"}`).join("\n\n") : "暂无其他分话。"}
+${input.existingEpisodes?.length ? input.existingEpisodes.map((episode) => `第 ${episode.order} 话「${episode.title ?? "未命名"}」：${episode.outline ?? "无大纲"}\n结尾：${episode.cliffhanger ?? "无"}\n源章节范围：${episode.sourceRange ? JSON.stringify(episode.sourceRange) : "未标注"}`).join("\n\n") : "暂无其他分话。"}
 
 ## 约束
 - 必须逐一返回第 ${input.startOrder}-${input.endOrder} 话，话序不能重复、遗漏或超出范围。
@@ -141,11 +170,13 @@ const panelScriptSchema = z.object({
     .object({
       layout: z.enum(["single", "four_koma"]).default("single"),
       subPanels: z
-        .array(z.object({
-          order: z.number().int().min(1).max(4),
-          beat: z.enum(["起", "承", "转", "合"]),
-          visualPrompt: z.string().trim().min(1).max(180),
-        }))
+        .array(
+          z.object({
+            order: z.number().int().min(1).max(4),
+            beat: z.enum(["起", "承", "转", "合"]),
+            visualPrompt: z.string().trim().min(1).max(180),
+          }),
+        )
         .max(4)
         .optional(),
     })
@@ -213,28 +244,40 @@ export const comicPanelScriptPrompt: PromptAsset<
       if (!assetsByChar.has(asset.characterName)) assetsByChar.set(asset.characterName, []);
       assetsByChar.get(asset.characterName)!.push(asset);
     }
-    const assetSection = assetsByChar.size > 0
-      ? Array.from(assetsByChar.entries()).map(([charName, assets]) => {
-          const lines = assets!.map((a) => {
-            const desc = a.description ? `（${a.description}）` : "";
-            return `  - [${a.assetType}] ${a.name}${desc}`;
-          });
-          return `${charName}：\n${lines.join("\n")}`;
-        }).join("\n")
-      : null;
-    const stylePrefix = input.stylePromptKeywords
-      ?? (input.stylePreset ? `${input.stylePreset} style` : "webtoon style, vibrant colors, clean lines");
+    const assetSection =
+      assetsByChar.size > 0
+        ? Array.from(assetsByChar.entries())
+            .map(([charName, assets]) => {
+              const lines = assets!.map((a) => {
+                const desc = a.description ? `（${a.description}）` : "";
+                return `  - [${a.assetType}] ${a.name}${desc}`;
+              });
+              return `${charName}：\n${lines.join("\n")}`;
+            })
+            .join("\n")
+        : null;
+    const stylePrefix =
+      input.stylePromptKeywords ??
+      (input.stylePreset
+        ? `${input.stylePreset} style`
+        : "webtoon style, vibrant colors, clean lines");
 
     // 已有场景清单（跨话复用：同地点沿用同名）
-    const existingSceneSection = (input.existingScenes?.length ?? 0) > 0
-      ? input.existingScenes!
-          .map((s) => `- ${s.name}（${s.sceneType}）${s.summary ? `：${s.summary}` : ""}`)
-          .join("\n")
-      : null;
+    const existingSceneSection =
+      (input.existingScenes?.length ?? 0) > 0
+        ? input
+            .existingScenes!.map(
+              (s) => `- ${s.name}（${s.sceneType}）${s.summary ? `：${s.summary}` : ""}`,
+            )
+            .join("\n")
+        : null;
 
     const is4koma = input.comicFormat === "4koma";
     const densityMode = input.densityMode ?? "balanced";
-    const densityRuleMap: Record<NonNullable<ComicPanelScriptPromptInput["densityMode"]>, string> = {
+    const densityRuleMap: Record<
+      NonNullable<ComicPanelScriptPromptInput["densityMode"]>,
+      string
+    > = {
       relaxed:
         "信息密度模式：舒展。优先情绪反应、单一动作和清晰留白；多数格只放 1 个视觉焦点、0-1 句对白、1-2 名角色，少用复杂背景。每 5-8 格安排一个低密度情绪缓冲。",
       balanced:
@@ -370,12 +413,14 @@ ${input.userInstruction?.trim() || "（无具体期望，请检测并消除内�
 // ─── 跨话事实提取 ───────────────────────────────────────────────────────────
 
 export const comicFactExtractionOutputSchema = z.object({
-  facts: z.array(
-    z.object({
-      text: z.string().trim().min(1).max(200),
-      category: z.enum(["completed", "revealed", "state_changed"]).default("completed"),
-    }),
-  ).max(10),
+  facts: z
+    .array(
+      z.object({
+        text: z.string().trim().min(1).max(200),
+        category: z.enum(["completed", "revealed", "state_changed"]).default("completed"),
+      }),
+    )
+    .max(10),
 });
 
 export type ComicFactExtractionOutput = z.infer<typeof comicFactExtractionOutputSchema>;

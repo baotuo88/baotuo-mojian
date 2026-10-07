@@ -2,18 +2,17 @@ import type { PrismaClient } from "@prisma/client";
 import type { PromptAsset } from "../core/promptTypes";
 import type { PromptExecutionContext } from "../context/types";
 import { buildChapterPreviewBlocks } from "./auditPreviewContext";
-import {
-  asRecord,
-  type PreviewChapterRow,
-  type PreviewNovelRow,
-} from "./previewContextSupport";
+import { asRecord, type PreviewChapterRow, type PreviewNovelRow } from "./previewContextSupport";
 import { buildPreviewChapterWriteContext } from "./writerPreviewContext";
 import {
   buildShortStoryWriterContextBlocks,
   parseWritingPlatformSnapshot,
   shortStoryProductionFoundationText,
 } from "../../modules/novel/short-story/application/shortStoryPromptContext";
-import type { CreationIntentInterpretation, ShortStoryPlanContract } from "@ai-novel/shared/types/creationStudio";
+import type {
+  CreationIntentInterpretation,
+  ShortStoryPlanContract,
+} from "@ai-novel/shared/types/creationStudio";
 import { createContextBlock } from "../core/contextBudget";
 import type { WritingPlatformSnapshot } from "@ai-novel/shared/types/writingPlatform";
 
@@ -138,16 +137,27 @@ export async function prepareWorkbenchPreviewExecutionContext(input: {
     });
     const intentRow = novel?.intentVersions[0];
     const planRow = novel?.shortStoryPlan;
-    if (!novel || !intentRow || !planRow) return { executionContext, notes: ["所选小说没有可用的短篇生产上下文。"] };
-    const interpretation = JSON.parse(intentRow.structuredIntentJson) as CreationIntentInterpretation;
-    const selectedId = (JSON.parse(intentRow.impactScopeJson || "{}") as { selectedDirectionId?: string }).selectedDirectionId;
-    const direction = interpretation.directions.find((item) => item.id === selectedId) ?? interpretation.directions[0];
+    if (!novel || !intentRow || !planRow)
+      return { executionContext, notes: ["所选小说没有可用的短篇生产上下文。"] };
+    const interpretation = JSON.parse(
+      intentRow.structuredIntentJson,
+    ) as CreationIntentInterpretation;
+    const selectedId = (
+      JSON.parse(intentRow.impactScopeJson || "{}") as { selectedDirectionId?: string }
+    ).selectedDirectionId;
+    const direction =
+      interpretation.directions.find((item) => item.id === selectedId) ??
+      interpretation.directions[0];
     const plan = JSON.parse(planRow.structureJson) as ShortStoryPlanContract;
     const row = planRow.segments.find((item) => item.status !== "completed") ?? planRow.segments[0];
     const segment = plan.segments.find((item) => item.order === row?.order) ?? plan.segments[0];
-    if (!direction || !segment) return { executionContext, notes: ["短篇计划没有可预览的内部片段。"] };
+    if (!direction || !segment)
+      return { executionContext, notes: ["短篇计划没有可预览的内部片段。"] };
     const earlier = planRow.segments.filter((item) => item.order < segment.order);
-    const previousContentTail = earlier.map((item) => item.content).join("\n\n").slice(-1800);
+    const previousContentTail = earlier
+      .map((item) => item.content)
+      .join("\n\n")
+      .slice(-1800);
     const blocks = buildShortStoryWriterContextBlocks({
       originalIdea: intentRow.originalExpression,
       understanding: interpretation.understanding,
@@ -161,11 +171,17 @@ export async function prepareWorkbenchPreviewExecutionContext(input: {
       productionFoundation: shortStoryProductionFoundationText(novel),
     });
     return {
-      executionContext: { ...executionContext, metadata: { ...(executionContext.metadata ?? {}), extraContextBlocks: blocks } },
-      notes: [`使用《${novel.title}》内部片段 ${segment.order} 组装真实短篇预览；普通创作工作室仍不展示片段技术结构。`],
+      executionContext: {
+        ...executionContext,
+        metadata: { ...(executionContext.metadata ?? {}), extraContextBlocks: blocks },
+      },
+      notes: [
+        `使用《${novel.title}》内部片段 ${segment.order} 组装真实短篇预览；普通创作工作室仍不展示片段技术结构。`,
+      ],
     };
   }
-  const supportsSelectedChapterContext = isAuditPreviewPrompt(asset) || isChapterWriterPreviewPrompt(asset);
+  const supportsSelectedChapterContext =
+    isAuditPreviewPrompt(asset) || isChapterWriterPreviewPrompt(asset);
   if (!supportsSelectedChapterContext) {
     return { executionContext, notes: [] };
   }
@@ -213,19 +229,25 @@ export async function prepareWorkbenchPreviewExecutionContext(input: {
         ...(executionContext.metadata ?? {}),
         chapterBlockMode: "full",
         chapterWriteContext: buildPreviewChapterWriteContext({ novel, chapter }),
-        extraContextBlocks: [createContextBlock({
-          id: "writing_platform",
-          group: "writing_platform",
-          priority: 105,
-          required: true,
-          content: (() => {
-            if (!novel.writingPlatformSnapshotJson) return "沿用通用中文商业网文写法。";
-            try {
-              const snapshot = JSON.parse(novel.writingPlatformSnapshotJson) as WritingPlatformSnapshot;
-              return `${snapshot.label}（配置版本 ${snapshot.profileVersion}）：${snapshot.guidance.drafting}`;
-            } catch { return "沿用通用中文商业网文写法。"; }
-          })(),
-        })],
+        extraContextBlocks: [
+          createContextBlock({
+            id: "writing_platform",
+            group: "writing_platform",
+            priority: 105,
+            required: true,
+            content: (() => {
+              if (!novel.writingPlatformSnapshotJson) return "沿用通用中文商业网文写法。";
+              try {
+                const snapshot = JSON.parse(
+                  novel.writingPlatformSnapshotJson,
+                ) as WritingPlatformSnapshot;
+                return `${snapshot.label}（配置版本 ${snapshot.profileVersion}）：${snapshot.guidance.drafting}`;
+              } catch {
+                return "沿用通用中文商业网文写法。";
+              }
+            })(),
+          }),
+        ],
       },
     },
     notes: [

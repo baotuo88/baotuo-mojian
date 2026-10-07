@@ -55,13 +55,15 @@ export function useChapterExecutionActions({
   isRepairingChapter,
   invalidateNovelDetail,
 }: UseChapterExecutionActionsArgs) {
-  const [executionContractActionKind, setExecutionContractActionKind] = useState<ExecutionContractActionKind>(null);
+  const [executionContractActionKind, setExecutionContractActionKind] =
+    useState<ExecutionContractActionKind>(null);
   const [repairActionKind, setRepairActionKind] = useState<RepairActionKind>(null);
   const [generationActionKind, setGenerationActionKind] = useState<GenerationActionKind>(null);
   const rewritePending = useRef(false);
 
   const patchChapterMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof updateNovelChapter>[2]) => updateNovelChapter(novelId, selectedChapterId, payload),
+    mutationFn: (payload: Parameters<typeof updateNovelChapter>[2]) =>
+      updateNovelChapter(novelId, selectedChapterId, payload),
     onSuccess: async () => {
       await invalidateNovelDetail();
     },
@@ -157,7 +159,11 @@ export function useChapterExecutionActions({
     try {
       onMessage("正在备份原稿，备份完成后开始重写。");
       await rewriteChapterWithBackup({
-        backup: () => createNovelSnapshot(novelId, { triggerType: "manual", label: `before-chapter-rewrite-${chapter.id}-${Date.now()}` }),
+        backup: () =>
+          createNovelSnapshot(novelId, {
+            triggerType: "manual",
+            label: `before-chapter-rewrite-${chapter.id}-${Date.now()}`,
+          }),
         generate: onGenerateChapter,
       });
     } catch (error) {
@@ -264,9 +270,16 @@ export function useChapterExecutionActions({
       return;
     }
     setRepairActionKind("autoRepair");
-    const issues = reviewIssues.length > 0
-      ? reviewIssues
-      : [buildRepairIssue("coherence", "修复章节逻辑与叙事衔接问题，补足关键动机和因果。", "自动修复默认规则")];
+    const issues =
+      reviewIssues.length > 0
+        ? reviewIssues
+        : [
+            buildRepairIssue(
+              "coherence",
+              "修复章节逻辑与叙事衔接问题，补足关键动机和因果。",
+              "自动修复默认规则",
+            ),
+          ];
     onStartRepair(issues);
     onMessage("已触发自动修复。");
   };
@@ -319,8 +332,10 @@ export function useChapterExecutionActions({
   return {
     isPatchingChapter: patchChapterMutation.isPending,
     isGeneratingExecutionContract: generateExecutionContractMutation.isPending,
-    isGeneratingTaskSheet: generateExecutionContractMutation.isPending && executionContractActionKind === "taskSheet",
-    isGeneratingSceneCards: generateExecutionContractMutation.isPending && executionContractActionKind === "sceneCards",
+    isGeneratingTaskSheet:
+      generateExecutionContractMutation.isPending && executionContractActionKind === "taskSheet",
+    isGeneratingSceneCards:
+      generateExecutionContractMutation.isPending && executionContractActionKind === "sceneCards",
     isSummarizingChapter: summarizeChapterMutation.isPending,
     repairActionKind,
     generationActionKind,

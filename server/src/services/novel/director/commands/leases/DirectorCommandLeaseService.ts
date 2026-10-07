@@ -7,7 +7,8 @@ import { parsePayload, resolveNumberEnv } from "../DirectorCommandServiceHelpers
 
 const DEFAULT_STALE_AUTO_RECOVERY_MAX_ATTEMPTS = 2;
 const STALE_COMMAND_AUTO_RECOVERY_MESSAGE = "后台执行中断，系统已自动从最近进度继续。";
-const STALE_COMMAND_MANUAL_RECOVERY_MESSAGE = "后台执行中断，任务已暂停。点击恢复后会从最近进度继续。";
+const STALE_COMMAND_MANUAL_RECOVERY_MESSAGE =
+  "后台执行中断，任务已暂停。点击恢复后会从最近进度继续。";
 const STALE_COMMAND_INTERNAL_MESSAGE = "Director Worker 租约过期，任务等待恢复。";
 const CANCELLED_COMMAND_MESSAGE = "自动导演任务已取消。";
 
@@ -21,20 +22,21 @@ function isAutoRecoverableStaleCommand(command: {
     DEFAULT_STALE_AUTO_RECOVERY_MAX_ATTEMPTS,
   );
   const payload = parsePayload(command.payloadJson ?? null);
-  const payloadRunMode = payload.confirmRequest?.runMode ?? payload.takeoverRequest?.runMode ?? null;
+  const payloadRunMode =
+    payload.confirmRequest?.runMode ?? payload.takeoverRequest?.runMode ?? null;
   const isFullBookAutopilot = payloadRunMode === "full_book_autopilot";
   const maxAttempts = isFullBookAutopilot
     ? resolveNumberEnv(
-      "DIRECTOR_WORKER_FULL_BOOK_STALE_AUTO_RECOVERY_MAX_ATTEMPTS",
-      Math.max(defaultMaxAttempts, 5),
-    )
+        "DIRECTOR_WORKER_FULL_BOOK_STALE_AUTO_RECOVERY_MAX_ATTEMPTS",
+        Math.max(defaultMaxAttempts, 5),
+      )
     : defaultMaxAttempts;
-  return command.attempt < maxAttempts
-    && (
-      isFullBookAutopilot
-      || command.commandType === "continue"
-      || command.commandType === "resume_from_checkpoint"
-    );
+  return (
+    command.attempt < maxAttempts &&
+    (isFullBookAutopilot ||
+      command.commandType === "continue" ||
+      command.commandType === "resume_from_checkpoint")
+  );
 }
 
 export class DirectorCommandLeaseService {
@@ -60,7 +62,11 @@ export class DirectorCommandLeaseService {
     });
     for (const command of staleCommands) {
       const task = await this.workflowService.getTaskByIdWithoutHealing(command.taskId);
-      if (task?.checkpointType === "workflow_completed" && task.status === "succeeded" && !task.cancelRequestedAt) {
+      if (
+        task?.checkpointType === "workflow_completed" &&
+        task.status === "succeeded" &&
+        !task.cancelRequestedAt
+      ) {
         // Completion was persisted before the worker acknowledged the command.
         // Retire only the expired lease we observed; never reopen finished work.
         await prisma.directorRunCommand.updateMany({
@@ -94,7 +100,9 @@ export class DirectorCommandLeaseService {
       const policyAction = governance?.policy.issueActions["runtime.worker_stale"];
       const defaultAction = policyAction ?? (autoRecoverable ? "auto_retry" : "pause_for_manual");
       let actionApplied = false;
-      const applyAction = async (action: "auto_retry" | "continue_with_warning" | "pause_for_manual" | "fail_task") => {
+      const applyAction = async (
+        action: "auto_retry" | "continue_with_warning" | "pause_for_manual" | "fail_task",
+      ) => {
         if (action === "auto_retry" || action === "continue_with_warning") {
           const recovered = await prisma.directorRunCommand.updateMany({
             where: {
@@ -151,14 +159,19 @@ export class DirectorCommandLeaseService {
         if (recovered.count !== 1) {
           return;
         }
-        await prisma.directorStepRun.updateMany({
-          where: { taskId: command.taskId, status: "running" },
-          data: { status: "failed", finishedAt: now, error: STALE_COMMAND_INTERNAL_MESSAGE },
-        }).catch(() => null);
+        await prisma.directorStepRun
+          .updateMany({
+            where: { taskId: command.taskId, status: "running" },
+            data: { status: "failed", finishedAt: now, error: STALE_COMMAND_INTERNAL_MESSAGE },
+          })
+          .catch(() => null);
         if (action === "fail_task") {
           await this.workflowService.markTaskFailed(command.taskId, STALE_COMMAND_INTERNAL_MESSAGE);
         } else {
-          await this.workflowService.requeueTaskForRecovery(command.taskId, STALE_COMMAND_MANUAL_RECOVERY_MESSAGE);
+          await this.workflowService.requeueTaskForRecovery(
+            command.taskId,
+            STALE_COMMAND_MANUAL_RECOVERY_MESSAGE,
+          );
         }
         actionApplied = true;
       };
@@ -167,25 +180,29 @@ export class DirectorCommandLeaseService {
         await applyAction(autoRecoverable ? "auto_retry" : "pause_for_manual");
         continue;
       }
-      await directorIssueService.reportIssue({
-        issueGovernanceVersion: governance.issueGovernanceVersion,
-        taskId: command.taskId,
-        novelId: governance.novelId,
-        issueCode: "runtime.worker_stale",
-        stage: "director_worker",
-        summary: autoRecoverable ? STALE_COMMAND_AUTO_RECOVERY_MESSAGE : STALE_COMMAND_MANUAL_RECOVERY_MESSAGE,
-        evidence: `command=${command.commandType}; attempt=${command.attempt}`,
-        attempt: command.attempt,
-        maxAttempts: autoRecoverable ? command.attempt + 1 : command.attempt,
-        hasUsableOutput: false,
-        runMode: governance.runMode,
-        fingerprint: ["worker_stale", command.id, command.attempt].join(":"),
-        policy: governance.policy,
-        policySource: governance.policySource,
-        applyAction: ({ decision }) => applyAction(decision.action ?? defaultAction),
-      }).catch(async () => {
-        if (!actionApplied) await applyAction(defaultAction);
-      });
+      await directorIssueService
+        .reportIssue({
+          issueGovernanceVersion: governance.issueGovernanceVersion,
+          taskId: command.taskId,
+          novelId: governance.novelId,
+          issueCode: "runtime.worker_stale",
+          stage: "director_worker",
+          summary: autoRecoverable
+            ? STALE_COMMAND_AUTO_RECOVERY_MESSAGE
+            : STALE_COMMAND_MANUAL_RECOVERY_MESSAGE,
+          evidence: `command=${command.commandType}; attempt=${command.attempt}`,
+          attempt: command.attempt,
+          maxAttempts: autoRecoverable ? command.attempt + 1 : command.attempt,
+          hasUsableOutput: false,
+          runMode: governance.runMode,
+          fingerprint: ["worker_stale", command.id, command.attempt].join(":"),
+          policy: governance.policy,
+          policySource: governance.policySource,
+          applyAction: ({ decision }) => applyAction(decision.action ?? defaultAction),
+        })
+        .catch(async () => {
+          if (!actionApplied) await applyAction(defaultAction);
+        });
     }
     return staleCommands.length;
   }
@@ -215,7 +232,11 @@ export class DirectorCommandLeaseService {
     const now = new Date();
     await prisma.directorRunCommand.updateMany({
       where: { id: commandId, leaseOwner: workerId, status: { in: ["leased", "running"] } },
-      data: { status: "running", startedAt: now, leaseExpiresAt: new Date(now.getTime() + leaseMs) },
+      data: {
+        status: "running",
+        startedAt: now,
+        leaseExpiresAt: new Date(now.getTime() + leaseMs),
+      },
     });
   }
 
@@ -273,43 +294,53 @@ export class DirectorCommandLeaseService {
     if (updated.count !== 1) return;
     const command = await prisma.directorRunCommand.findUnique({ where: { id: commandId } });
     if (!command) return;
-    await prisma.directorStepRun.updateMany({
-      where: { taskId: command.taskId, status: "running" },
-      data: { status: "failed", finishedAt: failedAt, error: message },
-    }).catch(() => null);
+    await prisma.directorStepRun
+      .updateMany({
+        where: { taskId: command.taskId, status: "running" },
+        data: { status: "failed", finishedAt: failedAt, error: message },
+      })
+      .catch(() => null);
     await this.workflowService.requeueTaskForRecovery(command.taskId, message).catch(() => null);
   }
 
   async closeCancelledTaskRuntimeState(taskId: string, now: Date): Promise<void> {
-    await prisma.directorStepRun.updateMany({
-      where: { taskId, status: "running" },
-      data: { status: "failed", finishedAt: now, error: CANCELLED_COMMAND_MESSAGE },
-    }).catch(() => null);
-    await prisma.generationJob.updateMany({
-      where: { status: { in: ["queued", "running"] }, payload: { contains: taskId } },
-      data: {
-        status: "cancelled",
-        cancelRequestedAt: now,
-        finishedAt: now,
-        error: CANCELLED_COMMAND_MESSAGE,
-      },
-    }).catch(() => null);
-    const run = await prisma.directorRun.findUnique({
-      where: { taskId },
-      select: { id: true, novelId: true },
-    }).catch(() => null);
+    await prisma.directorStepRun
+      .updateMany({
+        where: { taskId, status: "running" },
+        data: { status: "failed", finishedAt: now, error: CANCELLED_COMMAND_MESSAGE },
+      })
+      .catch(() => null);
+    await prisma.generationJob
+      .updateMany({
+        where: { status: { in: ["queued", "running"] }, payload: { contains: taskId } },
+        data: {
+          status: "cancelled",
+          cancelRequestedAt: now,
+          finishedAt: now,
+          error: CANCELLED_COMMAND_MESSAGE,
+        },
+      })
+      .catch(() => null);
+    const run = await prisma.directorRun
+      .findUnique({
+        where: { taskId },
+        select: { id: true, novelId: true },
+      })
+      .catch(() => null);
     if (!run) return;
-    await prisma.directorEvent.create({
-      data: {
-        id: `${taskId}:run_cancelled:${crypto.randomUUID()}`,
-        runId: run.id,
-        taskId,
-        novelId: run.novelId,
-        type: "run_cancelled",
-        summary: "自动导演已停止，后台运行状态已收束。",
-        severity: "low",
-        occurredAt: now,
-      },
-    }).catch(() => null);
+    await prisma.directorEvent
+      .create({
+        data: {
+          id: `${taskId}:run_cancelled:${crypto.randomUUID()}`,
+          runId: run.id,
+          taskId,
+          novelId: run.novelId,
+          type: "run_cancelled",
+          summary: "自动导演已停止，后台运行状态已收束。",
+          severity: "low",
+          occurredAt: now,
+        },
+      })
+      .catch(() => null);
   }
 }

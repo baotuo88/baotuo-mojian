@@ -7,18 +7,32 @@ const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT_MS = 90_000;
 
 /** Bound memory/disk usage and download lifetime independently of the generation request. */
-export async function saveImageToDisk(imageUrl: string, destPath: string, options: {
-  maxBytes?: number; timeoutMs?: number; signal?: AbortSignal;
-} = {}): Promise<void> {
+export async function saveImageToDisk(
+  imageUrl: string,
+  destPath: string,
+  options: {
+    maxBytes?: number;
+    timeoutMs?: number;
+    signal?: AbortSignal;
+  } = {},
+): Promise<void> {
   throwIfExecutionAborted();
   const maxBytes = options.maxBytes ?? MAX_IMAGE_BYTES;
   const timeoutMs = options.timeoutMs ?? DOWNLOAD_TIMEOUT_MS;
-  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1) {
+  if (
+    !Number.isSafeInteger(maxBytes) ||
+    maxBytes < 1 ||
+    !Number.isSafeInteger(timeoutMs) ||
+    timeoutMs < 1
+  ) {
     throw new Error("图片下载限制配置无效。");
   }
   const executionSignal = getExecutionAbortSignal();
   const deadline = AbortSignal.timeout(timeoutMs);
-  const signal = AbortSignal.any([deadline, ...[executionSignal, options.signal].filter((value): value is AbortSignal => !!value)]);
+  const signal = AbortSignal.any([
+    deadline,
+    ...[executionSignal, options.signal].filter((value): value is AbortSignal => !!value),
+  ]);
   let data: Buffer | undefined;
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   if (imageUrl.startsWith("data:")) {
@@ -43,7 +57,9 @@ export async function saveImageToDisk(imageUrl: string, destPath: string, option
     if (!response.body) throw new Error("图片下载结果为空。");
     reader = response.body.getReader();
   }
-  const abortRead = () => { void reader?.cancel(signal.reason).catch(() => {}); };
+  const abortRead = () => {
+    void reader?.cancel(signal.reason).catch(() => {});
+  };
   signal.addEventListener("abort", abortRead, { once: true });
   const temporary = `${destPath}.partial-${randomUUID()}`;
   let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
@@ -64,7 +80,8 @@ export async function saveImageToDisk(imageUrl: string, destPath: string, option
       }
       if (!received) throw new Error("图片下载结果为空。");
     }
-    await handle.close(); handle = undefined;
+    await handle.close();
+    handle = undefined;
     signal.throwIfAborted();
     throwIfExecutionAborted();
     await fs.rename(temporary, destPath);

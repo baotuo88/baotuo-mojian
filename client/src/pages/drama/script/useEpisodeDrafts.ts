@@ -1,13 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { updateDramaEpisode, type DramaEpisode } from "@/api/drama";
 import type { ApiHttpError } from "@/api/client";
 import { queryKeys } from "@/api/queryKeys";
 import { toast } from "@/components/ui/toast";
-import { acknowledgeDraftSave, createDraftState, isDraftDirty, parseStoredDrafts, reconcileDraft, type EpisodeDraft, type EpisodeDraftState } from "./draftState";
+import {
+  acknowledgeDraftSave,
+  createDraftState,
+  isDraftDirty,
+  parseStoredDrafts,
+  reconcileDraft,
+  type EpisodeDraft,
+  type EpisodeDraftState,
+} from "./draftState";
 
 function readDrafts(projectId: string) {
-  try { return parseStoredDrafts(sessionStorage.getItem(`drama-drafts:${projectId}`)); } catch { return {}; }
+  try {
+    return parseStoredDrafts(sessionStorage.getItem(`drama-drafts:${projectId}`));
+  } catch {
+    return {};
+  }
 }
 
 export function useEpisodeDrafts(projectId: string, episodes: DramaEpisode[] | undefined) {
@@ -16,7 +28,10 @@ export function useEpisodeDrafts(projectId: string, episodes: DramaEpisode[] | u
   const [savingIds, setSavingIds] = useState<string[]>([]);
   const pendingIds = useRef(new Set<string>());
   const storageWarning = useRef(false);
-  const entries = store.projectId === projectId ? store.entries : {};
+  const entries = useMemo(
+    () => (store.projectId === projectId ? store.entries : {}),
+    [store.projectId, store.entries, projectId],
+  );
 
   useEffect(() => {
     setStore((current) => {
@@ -33,7 +48,9 @@ export function useEpisodeDrafts(projectId: string, episodes: DramaEpisode[] | u
 
   useEffect(() => {
     if (store.projectId !== projectId) return;
-    const unsaved = Object.fromEntries(Object.entries(store.entries).filter(([, state]) => isDraftDirty(state) || state.conflict));
+    const unsaved = Object.fromEntries(
+      Object.entries(store.entries).filter(([, state]) => isDraftDirty(state) || state.conflict),
+    );
     try {
       sessionStorage.setItem(`drama-drafts:${projectId}`, JSON.stringify(unsaved));
     } catch {
@@ -54,15 +71,25 @@ export function useEpisodeDrafts(projectId: string, episodes: DramaEpisode[] | u
     return () => window.removeEventListener("beforeunload", guard);
   }, [entries]);
 
-  function updateEntry(episode: DramaEpisode, transform: (current: EpisodeDraftState) => EpisodeDraftState) {
+  function updateEntry(
+    episode: DramaEpisode,
+    transform: (current: EpisodeDraftState) => EpisodeDraftState,
+  ) {
     setStore((current) => {
       if (current.projectId !== projectId) return current;
-      return { ...current, entries: { ...current.entries, [episode.id]: transform(current.entries[episode.id] ?? createDraftState(episode)) } };
+      return {
+        ...current,
+        entries: {
+          ...current.entries,
+          [episode.id]: transform(current.entries[episode.id] ?? createDraftState(episode)),
+        },
+      };
     });
   }
 
   const get = (episode: DramaEpisode) => reconcileDraft(entries[episode.id], episode);
-  const edit = (episode: DramaEpisode, patch: Partial<EpisodeDraft>) => updateEntry(episode, (state) => ({ ...state, draft: { ...state.draft, ...patch } }));
+  const edit = (episode: DramaEpisode, patch: Partial<EpisodeDraft>) =>
+    updateEntry(episode, (state) => ({ ...state, draft: { ...state.draft, ...patch } }));
   const reload = (episode: DramaEpisode) => updateEntry(episode, () => createDraftState(episode));
 
   const save = async (episode: DramaEpisode) => {
@@ -71,9 +98,13 @@ export function useEpisodeDrafts(projectId: string, episodes: DramaEpisode[] | u
     if (state.conflict) return;
     const submitted = state.draft;
     const durationSec = submitted.durationSec.trim() ? Number(submitted.durationSec) : null;
-    if (!submitted.title.trim()) { toast.error("请填写本集标题。"); return; }
+    if (!submitted.title.trim()) {
+      toast.error("请填写本集标题。");
+      return;
+    }
     if (durationSec !== null && (!Number.isFinite(durationSec) || durationSec <= 0)) {
-      toast.error("预计时长应为大于 0 的秒数，或留空。"); return;
+      toast.error("预计时长应为大于 0 的秒数，或留空。");
+      return;
     }
     pendingIds.current.add(episode.id);
     setSavingIds([...pendingIds.current]);
@@ -86,7 +117,10 @@ export function useEpisodeDrafts(projectId: string, episodes: DramaEpisode[] | u
         cliffhanger: submitted.cliffhanger.trim() || null,
         durationSec,
       });
-      if (!response.data) { toast.error("保存响应缺少台本，请刷新后核对。本地稿会保留。"); return; }
+      if (!response.data) {
+        toast.error("保存响应缺少台本，请刷新后核对。本地稿会保留。");
+        return;
+      }
       updateEntry(episode, (current) => acknowledgeDraftSave(current, submitted, response.data!));
       toast.success(`第 ${episode.order} 集保存成功。`);
     } catch (error) {
@@ -98,9 +132,18 @@ export function useEpisodeDrafts(projectId: string, episodes: DramaEpisode[] | u
       pendingIds.current.delete(episode.id);
       setSavingIds([...pendingIds.current]);
       void queryClient.invalidateQueries({ queryKey: queryKeys.drama.project(projectId) });
-      void queryClient.invalidateQueries({ queryKey: ["drama", "episode-revisions", projectId, episode.order] });
+      void queryClient.invalidateQueries({
+        queryKey: ["drama", "episode-revisions", projectId, episode.order],
+      });
     }
   };
 
-  return { get, edit, reload, save, savingIds, hasUnsaved: Object.values(entries).some((state) => isDraftDirty(state) || state.conflict) };
+  return {
+    get,
+    edit,
+    reload,
+    save,
+    savingIds,
+    hasUnsaved: Object.values(entries).some((state) => isDraftDirty(state) || state.conflict),
+  };
 }

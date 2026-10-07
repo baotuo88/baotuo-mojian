@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useMutation, type QueryClient } from "@tanstack/react-query";
-import type { ReviewIssue, Chapter, StoryStateSnapshot, StoryPlan } from "@ai-novel/shared/types/novel";
+import type {
+  ReviewIssue,
+  Chapter,
+  StoryStateSnapshot,
+  StoryPlan,
+} from "@ai-novel/shared/types/novel";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { auditNovelChapter, generateChapterPlan, replanNovel } from "@/api/novel";
 import { queryKeys } from "@/api/queryKeys";
@@ -40,11 +45,7 @@ interface UseNovelEditChapterRuntimeArgs {
 }
 
 export type ChapterReviewActionKind =
-  | "full_audit"
-  | "continuity"
-  | "character_consistency"
-  | "pacing"
-  | null;
+  "full_audit" | "continuity" | "character_consistency" | "pacing" | null;
 
 export function useNovelEditChapterRuntime({
   novelId,
@@ -68,31 +69,35 @@ export function useNovelEditChapterRuntime({
   const [reviewActionKind, setReviewActionKind] = useState<ChapterReviewActionKind>(null);
 
   const generateChapterPlanMutation = useMutation({
-    mutationFn: () => generateChapterPlan(novelId, selectedChapterId, {
-      provider: llm.provider,
-      model: llm.model,
-      temperature: llm.temperature,
-    }),
+    mutationFn: () =>
+      generateChapterPlan(novelId, selectedChapterId, {
+        provider: llm.provider,
+        model: llm.model,
+        temperature: llm.temperature,
+      }),
     onSuccess: async () => {
       setChapterOperationMessage("章节执行计划已生成，可直接开始写本章。");
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapterPlan(novelId, selectedChapterId) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.novels.chapterPlan(novelId, selectedChapterId),
+        }),
         invalidateNovelDetail(),
       ]);
     },
   });
 
   const replanChapterMutation = useMutation({
-    mutationFn: () => replanNovel(novelId, {
-      chapterId: selectedChapterId,
-      reason: "manual_replan_from_chapter_tab",
-      triggerType: "manual",
-      sourceIssueIds: openAuditIssueIds,
-      windowSize: 3,
-      provider: llm.provider,
-      model: llm.model,
-      temperature: llm.temperature,
-    }),
+    mutationFn: () =>
+      replanNovel(novelId, {
+        chapterId: selectedChapterId,
+        reason: "manual_replan_from_chapter_tab",
+        triggerType: "manual",
+        sourceIssueIds: openAuditIssueIds,
+        windowSize: 3,
+        provider: llm.provider,
+        model: llm.model,
+        temperature: llm.temperature,
+      }),
     onSuccess: async (response) => {
       const affectedOrders = response.data?.affectedChapterOrders ?? [];
       const affectedChapterIds = response.data?.affectedChapterIds ?? [];
@@ -105,26 +110,42 @@ export function useNovelEditChapterRuntime({
       await queryClient.invalidateQueries({ queryKey: queryKeys.novels.qualityReport(novelId) });
       await Promise.all(
         affectedChapterIds.map((chapterId) =>
-          queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapterPlan(novelId, chapterId) })),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.novels.chapterPlan(novelId, chapterId),
+          }),
+        ),
       );
       if (selectedChapterId) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapterPlan(novelId, selectedChapterId) });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.novels.chapterPlan(novelId, selectedChapterId),
+        });
       }
     },
   });
 
   const fullAuditMutation = useMutation({
     mutationFn: async () => {
-      const source = { novelId, chapterId: selectedChapterId, content: selectedChapter?.content ?? null };
+      const source = {
+        novelId,
+        chapterId: selectedChapterId,
+        content: selectedChapter?.content ?? null,
+      };
       const response = await auditNovelChapter(source.novelId, source.chapterId, "full", {
-        provider: llm.provider, model: llm.model, temperature: 0.1,
+        provider: llm.provider,
+        model: llm.model,
+        temperature: 0.1,
       });
       return { ...response, data: bindChapterReview(response.data, source) };
     },
     onSuccess: async (response) => {
       setReviewResult(response.data ?? null);
       setChapterOperationMessage("完整审校已完成。");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapterAuditReports(novelId, response.data?.source.chapterId ?? selectedChapterId) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.novels.chapterAuditReports(
+          novelId,
+          response.data?.source.chapterId ?? selectedChapterId,
+        ),
+      });
       await invalidateNovelDetail();
       await queryClient.invalidateQueries({ queryKey: queryKeys.novels.qualityReport(novelId) });
     },
@@ -156,7 +177,9 @@ export function useNovelEditChapterRuntime({
 
   const handleAbortChapterStream = () => {
     chapterSSE.abort();
-    setChapterOperationMessage("已停止当前章节生成，你可以保留当前输出继续查看，或重新发起本章写作。");
+    setChapterOperationMessage(
+      "已停止当前章节生成，你可以保留当前输出继续查看，或重新发起本章写作。",
+    );
   };
 
   const handleAbortRepair = () => {
@@ -175,7 +198,9 @@ export function useNovelEditChapterRuntime({
     setRepairAfterContent("");
     setActiveRepairStream({
       chapterId: selectedChapterId,
-      chapterLabel: selectedChapter ? `第${selectedChapter.order}章 ${selectedChapter.title || "未命名章节"}` : "当前章节",
+      chapterLabel: selectedChapter
+        ? `第${selectedChapter.order}章 ${selectedChapter.title || "未命名章节"}`
+        : "当前章节",
     });
     void repairSSE.start(`/novels/${novelId}/chapters/${selectedChapterId}/repair`, {
       provider: llm.provider,
@@ -190,7 +215,12 @@ export function useNovelEditChapterRuntime({
     selectedChapterId,
     selectedChapter,
     strategy: chapterStrategy,
-    reviewIssues: reviewForChapter(reviewResult, { novelId, chapterId: selectedChapterId, content: selectedChapter?.content ?? null })?.issues ?? [],
+    reviewIssues:
+      reviewForChapter(reviewResult, {
+        novelId,
+        chapterId: selectedChapterId,
+        content: selectedChapter?.content ?? null,
+      })?.issues ?? [],
     onGenerateChapter: handleGenerateSelectedChapter,
     onReviewChapter: runChapterReview,
     onStartRepair: startChapterRepair,

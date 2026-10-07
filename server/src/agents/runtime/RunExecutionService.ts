@@ -1,4 +1,11 @@
-import type { AgentRuntimeCallbacks, AgentRuntimeResult, PlannedAction, StructuredIntent, ToolCall, ToolExecutionContext } from "../types";
+import type {
+  AgentRuntimeCallbacks,
+  AgentRuntimeResult,
+  PlannedAction,
+  StructuredIntent,
+  ToolCall,
+  ToolExecutionContext,
+} from "../types";
 import { canAgentUseTool, evaluateApprovalRequirement } from "../approvalPolicy";
 import { AgentTraceStore } from "../traceStore";
 import { runWithAgentExecution } from "./agentExecution";
@@ -26,7 +33,9 @@ import {
 export class RunExecutionService {
   constructor(private readonly store: AgentTraceStore) {}
 
-  parseApprovalPayload(payloadJson: string | null | undefined): SerializedContinuationPayload | null {
+  parseApprovalPayload(
+    payloadJson: string | null | undefined,
+  ): SerializedContinuationPayload | null {
     return parseApprovalPayload(payloadJson);
   }
 
@@ -64,9 +73,10 @@ export class RunExecutionService {
     if (cached) {
       if (!(cached.status === "failed" && options?.ignoreFailedCache)) {
         const output = asObject(cached.outputJson);
-        const summary = cached.status === "succeeded"
-          ? summarizeOutput(call.tool, output)
-          : summarizeFailure(call.tool, cached.error ?? "cached failed");
+        const summary =
+          cached.status === "succeeded"
+            ? summarizeOutput(call.tool, output)
+            : summarizeFailure(call.tool, cached.error ?? "cached failed");
         callbacks?.onToolResult?.({
           runId: context.runId,
           stepId: cached.id,
@@ -205,15 +215,10 @@ export class RunExecutionService {
   ): Promise<ToolExecutionResult> {
     let finalResult: ToolExecutionResult | null = null;
     for (let attempt = 0; attempt <= MAX_TOOL_RETRIES; attempt += 1) {
-      const result = await this.executeToolCall(
-        context,
-        call,
-        callbacks,
-        {
-          parentStepId,
-          ignoreFailedCache: attempt > 0,
-        },
-      );
+      const result = await this.executeToolCall(context, call, callbacks, {
+        parentStepId,
+        ignoreFailedCache: attempt > 0,
+      });
       finalResult = result;
       if (result.success) {
         return result;
@@ -233,12 +238,14 @@ export class RunExecutionService {
         }),
       });
     }
-    return finalResult ?? {
-      tool: call.tool,
-      success: false,
-      summary: `${call.tool} 执行失败：unknown`,
-      errorCode: "INTERNAL",
-    };
+    return (
+      finalResult ?? {
+        tool: call.tool,
+        success: false,
+        summary: `${call.tool} 执行失败：unknown`,
+        errorCode: "INTERNAL",
+      }
+    );
   }
 
   private buildApprovalPayload(
@@ -262,12 +269,25 @@ export class RunExecutionService {
     plannedActions: PlannedAction[],
     context: Omit<ToolExecutionContext, "runId" | "agentName">,
     structuredIntent: StructuredIntent | undefined,
-    failRun: (runId: string, message: string, agentName: string, callbacks?: AgentRuntimeCallbacks) => Promise<void>,
+    failRun: (
+      runId: string,
+      message: string,
+      agentName: string,
+      callbacks?: AgentRuntimeCallbacks,
+    ) => Promise<void>,
     callbacks?: AgentRuntimeCallbacks,
   ): Promise<AgentRuntimeResult> {
-    return runWithAgentExecution(runId, () => this.executeActionPlan(
-      runId, goal, plannedActions, context, structuredIntent, failRun, callbacks,
-    ));
+    return runWithAgentExecution(runId, () =>
+      this.executeActionPlan(
+        runId,
+        goal,
+        plannedActions,
+        context,
+        structuredIntent,
+        failRun,
+        callbacks,
+      ),
+    );
   }
 
   private async executeActionPlan(
@@ -276,7 +296,12 @@ export class RunExecutionService {
     plannedActions: PlannedAction[],
     context: Omit<ToolExecutionContext, "runId" | "agentName">,
     structuredIntent: StructuredIntent | undefined,
-    failRun: (runId: string, message: string, agentName: string, callbacks?: AgentRuntimeCallbacks) => Promise<void>,
+    failRun: (
+      runId: string,
+      message: string,
+      agentName: string,
+      callbacks?: AgentRuntimeCallbacks,
+    ) => Promise<void>,
     callbacks?: AgentRuntimeCallbacks,
   ): Promise<AgentRuntimeResult> {
     throwIfExecutionAborted();
@@ -385,10 +410,10 @@ export class RunExecutionService {
             status: "pending",
             inputJson: safeJson({
               summary: diffSummary,
-            targetType: approvalDecision.targetType,
-            targetId: approvalDecision.targetId,
-            tool: call.tool,
-          }),
+              targetType: approvalDecision.targetType,
+              targetId: approvalDecision.targetId,
+              tool: call.tool,
+            }),
             provider: context.provider,
             model: context.model,
           });
@@ -400,7 +425,12 @@ export class RunExecutionService {
             targetId: approvalDecision.targetId ?? "unknown",
             diffSummary,
             expiresAt: new Date(Date.now() + APPROVAL_TTL_MS),
-            payloadJson: this.buildApprovalPayload(goal, currentContext, continuationActions, structuredIntent),
+            payloadJson: this.buildApprovalPayload(
+              goal,
+              currentContext,
+              continuationActions,
+              structuredIntent,
+            ),
           });
           await this.store.updateRun(runId, {
             status: "waiting_approval",
@@ -465,7 +495,14 @@ export class RunExecutionService {
     }
 
     const summary = buildFinalMessage(allResults, waitingForApproval);
-    const assistantOutput = await composeAssistantMessage(goal, summary, allResults, waitingForApproval, currentContext, structuredIntent);
+    const assistantOutput = await composeAssistantMessage(
+      goal,
+      summary,
+      allResults,
+      waitingForApproval,
+      currentContext,
+      structuredIntent,
+    );
     throwIfExecutionAborted();
     await this.store.addStep({
       runId,

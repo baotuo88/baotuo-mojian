@@ -6,8 +6,13 @@ export function revisionConflict(): AppError {
 }
 
 /** Parameterized no-op UPDATE locks the row without changing its update timestamp. */
-export async function lockEpisodeRevision(tx: Prisma.TransactionClient, episodeId: string, revision: number) {
-  const count = await tx.$executeRaw`UPDATE "DramaEpisode" SET "revision" = "revision" WHERE "id" = ${episodeId} AND "revision" = ${revision}`;
+export async function lockEpisodeRevision(
+  tx: Prisma.TransactionClient,
+  episodeId: string,
+  revision: number,
+) {
+  const count =
+    await tx.$executeRaw`UPDATE "DramaEpisode" SET "revision" = "revision" WHERE "id" = ${episodeId} AND "revision" = ${revision}`;
   if (!count) throw revisionConflict();
   return tx.dramaEpisode.findUniqueOrThrow({ where: { id: episodeId } });
 }

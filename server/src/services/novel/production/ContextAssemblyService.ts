@@ -37,8 +37,8 @@ function buildChapterStateGoal(
   snapshot: Awaited<ReturnType<typeof canonicalStateService.getSnapshot>>,
 ): ChapterStateGoal | null {
   if (
-    !snapshot.narrative.currentChapterId
-    || typeof snapshot.narrative.currentChapterOrder !== "number"
+    !snapshot.narrative.currentChapterId ||
+    typeof snapshot.narrative.currentChapterOrder !== "number"
   ) {
     return null;
   }
@@ -47,9 +47,14 @@ function buildChapterStateGoal(
     chapterId: snapshot.narrative.currentChapterId,
     chapterOrder: snapshot.narrative.currentChapterOrder,
     summary: snapshot.narrative.currentChapterGoal ?? "advance the current narrative state",
-    targetConflicts: takeTop(snapshot.narrative.openConflicts.map((item) => item.title), 3),
+    targetConflicts: takeTop(
+      snapshot.narrative.openConflicts.map((item) => item.title),
+      3,
+    ),
     targetRelationships: takeTop(
-      snapshot.characters.flatMap((item) => item.relationStageLabels.map((label) => `${item.name}: ${label}`)),
+      snapshot.characters.flatMap((item) =>
+        item.relationStageLabels.map((label) => `${item.name}: ${label}`),
+      ),
       3,
     ),
     targetPayoffs: takeTop(
@@ -88,11 +93,14 @@ export class ContextAssemblyService {
       chapterStateGoal: buildChapterStateGoal(snapshot),
       localCharacters: takeTop(snapshot.characters, 6),
       localConflicts: takeTop(snapshot.narrative.openConflicts, 4),
-      localPayoffs: takeTop([
-        ...snapshot.narrative.overduePayoffs,
-        ...snapshot.narrative.urgentPayoffs,
-        ...snapshot.narrative.pendingPayoffs,
-      ], 6),
+      localPayoffs: takeTop(
+        [
+          ...snapshot.narrative.overduePayoffs,
+          ...snapshot.narrative.urgentPayoffs,
+          ...snapshot.narrative.pendingPayoffs,
+        ],
+        6,
+      ),
       recentTimeline: takeTop(snapshot.timeline, 4),
       protectedSecrets: takeTop(snapshot.narrative.hiddenKnowledge, 4),
     };

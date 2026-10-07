@@ -14,11 +14,7 @@ import {
   Users,
   Check,
 } from "lucide-react";
-import {
-  getComicProject,
-  listComicEpisodes,
-  updateComicPreset,
-} from "@/api/comic";
+import { getComicProject, listComicEpisodes, updateComicPreset } from "@/api/comic";
 import { ComicImageGenerationNotice } from "@/pages/comic/ComicImageGenerationNotice";
 import { COMIC_FORMATS } from "@/pages/comic/ComicWorkspacePage";
 import { CharactersPanel } from "@/pages/comic/project/CharactersPanel";
@@ -36,9 +32,17 @@ import SelectControl from "@/components/common/SelectControl";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function safeJsonParseProject(raw: string | null | undefined): { style?: string; format?: string; imageSize?: string } {
+function safeJsonParseProject(raw: string | null | undefined): {
+  style?: string;
+  format?: string;
+  imageSize?: string;
+} {
   if (!raw) return {};
-  try { return JSON.parse(raw); } catch { return {}; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
 }
 
 // ─── Style options ─────────────────────────────────────────────────────────────
@@ -59,25 +63,38 @@ export default function ComicProjectPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const activeTab = ["outline", "characters", "scenes", "panels", "export"].includes(tabParam ?? "") ? tabParam! : "outline";
+  const activeTab = ["outline", "characters", "scenes", "panels", "export"].includes(tabParam ?? "")
+    ? tabParam!
+    : "outline";
   const episodeParam = searchParams.get("episodeId") ?? undefined;
   const navigateWorkspace = (tab: ComicWorkspaceTab, episodeId?: string) => {
-    setSearchParams((previous) => {
-      const next = new URLSearchParams(previous);
-      next.set("tab", tab);
-      if (episodeId) next.set("episodeId", episodeId);
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.set("tab", tab);
+        if (episodeId) next.set("episodeId", episodeId);
+        return next;
+      },
+      { replace: true },
+    );
   };
   const [showFormatPicker, setShowFormatPicker] = useState(false);
   const [showStylePicker, setShowStylePicker] = useState(false);
   // 图片模型选择跨项目/跨刷新保留（用户通常长期用同一个图片模型）
   const [selectedProvider, setSelectedProvider] = useState<string>(() => {
-    try { return localStorage.getItem("comic.preferredImageProvider") ?? ""; } catch { return ""; }
+    try {
+      return localStorage.getItem("comic.preferredImageProvider") ?? "";
+    } catch {
+      return "";
+    }
   });
   const handleProviderChange = (value: string) => {
     setSelectedProvider(value);
-    try { localStorage.setItem("comic.preferredImageProvider", value); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("comic.preferredImageProvider", value);
+    } catch {
+      /* ignore */
+    }
   };
 
   const { data: project, isLoading } = useQuery({
@@ -86,7 +103,12 @@ export default function ComicProjectPage() {
     enabled: Boolean(id),
   });
 
-  const { data: episodes = [], isSuccess: episodesReady, isError: episodesError, refetch: reloadEpisodes } = useQuery({
+  const {
+    data: episodes = [],
+    isSuccess: episodesReady,
+    isError: episodesError,
+    refetch: reloadEpisodes,
+  } = useQuery({
     queryKey: ["comic", "episodes", id],
     queryFn: () => listComicEpisodes(id!),
     enabled: Boolean(id),
@@ -102,12 +124,13 @@ export default function ComicProjectPage() {
   });
   // 缓存的 provider 仍存在于可用列表才用，否则回退到第一个（避免引用已失效的 provider 配置）
   const resolvedProvider =
-    (selectedProvider && providerOptions.some((p) => p.value === selectedProvider))
+    selectedProvider && providerOptions.some((p) => p.value === selectedProvider)
       ? selectedProvider
       : providerOptions[0]?.value || "";
 
   const presetMut = useMutation({
-    mutationFn: (payload: Parameters<typeof updateComicPreset>[1]) => updateComicPreset(id!, payload),
+    mutationFn: (payload: Parameters<typeof updateComicPreset>[1]) =>
+      updateComicPreset(id!, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["comic", "project", id] });
       setShowFormatPicker(false);
@@ -132,10 +155,16 @@ export default function ComicProjectPage() {
   const formatDef = COMIC_FORMATS.find((f) => f.value === preset.format) ?? COMIC_FORMATS[0];
   const styleDef = STYLE_OPTIONS.find((s) => s.value === preset.style);
   const statusLabel: Record<string, string> = {
-    draft: "草稿", outlined: "大纲已生成", scripted: "脚本已生成", completed: "已完成",
+    draft: "草稿",
+    outlined: "大纲已生成",
+    scripted: "脚本已生成",
+    completed: "已完成",
   };
   const sourceLabel: Record<string, string> = {
-    novel_import: "小说改编", original: "原创", text_import: "文本导入", comic_import: "漫画改编",
+    novel_import: "小说改编",
+    original: "原创",
+    text_import: "文本导入",
+    comic_import: "漫画改编",
   };
 
   return (
@@ -159,51 +188,78 @@ export default function ComicProjectPage() {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold tracking-tight">{project.title}</h1>
-              <Badge variant={project.status === "outlined" || project.status === "scripted" ? "default" : "secondary"}>
+              <Badge
+                variant={
+                  project.status === "outlined" || project.status === "scripted"
+                    ? "default"
+                    : "secondary"
+                }
+              >
                 {statusLabel[project.status] ?? project.status}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{sourceLabel[project.sourceType] ?? project.sourceType}</p>
+            <p className="text-sm text-muted-foreground">
+              {sourceLabel[project.sourceType] ?? project.sourceType}
+            </p>
           </div>
 
           {/* 形态卡片 — 点击展开选择器 */}
           <div className="relative">
             <button
               type="button"
-              onClick={() => { setShowFormatPicker((v) => !v); setShowStylePicker(false); }}
+              onClick={() => {
+                setShowFormatPicker((v) => !v);
+                setShowStylePicker(false);
+              }}
               className="flex items-center gap-3 rounded-lg border bg-muted/40 px-4 py-2.5 hover:bg-muted/70 transition-colors"
             >
-              <div className={`flex-shrink-0 ${formatDef.imageSize === "1536x1024" ? "w-14 h-9" : "w-9 h-14"} text-primary`}>
+              <div
+                className={`flex-shrink-0 ${formatDef.imageSize === "1536x1024" ? "w-14 h-9" : "w-9 h-14"} text-primary`}
+              >
                 {formatDef.layoutSvg}
               </div>
               <div className="text-left">
                 <p className="text-xs text-muted-foreground">漫画形态</p>
                 <p className="text-sm font-semibold">{formatDef.label}</p>
-                <p className="text-[10px] text-muted-foreground leading-tight max-w-[100px]">{formatDef.desc}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight max-w-[100px]">
+                  {formatDef.desc}
+                </p>
               </div>
               <Pencil className="h-3.5 w-3.5 text-muted-foreground/60 ml-1" />
             </button>
 
             {showFormatPicker && (
               <div className="absolute right-0 top-full mt-2 z-50 w-[480px] rounded-xl border bg-popover shadow-xl p-4">
-                <p className="text-xs font-medium text-muted-foreground mb-3">选择漫画形态（影响图片比例与风格关键词）</p>
+                <p className="text-xs font-medium text-muted-foreground mb-3">
+                  选择漫画形态（影响图片比例与风格关键词）
+                </p>
                 <div className="grid grid-cols-4 gap-2">
                   {COMIC_FORMATS.map((fmt) => (
                     <button
                       key={fmt.value}
                       type="button"
                       disabled={presetMut.isPending}
-                      onClick={() => presetMut.mutate({ format: fmt.value, promptKeywords: fmt.promptKeywords, imageSize: fmt.imageSize })}
+                      onClick={() =>
+                        presetMut.mutate({
+                          format: fmt.value,
+                          promptKeywords: fmt.promptKeywords,
+                          imageSize: fmt.imageSize,
+                        })
+                      }
                       className={`relative flex flex-col items-center gap-1.5 rounded-lg border p-2 text-center transition-colors hover:bg-accent ${fmt.value === formatDef.value ? "border-primary bg-primary/5" : ""}`}
                     >
                       {fmt.value === formatDef.value && (
                         <Check className="absolute top-1.5 right-1.5 h-3 w-3 text-primary" />
                       )}
-                      <div className={`${fmt.imageSize === "1536x1024" ? "w-12 h-8" : "w-8 h-12"} text-primary`}>
+                      <div
+                        className={`${fmt.imageSize === "1536x1024" ? "w-12 h-8" : "w-8 h-12"} text-primary`}
+                      >
                         {fmt.layoutSvg}
                       </div>
                       <span className="text-xs font-medium">{fmt.label}</span>
-                      <span className="text-[10px] text-muted-foreground leading-tight">{fmt.tag}</span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">
+                        {fmt.tag}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -241,7 +297,9 @@ export default function ComicProjectPage() {
             <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <div>
               <p className="text-[11px] text-muted-foreground">角色</p>
-              <p className="text-lg font-bold leading-tight">{project._count?.characters ?? project.characters.length}</p>
+              <p className="text-lg font-bold leading-tight">
+                {project._count?.characters ?? project.characters.length}
+              </p>
             </div>
           </div>
 
@@ -249,7 +307,10 @@ export default function ComicProjectPage() {
           <div className="relative">
             <button
               type="button"
-              onClick={() => { setShowStylePicker((v) => !v); setShowFormatPicker(false); }}
+              onClick={() => {
+                setShowStylePicker((v) => !v);
+                setShowFormatPicker(false);
+              }}
               className="flex w-full items-center gap-2.5 rounded-lg border bg-background px-3 py-2.5 hover:bg-muted/50 transition-colors"
             >
               <Palette className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -278,7 +339,9 @@ export default function ComicProjectPage() {
                         <span className="font-medium">{opt.label}</span>
                         <span className="ml-2 text-xs text-muted-foreground">{opt.desc}</span>
                       </div>
-                      {opt.value === preset.style && <Check className="h-3.5 w-3.5 flex-shrink-0" />}
+                      {opt.value === preset.style && (
+                        <Check className="h-3.5 w-3.5 flex-shrink-0" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -323,7 +386,9 @@ export default function ComicProjectPage() {
                 onChange={(e) => handleProviderChange(e.target.value)}
               >
                 {providerOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
               </SelectControl>
             )}
@@ -331,10 +396,27 @@ export default function ComicProjectPage() {
         </div>
       </div>
 
-      {episodesReady && <FirstEpisodeGuide key={id} project={project} episodes={episodes} onNavigate={navigateWorkspace} />}
-      {episodesError && <p className="text-sm text-destructive">话数进度读取失败。<button type="button" className="ml-2 underline" onClick={() => void reloadEpisodes()}>重新读取</button></p>}
+      {episodesReady && (
+        <FirstEpisodeGuide
+          key={id}
+          project={project}
+          episodes={episodes}
+          onNavigate={navigateWorkspace}
+        />
+      )}
+      {episodesError && (
+        <p className="text-sm text-destructive">
+          话数进度读取失败。
+          <button type="button" className="ml-2 underline" onClick={() => void reloadEpisodes()}>
+            重新读取
+          </button>
+        </p>
+      )}
 
-      <Tabs value={activeTab} onValueChange={(value) => navigateWorkspace(value as ComicWorkspaceTab)}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => navigateWorkspace(value as ComicWorkspaceTab)}
+      >
         <TabsList className="w-full justify-start gap-1">
           <TabsTrigger value="outline">分话大纲</TabsTrigger>
           <TabsTrigger value="characters">
@@ -363,12 +445,25 @@ export default function ComicProjectPage() {
         </TabsContent>
 
         <TabsContent value="panels" className="mt-4">
-          <PanelsGridPanel key={`${id}:${episodeParam ?? "first"}`} projectId={id!} provider={resolvedProvider} initialEpisodeId={episodeParam} onEpisodeChange={(episodeId) => navigateWorkspace("panels", episodeId)} />
+          <PanelsGridPanel
+            key={`${id}:${episodeParam ?? "first"}`}
+            projectId={id!}
+            provider={resolvedProvider}
+            initialEpisodeId={episodeParam}
+            onEpisodeChange={(episodeId) => navigateWorkspace("panels", episodeId)}
+          />
         </TabsContent>
 
         <TabsContent value="export" className="mt-4">
           {episodes.length > 0 ? (
-            <ExportPanel key={`${id}:${episodeParam ?? "first"}`} projectId={id!} episodes={episodes} initialEpisodeId={episodeParam} onEpisodeChange={(episodeId) => navigateWorkspace("export", episodeId)} onShowPanels={(episodeId) => navigateWorkspace("panels", episodeId)} />
+            <ExportPanel
+              key={`${id}:${episodeParam ?? "first"}`}
+              projectId={id!}
+              episodes={episodes}
+              initialEpisodeId={episodeParam}
+              onEpisodeChange={(episodeId) => navigateWorkspace("export", episodeId)}
+              onShowPanels={(episodeId) => navigateWorkspace("panels", episodeId)}
+            />
           ) : (
             <div className="py-12 text-center text-sm text-muted-foreground">
               请先生成分话大纲。

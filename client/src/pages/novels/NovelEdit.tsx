@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BOOK_ANALYSIS_SECTIONS } from "@ai-novel/shared/types/bookAnalysis";
-import type { NovelExportDownloadFormat, NovelExportScope } from "@ai-novel/shared/types/novelExport";
+import type {
+  NovelExportDownloadFormat,
+  NovelExportScope,
+} from "@ai-novel/shared/types/novelExport";
 import type {
   Chapter,
   VolumeBeatSheet,
@@ -14,7 +17,6 @@ import type {
 import NovelEditView from "./components/workspace/NovelEditView";
 import NovelProductionExperienceHandoff from "./components/NovelProductionExperienceHandoff";
 import type { LLMSelectorValue } from "@/components/common/LLMSelector";
-
 
 import {
   getNovelDetail,
@@ -111,9 +113,13 @@ export default function NovelEdit() {
   const [basicForm, setBasicForm] = useState(() => createDefaultNovelBasicFormState());
   const [volumeDraft, setVolumeDraft] = useState<VolumePlan[]>([]);
   const [volumeStrategyPlan, setVolumeStrategyPlan] = useState<VolumeStrategyPlan | null>(null);
-  const [volumeCritiqueReport, setVolumeCritiqueReport] = useState<VolumeCritiqueReport | null>(null);
+  const [volumeCritiqueReport, setVolumeCritiqueReport] = useState<VolumeCritiqueReport | null>(
+    null,
+  );
   const [volumeBeatSheets, setVolumeBeatSheets] = useState<VolumeBeatSheet[]>([]);
-  const [volumeRebalanceDecisions, setVolumeRebalanceDecisions] = useState<VolumeRebalanceDecision[]>([]);
+  const [volumeRebalanceDecisions, setVolumeRebalanceDecisions] = useState<
+    VolumeRebalanceDecision[]
+  >([]);
   const [volumeGenerationMessage, setVolumeGenerationMessage] = useState("");
   const [outlineOptimizeInstruction, setOutlineOptimizeInstruction] = useState("");
   const [outlineOptimizePreview, setOutlineOptimizePreview] = useState("");
@@ -121,18 +127,35 @@ export default function NovelEdit() {
   const [outlineOptimizeSourceText, setOutlineOptimizeSourceText] = useState("");
   const [structuredOptimizeInstruction, setStructuredOptimizeInstruction] = useState("");
   const [structuredOptimizePreview, setStructuredOptimizePreview] = useState("");
-  const [structuredOptimizeMode, setStructuredOptimizeMode] = useState<"full" | "selection">("full");
+  const [structuredOptimizeMode, setStructuredOptimizeMode] = useState<"full" | "selection">(
+    "full",
+  );
   const [structuredOptimizeSourceText, setStructuredOptimizeSourceText] = useState("");
   const [volumeSyncOptions, setVolumeSyncOptions] = useState<VolumeSyncOptions>({
     preserveContent: true,
     applyDeletes: false,
   });
   const {
-    currentJobId, setCurrentJobId, pipelineForm, setPipelineForm, storedReview, setReviewResult,
-    pipelineMessage, setPipelineMessage, chapterOperationMessage, setChapterOperationMessage,
-    chapterStrategy, setChapterStrategy, activeChapterStream, setActiveChapterStream,
-    activeRepairStream, setActiveRepairStream, repairBeforeContent, setRepairBeforeContent,
-    repairAfterContent, setRepairAfterContent,
+    currentJobId,
+    setCurrentJobId,
+    pipelineForm,
+    setPipelineForm,
+    storedReview,
+    setReviewResult,
+    pipelineMessage,
+    setPipelineMessage,
+    chapterOperationMessage,
+    setChapterOperationMessage,
+    chapterStrategy,
+    setChapterStrategy,
+    activeChapterStream,
+    setActiveChapterStream,
+    activeRepairStream,
+    setActiveRepairStream,
+    repairBeforeContent,
+    setRepairBeforeContent,
+    repairAfterContent,
+    setRepairAfterContent,
   } = useChapterProductionState();
   const [structuredMessage, setStructuredMessage] = useState("");
   const [isDirectorExitActionExpanded, setIsDirectorExitActionExpanded] = useState(false);
@@ -183,7 +206,8 @@ export default function NovelEdit() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.novels.detail(id) });
       navigate(`/novels/${id}/simple`, { replace: true });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "切换模式失败，请重试。"),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "切换模式失败，请重试。"),
   });
 
   useEffect(() => {
@@ -276,7 +300,7 @@ export default function NovelEdit() {
     if (activeJobId && !currentJobId) {
       setCurrentJobId(activeJobId);
     }
-  }, [activePipelineJobQuery.data?.data?.id, currentJobId]);
+  }, [activePipelineJobQuery.data?.data?.id, currentJobId, setCurrentJobId]);
   const pipelineJobQuery = useQuery({
     queryKey: queryKeys.novels.pipelineJob(id, currentJobId || "none"),
     queryFn: () => getNovelPipelineJob(id, currentJobId),
@@ -311,29 +335,43 @@ export default function NovelEdit() {
     },
   });
 
-  const chapters = useMemo(() => novelDetailQuery.data?.data?.chapters ?? [], [novelDetailQuery.data?.data?.chapters]);
+  const chapters = useMemo(
+    () => novelDetailQuery.data?.data?.chapters ?? [],
+    [novelDetailQuery.data?.data?.chapters],
+  );
   const outlineSyncChapters = useMemo<ExistingOutlineChapter[]>(
-    () => chapters.map((chapter) => ({
-      id: chapter.id,
-      order: chapter.order,
-      title: chapter.title,
-      content: chapter.content ?? "",
-      expectation: chapter.expectation ?? "",
-      targetWordCount: chapter.targetWordCount ?? null,
-      conflictLevel: chapter.conflictLevel ?? null,
-      revealLevel: chapter.revealLevel ?? null,
-      mustAvoid: chapter.mustAvoid ?? null,
-      taskSheet: chapter.taskSheet ?? null,
-    })),
+    () =>
+      chapters.map((chapter) => ({
+        id: chapter.id,
+        order: chapter.order,
+        title: chapter.title,
+        content: chapter.content ?? "",
+        expectation: chapter.expectation ?? "",
+        targetWordCount: chapter.targetWordCount ?? null,
+        conflictLevel: chapter.conflictLevel ?? null,
+        revealLevel: chapter.revealLevel ?? null,
+        mustAvoid: chapter.mustAvoid ?? null,
+        taskSheet: chapter.taskSheet ?? null,
+      })),
     [chapters],
   );
   const selectedChapter = useMemo(
     () => chapters.find((item) => item.id === selectedChapterId),
     [chapters, selectedChapterId],
   );
-  const reviewResult = reviewForChapter(storedReview, { novelId: id, chapterId: selectedChapterId, content: selectedChapter?.content ?? null });
-  const characters = useMemo(() => novelDetailQuery.data?.data?.characters ?? [], [novelDetailQuery.data?.data?.characters]);
-  const baseCharacters = useMemo(() => baseCharacterListQuery.data?.data ?? [], [baseCharacterListQuery.data?.data]);
+  const reviewResult = reviewForChapter(storedReview, {
+    novelId: id,
+    chapterId: selectedChapterId,
+    content: selectedChapter?.content ?? null,
+  });
+  const characters = useMemo(
+    () => novelDetailQuery.data?.data?.characters ?? [],
+    [novelDetailQuery.data?.data?.characters],
+  );
+  const baseCharacters = useMemo(
+    () => baseCharacterListQuery.data?.data ?? [],
+    [baseCharacterListQuery.data?.data],
+  );
   const selectedCharacter = useMemo(
     () => characters.find((item) => item.id === selectedCharacterId),
     [characters, selectedCharacterId],
@@ -346,13 +384,15 @@ export default function NovelEdit() {
     () => basicForm.title.trim() || novelDetailQuery.data?.data?.title?.trim() || id,
     [basicForm.title, novelDetailQuery.data?.data?.title, id],
   );
-  const currentExportScope = isNovelWorkspaceFlowTab(activeTab) && activeTab !== "world" ? activeTab : null;
+  const currentExportScope =
+    isNovelWorkspaceFlowTab(activeTab) && activeTab !== "world" ? activeTab : null;
   const importedBaseCharacterIds = useMemo(
-    () => new Set(
-      characters
-        .map((item) => item.baseCharacterId)
-        .filter((item): item is string => Boolean(item)),
-    ),
+    () =>
+      new Set(
+        characters
+          .map((item) => item.baseCharacterId)
+          .filter((item): item is string => Boolean(item)),
+      ),
     [characters],
   );
   const hasCharacters = characters.length > 0;
@@ -438,7 +478,8 @@ export default function NovelEdit() {
   );
   const qualitySummary = qualityReportQuery.data?.data?.summary;
   const chapterQualityReport = useMemo(
-    () => resolveChapterQualityReport(qualityReportQuery.data?.data?.chapterReports, selectedChapterId),
+    () =>
+      resolveChapterQualityReport(qualityReportQuery.data?.data?.chapterReports, selectedChapterId),
     [qualityReportQuery.data?.data?.chapterReports, selectedChapterId],
   );
   const chapterPlan = chapterPlanQuery.data?.data ?? null;
@@ -447,9 +488,13 @@ export default function NovelEdit() {
   const chapterStateSnapshot = chapterStateSnapshotQuery.data?.data ?? null;
   const payoffLedger = payoffLedgerQuery.data?.data ?? null;
   const characterResources = characterResourcesQuery.data?.data?.items ?? [];
-  const pendingCharacterResourceProposals = characterResourcesQuery.data?.data?.pendingProposals ?? [];
+  const pendingCharacterResourceProposals =
+    characterResourcesQuery.data?.data?.pendingProposals ?? [];
   const chapterResourceContext = chapterResourceContextQuery.data?.data ?? null;
-  const chapterAuditReports = useMemo(() => chapterAuditReportsQuery.data?.data ?? [], [chapterAuditReportsQuery.data?.data]);
+  const chapterAuditReports = useMemo(
+    () => chapterAuditReportsQuery.data?.data ?? [],
+    [chapterAuditReportsQuery.data?.data],
+  );
   const pipelineBackgroundActivities = useMemo(
     () => parsePipelineBackgroundActivities(pipelineJobQuery.data?.data?.payload ?? null),
     [pipelineJobQuery.data?.data?.payload],
@@ -500,19 +545,28 @@ export default function NovelEdit() {
     toast.success("已收起这条导演接管提醒。需要时仍可从执行详情继续处理。");
   };
   const isTakeoverDismissed = Boolean(
-    activeAutoDirectorRefreshSignature
-    && dismissedTakeoverSignature
-    && dismissedTakeoverSignature === activeAutoDirectorRefreshSignature,
+    activeAutoDirectorRefreshSignature &&
+    dismissedTakeoverSignature &&
+    dismissedTakeoverSignature === activeAutoDirectorRefreshSignature,
   );
   const openAuditIssueIds = useMemo(
-    () => chapterAuditReports.flatMap((report) => report.issues.filter((issue) => issue.status === "open").map((issue) => issue.id)),
+    () =>
+      chapterAuditReports.flatMap((report) =>
+        report.issues.filter((issue) => issue.status === "open").map((issue) => issue.id),
+      ),
     [chapterAuditReports],
   );
   const {
-    alignToAutoDirectorResumeTarget, openAutoDirectorTaskCenter,
-    invalidateAutoDirectorTaskState, invalidateWorkspaceDataForTabs, invalidateVisibleWorkspaceData,
+    alignToAutoDirectorResumeTarget,
+    openAutoDirectorTaskCenter,
+    invalidateAutoDirectorTaskState,
+    invalidateWorkspaceDataForTabs,
+    invalidateVisibleWorkspaceData,
   } = useNovelWorkspaceInvalidation({
-    novelId: id, activeTab, selectedChapterId, payoffLedgerChapterOrder,
+    novelId: id,
+    activeTab,
+    selectedChapterId,
+    payoffLedgerChapterOrder,
     actionTargetDirectorTaskId,
     activeAutoDirectorTaskId: activeAutoDirectorTask?.id,
     visibleDirectorTask,
@@ -698,36 +752,39 @@ export default function NovelEdit() {
     () => buildStructuredPreviewFromVolumes(normalizedVolumeDraft),
     [normalizedVolumeDraft],
   );
-  const draftVolumeDocument = useMemo(() => ({
-    novelId: id,
-    workspaceVersion: "v2" as const,
-    volumes: normalizedVolumeDraft,
-    strategyPlan: volumeStrategyPlan,
-    critiqueReport: volumeCritiqueReport,
-    beatSheets: volumeBeatSheets,
-    rebalanceDecisions: volumeRebalanceDecisions,
-    readiness: buildVolumePlanningReadiness({
+  const draftVolumeDocument = useMemo(
+    () => ({
+      novelId: id,
+      workspaceVersion: "v2" as const,
       volumes: normalizedVolumeDraft,
       strategyPlan: volumeStrategyPlan,
       critiqueReport: volumeCritiqueReport,
       beatSheets: volumeBeatSheets,
+      rebalanceDecisions: volumeRebalanceDecisions,
+      readiness: buildVolumePlanningReadiness({
+        volumes: normalizedVolumeDraft,
+        strategyPlan: volumeStrategyPlan,
+        critiqueReport: volumeCritiqueReport,
+        beatSheets: volumeBeatSheets,
+      }),
+      derivedOutline: outlineText,
+      derivedStructuredOutline: structuredDraftText,
+      source: savedVolumeWorkspace?.source ?? "volume",
+      activeVersionId: savedVolumeWorkspace?.activeVersionId ?? null,
     }),
-    derivedOutline: outlineText,
-    derivedStructuredOutline: structuredDraftText,
-    source: savedVolumeWorkspace?.source ?? "volume",
-    activeVersionId: savedVolumeWorkspace?.activeVersionId ?? null,
-  }), [
-    id,
-    normalizedVolumeDraft,
-    outlineText,
-    savedVolumeWorkspace?.activeVersionId,
-    savedVolumeWorkspace?.source,
-    structuredDraftText,
-    volumeBeatSheets,
-    volumeCritiqueReport,
-    volumeRebalanceDecisions,
-    volumeStrategyPlan,
-  ]);
+    [
+      id,
+      normalizedVolumeDraft,
+      outlineText,
+      savedVolumeWorkspace?.activeVersionId,
+      savedVolumeWorkspace?.source,
+      structuredDraftText,
+      volumeBeatSheets,
+      volumeCritiqueReport,
+      volumeRebalanceDecisions,
+      volumeStrategyPlan,
+    ],
+  );
 
   const invalidateNovelDetail = async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.novels.detail(id) });
@@ -736,7 +793,9 @@ export default function NovelEdit() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.novels.latestStateSnapshot(id) });
     await queryClient.invalidateQueries({ queryKey: ["novels", "payoff-ledger", id] });
     await queryClient.invalidateQueries({ queryKey: queryKeys.novels.worldSlice(id) });
-    await queryClient.invalidateQueries({ queryKey: queryKeys.novels.characterDynamicsOverview(id) });
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.novels.characterDynamicsOverview(id),
+    });
     await queryClient.invalidateQueries({ queryKey: queryKeys.novels.characterCandidates(id) });
     await queryClient.invalidateQueries({ queryKey: queryKeys.novels.characterCastOptions(id) });
     await queryClient.invalidateQueries({ queryKey: queryKeys.novels.characterRelations(id) });
@@ -901,7 +960,10 @@ export default function NovelEdit() {
     repairSSE,
   });
 
-  const renderTakeoverEntry = (step: Parameters<typeof NovelTakeoverEntry>[0]["step"], variant: "default" | "outline" | "secondary" = "default") => (
+  const renderTakeoverEntry = (
+    step: Parameters<typeof NovelTakeoverEntry>[0]["step"],
+    variant: "default" | "outline" | "secondary" = "default",
+  ) => (
     <NovelTakeoverEntry
       step={step}
       variant={variant}
@@ -1061,7 +1123,9 @@ export default function NovelEdit() {
     onCreateChapter: () => createChapterMutation.mutate(),
     isCreatingChapter: createChapterMutation.isPending,
     onRemoveChapter: (chapter: Chapter) => {
-      const confirmed = window.confirm(`确认移除「第${chapter.order}章 ${chapter.title || "未命名章节"}」吗？该章节尚未开始写作，移除后不可恢复。`);
+      const confirmed = window.confirm(
+        `确认移除「第${chapter.order}章 ${chapter.title || "未命名章节"}」吗？该章节尚未开始写作，移除后不可恢复。`,
+      );
       if (confirmed) {
         deleteManualChapterMutation.mutate(chapter.id);
       }
@@ -1072,8 +1136,10 @@ export default function NovelEdit() {
     }),
     chapterOperationMessage,
     strategy: chapterStrategy,
-    onStrategyChange: (field: "runMode" | "wordSize" | "conflictLevel" | "pace" | "aiFreedom", value: string | number) =>
-      setChapterStrategy((prev) => ({ ...prev, [field]: value } as ChapterExecutionStrategy)),
+    onStrategyChange: (
+      field: "runMode" | "wordSize" | "conflictLevel" | "pace" | "aiFreedom",
+      value: string | number,
+    ) => setChapterStrategy((prev) => ({ ...prev, [field]: value }) as ChapterExecutionStrategy),
     onApplyStrategy: chapterExecutionActions.applyStrategy,
     isApplyingStrategy: chapterExecutionActions.isPatchingChapter,
     onGenerateSelectedChapter: handleGenerateSelectedChapter,
@@ -1112,18 +1178,21 @@ export default function NovelEdit() {
     chapterTimeline,
     isLoadingChapterTimeline: chapterTimelineQuery.isLoading || chapterTimelineQuery.isFetching,
     chapterResourceContext,
-    isLoadingChapterResourceContext: chapterResourceContextQuery.isLoading || chapterResourceContextQuery.isFetching,
+    isLoadingChapterResourceContext:
+      chapterResourceContextQuery.isLoading || chapterResourceContextQuery.isFetching,
     resourceWorkflowMode: activeDirectorSession ? ("auto_director" as const) : ("manual" as const),
     pendingCharacterResourceProposals: chapterPendingCharacterResourceProposals,
     onExtractChapterResources: () => extractChapterResourcesMutation.mutate(),
     isExtractingChapterResources: extractChapterResourcesMutation.isPending,
-    onConfirmCharacterResourceProposal: (proposalId: string) => confirmCharacterResourceProposalMutation.mutate(proposalId),
-    onRejectCharacterResourceProposal: (proposalId: string) => rejectCharacterResourceProposalMutation.mutate(proposalId),
+    onConfirmCharacterResourceProposal: (proposalId: string) =>
+      confirmCharacterResourceProposalMutation.mutate(proposalId),
+    onRejectCharacterResourceProposal: (proposalId: string) =>
+      rejectCharacterResourceProposalMutation.mutate(proposalId),
     confirmingCharacterResourceProposalId: confirmCharacterResourceProposalMutation.isPending
-      ? confirmCharacterResourceProposalMutation.variables ?? ""
+      ? (confirmCharacterResourceProposalMutation.variables ?? "")
       : "",
     rejectingCharacterResourceProposalId: rejectCharacterResourceProposalMutation.isPending
-      ? rejectCharacterResourceProposalMutation.variables ?? ""
+      ? (rejectCharacterResourceProposalMutation.variables ?? "")
       : "",
     chapterAuditReports,
     backgroundSyncActivities: pipelineBackgroundActivities,
@@ -1136,7 +1205,85 @@ export default function NovelEdit() {
     onAbortStream: handleAbortChapterStream,
     directorTakeoverEntry: undefined,
   };
-  const pipelineTab = { novelId: id, worldInjectionSummary, hasCharacters, onGoToCharacterTab: goToCharacterTab, pipelineForm, onPipelineFormChange: (field: "startOrder" | "endOrder" | "maxRetries" | "runMode" | "autoReview" | "autoRepair" | "skipCompleted" | "qualityThreshold" | "repairMode", value: number | boolean | string) => setPipelineForm((prev) => ({ ...prev, [field]: value } as typeof prev)), maxOrder, onGenerateBible: () => void bibleSSE.start(`/novels/${id}/bible/generate`, { provider: llm.provider, model: llm.model, temperature: 0.6 }), onAbortBible: bibleSSE.abort, isBibleStreaming: bibleSSE.isStreaming, bibleStreamContent: bibleSSE.content, onGenerateBeats: () => void beatsSSE.start(`/novels/${id}/beats/generate`, { provider: llm.provider, model: llm.model, targetChapters: pipelineForm.endOrder }), onAbortBeats: beatsSSE.abort, isBeatsStreaming: beatsSSE.isStreaming, beatsStreamContent: beatsSSE.content, onRunPipeline: (patch?: Partial<typeof pipelineForm>) => runPipelineMutation.mutate(patch), isRunningPipeline: runPipelineMutation.isPending, pipelineMessage, pipelineJob: pipelineJobQuery.data?.data, chapters, selectedChapterId, onSelectedChapterChange: setSelectedChapterId, onReviewChapter: () => reviewMutation.mutate(), isReviewing: reviewMutation.isPending, onRepairChapter: () => { setRepairBeforeContent(selectedChapter?.content ?? ""); setRepairAfterContent(""); setActiveRepairStream(selectedChapter ? { chapterId: selectedChapter.id, chapterLabel: `第${selectedChapter.order}章 ${selectedChapter.title || "未命名章节"}` } : null); void repairSSE.start(`/novels/${id}/chapters/${selectedChapterId}/repair`, { provider: llm.provider, model: llm.model, reviewIssues: reviewResult?.issues ?? [], auditIssueIds: openAuditIssueIds }); }, isRepairing: repairSSE.isStreaming, onGenerateHook: () => hookMutation.mutate(), isGeneratingHook: hookMutation.isPending, reviewResult, repairBeforeContent, repairAfterContent, repairStreamContent: repairSSE.content, isRepairStreaming: repairSSE.isStreaming, onAbortRepair: handleAbortRepair, qualitySummary, chapterReports: qualityReportQuery.data?.data?.chapterReports ?? [], bible, plotBeats };
+  const pipelineTab = {
+    novelId: id,
+    worldInjectionSummary,
+    hasCharacters,
+    onGoToCharacterTab: goToCharacterTab,
+    pipelineForm,
+    onPipelineFormChange: (
+      field:
+        | "startOrder"
+        | "endOrder"
+        | "maxRetries"
+        | "runMode"
+        | "autoReview"
+        | "autoRepair"
+        | "skipCompleted"
+        | "qualityThreshold"
+        | "repairMode",
+      value: number | boolean | string,
+    ) => setPipelineForm((prev) => ({ ...prev, [field]: value }) as typeof prev),
+    maxOrder,
+    onGenerateBible: () =>
+      void bibleSSE.start(`/novels/${id}/bible/generate`, {
+        provider: llm.provider,
+        model: llm.model,
+        temperature: 0.6,
+      }),
+    onAbortBible: bibleSSE.abort,
+    isBibleStreaming: bibleSSE.isStreaming,
+    bibleStreamContent: bibleSSE.content,
+    onGenerateBeats: () =>
+      void beatsSSE.start(`/novels/${id}/beats/generate`, {
+        provider: llm.provider,
+        model: llm.model,
+        targetChapters: pipelineForm.endOrder,
+      }),
+    onAbortBeats: beatsSSE.abort,
+    isBeatsStreaming: beatsSSE.isStreaming,
+    beatsStreamContent: beatsSSE.content,
+    onRunPipeline: (patch?: Partial<typeof pipelineForm>) => runPipelineMutation.mutate(patch),
+    isRunningPipeline: runPipelineMutation.isPending,
+    pipelineMessage,
+    pipelineJob: pipelineJobQuery.data?.data,
+    chapters,
+    selectedChapterId,
+    onSelectedChapterChange: setSelectedChapterId,
+    onReviewChapter: () => reviewMutation.mutate(),
+    isReviewing: reviewMutation.isPending,
+    onRepairChapter: () => {
+      setRepairBeforeContent(selectedChapter?.content ?? "");
+      setRepairAfterContent("");
+      setActiveRepairStream(
+        selectedChapter
+          ? {
+              chapterId: selectedChapter.id,
+              chapterLabel: `第${selectedChapter.order}章 ${selectedChapter.title || "未命名章节"}`,
+            }
+          : null,
+      );
+      void repairSSE.start(`/novels/${id}/chapters/${selectedChapterId}/repair`, {
+        provider: llm.provider,
+        model: llm.model,
+        reviewIssues: reviewResult?.issues ?? [],
+        auditIssueIds: openAuditIssueIds,
+      });
+    },
+    isRepairing: repairSSE.isStreaming,
+    onGenerateHook: () => hookMutation.mutate(),
+    isGeneratingHook: hookMutation.isPending,
+    reviewResult,
+    repairBeforeContent,
+    repairAfterContent,
+    repairStreamContent: repairSSE.content,
+    isRepairStreaming: repairSSE.isStreaming,
+    onAbortRepair: handleAbortRepair,
+    qualitySummary,
+    chapterReports: qualityReportQuery.data?.data?.chapterReports ?? [],
+    bible,
+    plotBeats,
+  };
   const characterTab = {
     novelId: id,
     llmProvider: llm.provider,
@@ -1145,7 +1292,8 @@ export default function NovelEdit() {
     quickCharacterForm,
     onQuickCharacterFormChange: (field: "name" | "role", value: string) =>
       setQuickCharacterForm((prev) => ({ ...prev, [field]: value })),
-    onQuickCreateCharacter: (payload: QuickCharacterCreatePayload) => quickCreateCharacterMutation.mutate(payload),
+    onQuickCreateCharacter: (payload: QuickCharacterCreatePayload) =>
+      quickCreateCharacterMutation.mutate(payload),
     isQuickCreating: quickCreateCharacterMutation.isPending,
     onGenerateSupplementalCharacters: generateSupplementalCharacterMutation.mutateAsync,
     isGeneratingSupplementalCharacters: generateSupplementalCharacterMutation.isPending,
@@ -1171,12 +1319,14 @@ export default function NovelEdit() {
     isSyncingAllTimeline: syncAllTimelineMutation.isPending,
     onEvolveCharacter: () => evolveCharacterMutation.mutate(),
     isEvolvingCharacter: evolveCharacterMutation.isPending,
-    onGenerateVisibleProfile: (userGuidance?: string) => generateVisibleProfileMutation.mutate(userGuidance),
+    onGenerateVisibleProfile: (userGuidance?: string) =>
+      generateVisibleProfileMutation.mutate(userGuidance),
     isGeneratingVisibleProfile: generateVisibleProfileMutation.isPending,
     visibleProfileSuggestion: generateVisibleProfileMutation.data?.data ?? null,
     onApplyVisibleProfile: () => applyVisibleProfileMutation.mutate(),
     isApplyingVisibleProfile: applyVisibleProfileMutation.isPending,
-    onGenerateBatchVisibleProfiles: (userGuidance?: string) => generateBatchVisibleProfilesMutation.mutate(userGuidance),
+    onGenerateBatchVisibleProfiles: (userGuidance?: string) =>
+      generateBatchVisibleProfilesMutation.mutate(userGuidance),
     isGeneratingBatchVisibleProfiles: generateBatchVisibleProfilesMutation.isPending,
     batchVisibleProfileResult: generateBatchVisibleProfilesMutation.data?.data ?? null,
     onApplyBatchVisibleProfiles: () => applyBatchVisibleProfilesMutation.mutate(),
@@ -1196,9 +1346,7 @@ export default function NovelEdit() {
     timelineEvents: characterTimelineQuery.data?.data ?? [],
   };
 
-  const activeStepTakeoverEntry = renderTakeoverEntry(
-    resolveNovelEditTakeoverTab(activeTab),
-  );
+  const activeStepTakeoverEntry = renderTakeoverEntry(resolveNovelEditTakeoverTab(activeTab));
   const exportVariables = exportNovelMutation.variables;
   const {
     isExportingCurrentMarkdown,

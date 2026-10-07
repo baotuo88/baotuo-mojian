@@ -89,12 +89,10 @@ export class NovelSourceAdapter implements SourceContentPort {
       gender: character.gender as "male" | "female" | "other" | "unknown" | undefined,
       persona: [character.role, character.personality].filter(Boolean).join("｜") || undefined,
       relations: character.background ?? undefined,
-      visualHint: [
-        character.appearance,
-        character.physique,
-        character.attireStyle,
-        character.signatureDetail,
-      ].filter(Boolean).join("，") || undefined,
+      visualHint:
+        [character.appearance, character.physique, character.attireStyle, character.signatureDetail]
+          .filter(Boolean)
+          .join("，") || undefined,
       sourceCharacterRef: character.id,
     }));
 
@@ -124,12 +122,18 @@ export class NovelSourceAdapter implements SourceContentPort {
       select: { order: true, title: true, content: true },
     });
 
-    if (chapters.length !== end - start + 1 || chapters.some((chapter, index) => chapter.order !== start + index)) {
+    if (
+      chapters.length !== end - start + 1 ||
+      chapters.some((chapter, index) => chapter.order !== start + index)
+    ) {
       throw new AppError("本话对应的小说章节不完整，请重新导入小说资料并检查分话范围。", 422);
     }
-    const unwritten = chapters.filter(chapter => !chapter.content?.trim());
+    const unwritten = chapters.filter((chapter) => !chapter.content?.trim());
     if (unwritten.length) {
-      throw new AppError(`第 ${unwritten.map(chapter => chapter.order).join("、")} 章没有正文，请先完成小说章节。`, 422);
+      throw new AppError(
+        `第 ${unwritten.map((chapter) => chapter.order).join("、")} 章没有正文，请先完成小说章节。`,
+        422,
+      );
     }
 
     return chapters

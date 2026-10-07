@@ -39,7 +39,14 @@ interface TakeoverExecutionWorkflowPort {
     forceNew?: true;
     seedPayload: Record<string, unknown>;
     initialState?: {
-      stage: "story_macro" | "world_setup" | "character_setup" | "volume_strategy" | "structured_outline" | "chapter_execution" | "quality_repair";
+      stage:
+        | "story_macro"
+        | "world_setup"
+        | "character_setup"
+        | "volume_strategy"
+        | "structured_outline"
+        | "chapter_execution"
+        | "quality_repair";
       itemKey?: string | null;
       itemLabel: string;
       progress?: number;
@@ -47,24 +54,37 @@ interface TakeoverExecutionWorkflowPort {
       volumeId?: string | null;
     };
   }): Promise<TakeoverBootstrapTaskResult>;
-  markTaskRunning(taskId: string, input: {
-    stage: "story_macro" | "world_setup" | "character_setup" | "volume_strategy" | "structured_outline" | "chapter_execution" | "quality_repair";
-    itemLabel: string;
-    itemKey?: string | null;
-    progress?: number;
-    clearCheckpoint?: boolean;
-  }): Promise<unknown>;
+  markTaskRunning(
+    taskId: string,
+    input: {
+      stage:
+        | "story_macro"
+        | "world_setup"
+        | "character_setup"
+        | "volume_strategy"
+        | "structured_outline"
+        | "chapter_execution"
+        | "quality_repair";
+      itemLabel: string;
+      itemKey?: string | null;
+      progress?: number;
+      clearCheckpoint?: boolean;
+    },
+  ): Promise<unknown>;
   markTaskFailed?(taskId: string, message: string): Promise<unknown>;
-  recordCheckpoint(taskId: string, input: {
-    stage: "chapter_execution";
-    checkpointType: "production_experience_required";
-    checkpointSummary: string;
-    itemLabel: string;
-    chapterId?: string | null;
-    volumeId?: string | null;
-    progress?: number;
-    seedPayload?: Record<string, unknown>;
-  }): Promise<unknown>;
+  recordCheckpoint(
+    taskId: string,
+    input: {
+      stage: "chapter_execution";
+      checkpointType: "production_experience_required";
+      checkpointSummary: string;
+      itemLabel: string;
+      chapterId?: string | null;
+      volumeId?: string | null;
+      progress?: number;
+      seedPayload?: Record<string, unknown>;
+    },
+  ): Promise<unknown>;
 }
 
 interface TakeoverExecutionAutoRuntimePort {
@@ -106,7 +126,8 @@ interface StartDirectorTakeoverExecutionInput {
     taskId: string;
     novelId: string;
     input: DirectorConfirmRequest;
-    startPhase: "story_macro" | "world_setup" | "character_setup" | "volume_strategy" | "structured_outline";
+    startPhase:
+      "story_macro" | "world_setup" | "character_setup" | "volume_strategy" | "structured_outline";
     approveCurrentGate?: boolean;
     approveAutoExecutionScope?: boolean;
   }) => Promise<void>;
@@ -150,7 +171,9 @@ interface StartDirectorTakeoverExecutionInput {
   }) => Promise<unknown>;
 }
 
-function startPhaseToEntryStep(startPhase: NonNullable<DirectorTakeoverRequest["startPhase"]>): DirectorTakeoverEntryStep {
+function startPhaseToEntryStep(
+  startPhase: NonNullable<DirectorTakeoverRequest["startPhase"]>,
+): DirectorTakeoverEntryStep {
   if (startPhase === "story_macro") return "story_macro";
   if (startPhase === "world_setup") return "world";
   if (startPhase === "character_setup") return "character";
@@ -158,16 +181,14 @@ function startPhaseToEntryStep(startPhase: NonNullable<DirectorTakeoverRequest["
   return "structured";
 }
 
-function normalizeTakeoverSelection(
-  request: DirectorTakeoverRequest,
-): {
+function normalizeTakeoverSelection(request: DirectorTakeoverRequest): {
   entryStep: DirectorTakeoverEntryStep;
   strategy: "continue_existing" | "restart_current_step";
 } {
-  const entryStep = request.entryStep
-    ?? (request.startPhase ? startPhaseToEntryStep(request.startPhase) : "basic");
-  const strategy = request.strategy
-    ?? (request.startPhase ? "restart_current_step" : "continue_existing");
+  const entryStep =
+    request.entryStep ?? (request.startPhase ? startPhaseToEntryStep(request.startPhase) : "basic");
+  const strategy =
+    request.strategy ?? (request.startPhase ? "restart_current_step" : "continue_existing");
   return {
     entryStep,
     strategy,
@@ -184,14 +205,18 @@ function normalizeContinueExistingAutoExecutionPlan(input: {
   if (selection.strategy !== "continue_existing" || requestedPlan?.mode !== "chapter_range") {
     return requestedPlan;
   }
-  const nextActionableOrder = input.takeoverState.executableRange?.nextChapterOrder
-    ?? input.takeoverState.latestAutoExecutionState?.nextChapterOrder
-    ?? input.takeoverState.executableRange?.startOrder
-    ?? null;
+  const nextActionableOrder =
+    input.takeoverState.executableRange?.nextChapterOrder ??
+    input.takeoverState.latestAutoExecutionState?.nextChapterOrder ??
+    input.takeoverState.executableRange?.startOrder ??
+    null;
   if (typeof nextActionableOrder !== "number" || !Number.isFinite(nextActionableOrder)) {
     return requestedPlan;
   }
-  const startOrder = Math.max(nextActionableOrder, Math.round(requestedPlan.startOrder ?? nextActionableOrder));
+  const startOrder = Math.max(
+    nextActionableOrder,
+    Math.round(requestedPlan.startOrder ?? nextActionableOrder),
+  );
   const endOrder = Math.max(startOrder, Math.round(requestedPlan.endOrder ?? startOrder));
   if (requestedPlan.startOrder === startOrder && requestedPlan.endOrder === endOrder) {
     return requestedPlan;
@@ -226,14 +251,18 @@ function buildResumeTargetFromPlan(input: {
     novelId: input.novelId,
     taskId: input.workflowTaskId ?? undefined,
     stage: input.plan.resumeStage,
-    volumeId: input.takeoverState.latestCheckpoint?.volumeId
-      ?? (input.plan.resumeStage === "structured" ? input.takeoverState.snapshot.firstVolumeId : null)
-      ?? input.takeoverState.snapshot.firstVolumeId
-      ?? null,
-    chapterId: input.takeoverState.latestCheckpoint?.chapterId
-      ?? input.takeoverState.executableRange?.nextChapterId
-      ?? input.takeoverState.latestAutoExecutionState?.nextChapterId
-      ?? null,
+    volumeId:
+      input.takeoverState.latestCheckpoint?.volumeId ??
+      (input.plan.resumeStage === "structured"
+        ? input.takeoverState.snapshot.firstVolumeId
+        : null) ??
+      input.takeoverState.snapshot.firstVolumeId ??
+      null,
+    chapterId:
+      input.takeoverState.latestCheckpoint?.chapterId ??
+      input.takeoverState.executableRange?.nextChapterId ??
+      input.takeoverState.latestAutoExecutionState?.nextChapterId ??
+      null,
   });
 }
 
@@ -249,7 +278,7 @@ function buildTakeoverMetadata(plan: DirectorTakeoverResolvedPlan) {
       ? { downstreamReset: buildContinueExistingDownstreamReset(plan) }
       : plan.strategy === "restart_current_step"
         ? { downstreamReset: buildRestartCurrentStepDownstreamReset(plan) }
-      : {}),
+        : {}),
   };
 }
 
@@ -297,19 +326,24 @@ function buildTakeoverInitialState(input: {
   plan: DirectorTakeoverResolvedPlan;
   takeoverState: DirectorTakeoverLoadedState;
 }) {
-  const runningState = input.plan.executionMode === "phase"
-    ? resolveDirectorRunningStateForPhase(input.plan.phase ?? input.plan.startPhase)
-    : buildAutoExecutionRunningState(input.plan);
+  const runningState =
+    input.plan.executionMode === "phase"
+      ? resolveDirectorRunningStateForPhase(input.plan.phase ?? input.plan.startPhase)
+      : buildAutoExecutionRunningState(input.plan);
   return {
     ...runningState,
-    chapterId: input.takeoverState.latestCheckpoint?.chapterId
-      ?? input.takeoverState.executableRange?.nextChapterId
-      ?? input.takeoverState.latestAutoExecutionState?.nextChapterId
-      ?? null,
-    volumeId: input.takeoverState.latestCheckpoint?.volumeId
-      ?? (runningState.stage === "structured_outline" ? input.takeoverState.snapshot.firstVolumeId : null)
-      ?? input.takeoverState.snapshot.firstVolumeId
-      ?? null,
+    chapterId:
+      input.takeoverState.latestCheckpoint?.chapterId ??
+      input.takeoverState.executableRange?.nextChapterId ??
+      input.takeoverState.latestAutoExecutionState?.nextChapterId ??
+      null,
+    volumeId:
+      input.takeoverState.latestCheckpoint?.volumeId ??
+      (runningState.stage === "structured_outline"
+        ? input.takeoverState.snapshot.firstVolumeId
+        : null) ??
+      input.takeoverState.snapshot.firstVolumeId ??
+      null,
   };
 }
 
@@ -349,12 +383,13 @@ export async function startDirectorTakeoverExecution(
     directorInput: input.directorInput,
     takeoverState: input.takeoverState,
   });
-  const request = normalizedAutoExecutionPlan === input.request.autoExecutionPlan
-    ? input.request
-    : {
-      ...input.request,
-      autoExecutionPlan: normalizedAutoExecutionPlan,
-    };
+  const request =
+    normalizedAutoExecutionPlan === input.request.autoExecutionPlan
+      ? input.request
+      : {
+          ...input.request,
+          autoExecutionPlan: normalizedAutoExecutionPlan,
+        };
   const directorInput = resolveTakeoverExecutionDirectorInput({
     request,
     directorInput: input.directorInput,
@@ -372,7 +407,7 @@ export async function startDirectorTakeoverExecution(
 
   const directorSession: DirectorSessionState = buildDirectorSessionState({
     runMode: directorInput.runMode,
-    phase: plan.executionMode === "phase" ? plan.phase ?? plan.startPhase : "chapter_execution",
+    phase: plan.executionMode === "phase" ? (plan.phase ?? plan.startPhase) : "chapter_execution",
     isBackgroundRunning: true,
   });
   const isFullBookAutopilot = isFullBookAutopilotRunMode(directorInput.runMode);
@@ -388,9 +423,9 @@ export async function startDirectorTakeoverExecution(
     });
   }
   if (
-    selection.strategy === "continue_existing"
-    && selection.entryStep === "structured"
-    && plan.effectiveStep === "structured"
+    selection.strategy === "continue_existing" &&
+    selection.entryStep === "structured" &&
+    plan.effectiveStep === "structured"
   ) {
     await input.resetDownstreamState?.({
       request,
@@ -414,13 +449,17 @@ export async function startDirectorTakeoverExecution(
     title: input.takeoverState.novel.title,
     forceNew: input.workflowTaskId ? undefined : true,
     initialState,
-    seedPayload: input.buildDirectorSeedPayload(directorInput, request.novelId, buildTakeoverSeedPayloadExtra({
-      directorSession,
-      resumeTarget: initialResumeTarget,
-      plan,
-      takeoverState: input.takeoverState,
-      rewriteSnapshot,
-    })),
+    seedPayload: input.buildDirectorSeedPayload(
+      directorInput,
+      request.novelId,
+      buildTakeoverSeedPayloadExtra({
+        directorSession,
+        resumeTarget: initialResumeTarget,
+        plan,
+        takeoverState: input.takeoverState,
+        rewriteSnapshot,
+      }),
+    ),
   });
 
   try {
@@ -456,14 +495,18 @@ export async function startDirectorTakeoverExecution(
           novelId: request.novelId,
           stage: "structured_outline",
           itemKey: "chapter_list",
-          volumeId: input.takeoverState.latestCheckpoint?.volumeId
-            ?? input.takeoverState.snapshot.firstVolumeId
-            ?? null,
+          volumeId:
+            input.takeoverState.latestCheckpoint?.volumeId ??
+            input.takeoverState.snapshot.firstVolumeId ??
+            null,
           chapterId: input.takeoverState.latestCheckpoint?.chapterId ?? null,
           scope: "book",
         });
       }
-      await input.workflowService.markTaskRunning(workflowTask.id, resolveDirectorRunningStateForPhase(plan.phase ?? plan.startPhase));
+      await input.workflowService.markTaskRunning(
+        workflowTask.id,
+        resolveDirectorRunningStateForPhase(plan.phase ?? plan.startPhase),
+      );
       const runPipeline = async () => {
         await input.runDirectorPipeline({
           taskId: workflowTask.id,
@@ -489,7 +532,10 @@ export async function startDirectorTakeoverExecution(
         checkpointSummary: "自动导演已确认现有章节执行资源可用，请选择正文生产方式。",
         itemLabel: "项目已可开写，等待选择生产方式",
         chapterId: input.takeoverState.latestCheckpoint?.chapterId ?? null,
-        volumeId: input.takeoverState.latestCheckpoint?.volumeId ?? input.takeoverState.snapshot.firstVolumeId ?? null,
+        volumeId:
+          input.takeoverState.latestCheckpoint?.volumeId ??
+          input.takeoverState.snapshot.firstVolumeId ??
+          null,
         progress: 0.9,
         seedPayload: input.buildDirectorSeedPayload(directorInput, request.novelId, {
           directorSession: buildDirectorSessionState({
@@ -517,7 +563,9 @@ export async function startDirectorTakeoverExecution(
     };
   } catch (error) {
     if (!input.awaitBackgroundRun) {
-      await input.workflowService.markTaskFailed?.(workflowTask.id, getErrorMessage(error)).catch(() => null);
+      await input.workflowService
+        .markTaskFailed?.(workflowTask.id, getErrorMessage(error))
+        .catch(() => null);
     }
     throw error;
   }

@@ -2,16 +2,25 @@
 
 ## 职责
 
-`DramaBatchOrchestrator` 编排整集首帧、视频任务提交和配音。图片、视频和配音供应商协议由对应服务及共享 media 模块拥有；编排层不写业务提示词，不推断故事意图。外部通过本目录 `index.ts` 使用编排能力。
+`DramaBatchOrchestrator`
+编排整集首帧、视频任务提交和配音。图片、视频和配音供应商协议由对应服务及共享 media 模块拥有；编排层不写业务提示词，不推断故事意图。外部通过本目录
+`index.ts` 使用编排能力。
 
 ## 状态与持久化
 
-- 创建时固定 `storyboardId`、`targetShotIds`、provider、角色参考图选项和费用单价。
-- 通过 `withCurrentShot` 的台本行锁串行化同集创建/恢复检查；先锁台本后不得再锁项目，避免与先锁项目再写分集的大纲流程形成死锁。工作领取通过 `pending -> running` 条件更新，不能仅依赖进程内 Set。
-- `completedShotIds` 是恢复依据；`done` 包含复用镜头，`skipped` 是其子集，进度为 `done + failed`，不能重复加 skipped。
-- 暂停只停止后续镜头，当前供应商请求可以结束并落盘。检查点更新必须合并并发到达的 `pauseRequested`。
-- 恢复沿用原任务，保留完成镜头和费用累计，清空待重试的失败列表；需要 `confirmAdditionalCost: true`。
-- 台本 `revision` 必须与分镜 `sourceRevision` 一致，分镜必须是该集最新的非 stale/superseded 版本；创建、恢复、逐镜执行和最终成功写入均校验此条件。最终成功写入与版本校验共用事务。
+- 创建时固定
+  `storyboardId`、`targetShotIds`、provider、角色参考图选项和费用单价。
+- 通过 `withCurrentShot`
+  的台本行锁串行化同集创建/恢复检查；先锁台本后不得再锁项目，避免与先锁项目再写分集的大纲流程形成死锁。工作领取通过
+  `pending -> running` 条件更新，不能仅依赖进程内 Set。
+- `completedShotIds` 是恢复依据；`done` 包含复用镜头，`skipped` 是其子集，进度为
+  `done + failed`，不能重复加 skipped。
+- 暂停只停止后续镜头，当前供应商请求可以结束并落盘。检查点更新必须合并并发到达的
+  `pauseRequested`。
+- 恢复沿用原任务，保留完成镜头和费用累计，清空待重试的失败列表；需要
+  `confirmAdditionalCost: true`。
+- 台本 `revision` 必须与分镜 `sourceRevision`
+  一致，分镜必须是该集最新的非 stale/superseded 版本；创建、恢复、逐镜执行和最终成功写入均校验此条件。最终成功写入与版本校验共用事务。
 - 新分镜禁止恢复旧任务。新分镜可创建新任务，过期 paused 记录不得阻止新分镜恢复。
 - `videos` 批任务完成仅代表视频任务提交完成，不能投影为成片成功。
 
@@ -22,7 +31,9 @@
 ## 单镜媒体写入
 
 - 首帧和 TTS 领取与完成时均通过台本锁及原 JSON 条件更新；外部生成不在数据库事务内等待。新台本或其他任务改变了状态时，迟到结果不能写成当前素材。
-- 首帧按请求 UUID 写不可变文件，数据库通过 `fileName` 与版本历史关联 `/keyframe/vN`。禁止恢复到固定 `keyframe.png` 覆盖模式：数据库 CAS 无法保护先发生的磁盘覆盖。历史版本映射不裁剪，避免供应商持有的旧参考图链接失效。
+- 首帧按请求 UUID 写不可变文件，数据库通过 `fileName` 与版本历史关联
+  `/keyframe/vN`。禁止恢复到固定 `keyframe.png`
+  覆盖模式：数据库 CAS 无法保护先发生的磁盘覆盖。历史版本映射不裁剪，避免供应商持有的旧参考图链接失效。
 - TTS 生成中或失败时保留上一轮成功的音频；成功结果附带历史记录。每句付费请求前复查分镜版本，台本变化后停止后续对白生成。
 - 视频提交或轮询跨过台本编辑时，只能把原上游任务编号与结果保存为 superseded 历史记录，用于费用核对；不得复活为当前镜头的完成素材。
 
@@ -30,4 +41,5 @@
 
 费用仅是依据配置单价和确认处理结果的估算，未知上游接单、失败请求、人工单镜操作可能产生账单差异。视频 submission_unknown 必须在单镜入口核对并确认重发，批处理不能替用户确认。外层异常必须落失败原因，避免任务长期显示运行中。
 
-相关规则见 [短剧任务恢复与素材保护](../../../../../docs/wiki/workflows/short-drama-production-recovery.md)。
+相关规则见
+[短剧任务恢复与素材保护](../../../../../docs/wiki/workflows/short-drama-production-recovery.md)。

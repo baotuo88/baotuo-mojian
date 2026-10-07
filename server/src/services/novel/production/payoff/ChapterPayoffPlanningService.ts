@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import type { CanonicalStateSnapshot, ChapterPayoffDirective } from "@ai-novel/shared/types/canonicalState";
+import type {
+  CanonicalStateSnapshot,
+  ChapterPayoffDirective,
+} from "@ai-novel/shared/types/canonicalState";
 import { runStructuredPrompt } from "../../../../prompting/core/promptRunner";
 import type { PromptExecutionOptions } from "../../../../prompting/core/promptTypes";
 import {
@@ -12,11 +15,13 @@ import { chapterPayoffDecisionStore } from "./infrastructure/ChapterPayoffDecisi
 
 type PlanningInput = Omit<ChapterPayoffDecisionInput, "payoffs" | "plan"> & {
   snapshot: CanonicalStateSnapshot;
-  plan: (NonNullable<ChapterPayoffDecisionInput["plan"]> & {
-    id?: string;
-    rawPlanJson?: string | null;
-    updatedAt?: string;
-  }) | null;
+  plan:
+    | (NonNullable<ChapterPayoffDecisionInput["plan"]> & {
+        id?: string;
+        rawPlanJson?: string | null;
+        updatedAt?: string;
+      })
+    | null;
 };
 
 export class ChapterPayoffPlanningService {
@@ -31,9 +36,13 @@ export class ChapterPayoffPlanningService {
       ...input.snapshot.narrative.urgentPayoffs,
       ...input.snapshot.narrative.pendingPayoffs,
     ];
-    const payoffs = [...new Map(candidates
-      .filter((item) => item.currentStatus !== "paid_off" && item.currentStatus !== "failed")
-      .map((item) => [item.ledgerKey, item])).values()].slice(0, 5);
+    const payoffs = [
+      ...new Map(
+        candidates
+          .filter((item) => item.currentStatus !== "paid_off" && item.currentStatus !== "failed")
+          .map((item) => [item.ledgerKey, item]),
+      ).values(),
+    ].slice(0, 5);
     const promptInput: ChapterPayoffDecisionInput = {
       chapter: {
         id: input.chapter.id,
@@ -44,12 +53,14 @@ export class ChapterPayoffPlanningService {
         sceneCards: input.chapter.sceneCards,
         mustAvoid: input.chapter.mustAvoid,
       },
-      plan: input.plan ? {
-        objective: input.plan.objective,
-        mustAdvance: input.plan.mustAdvance,
-        mustPreserve: input.plan.mustPreserve,
-        reveals: input.plan.reveals,
-      } : null,
+      plan: input.plan
+        ? {
+            objective: input.plan.objective,
+            mustAdvance: input.plan.mustAdvance,
+            mustPreserve: input.plan.mustPreserve,
+            reveals: input.plan.reveals,
+          }
+        : null,
       payoffs,
       protectedSecrets: input.protectedSecrets,
       forbiddenEvents: input.forbiddenEvents,
@@ -59,11 +70,15 @@ export class ChapterPayoffPlanningService {
     // Bind the decision to the writing contract, not to the evolving ledger after
     // this chapter. Audit/repair must reuse the writer's obligations, even once
     // those obligations have been fulfilled and disappear from the open ledger.
-    const fingerprint = createHash("sha256").update(JSON.stringify({
-      version: chapterPayoffDecisionPrompt.version,
-      chapter: promptInput.chapter,
-      plan: promptInput.plan,
-    })).digest("hex");
+    const fingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          version: chapterPayoffDecisionPrompt.version,
+          chapter: promptInput.chapter,
+          plan: promptInput.plan,
+        }),
+      )
+      .digest("hex");
     const planId = input.plan?.id;
     if (planId) {
       const saved = await this.store.read(planId, fingerprint);
@@ -71,7 +86,9 @@ export class ChapterPayoffPlanningService {
     }
     const save = async (directives: ChapterPayoffDirective[]) => {
       if (!planId) return directives;
-      const metadata = JSON.parse(input.plan?.rawPlanJson || "{}") as { executionContractHash?: string };
+      const metadata = JSON.parse(input.plan?.rawPlanJson || "{}") as {
+        executionContractHash?: string;
+      };
       return this.store.save(planId, fingerprint, directives, {
         expectedExecutionContractHash: metadata.executionContractHash ?? null,
         expectedPlanUpdatedAt: input.plan?.updatedAt,

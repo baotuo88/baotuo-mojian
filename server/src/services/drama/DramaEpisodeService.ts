@@ -12,13 +12,21 @@ export interface DramaEpisodeUpdateInput {
 
 export class DramaEpisodeService {
   async updateEpisode(projectId: string, order: number, input: DramaEpisodeUpdateInput) {
-    const episode = await prisma.dramaEpisode.findUniqueOrThrow({ where: { projectId_order: { projectId, order } } });
+    const episode = await prisma.dramaEpisode.findUniqueOrThrow({
+      where: { projectId_order: { projectId, order } },
+    });
     const { expectedRevision, ...changes } = input;
-    return commitEpisodeEdit({ episodeId: episode.id, expectedRevision, changes, source: "manual" });
+    return commitEpisodeEdit({
+      episodeId: episode.id,
+      expectedRevision,
+      changes,
+      source: "manual",
+    });
   }
   async listRevisions(projectId: string, order: number) {
     return prisma.dramaEpisodeRevision.findMany({
-      where: { episode: { projectId, order } }, orderBy: { revision: "desc" },
+      where: { episode: { projectId, order } },
+      orderBy: { revision: "desc" },
     });
   }
 }

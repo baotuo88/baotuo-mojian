@@ -12,10 +12,18 @@ const embeddingService = new EmbeddingService();
 const vectorStoreService = new VectorStoreService();
 const ragContextualChunkService = new RagContextualChunkService();
 const ragRerankerService = new RagRerankerService();
-const ragIndexService = new RagIndexService(embeddingService, vectorStoreService, ragContextualChunkService);
+const ragIndexService = new RagIndexService(
+  embeddingService,
+  vectorStoreService,
+  ragContextualChunkService,
+);
 const ragJobCleanupService = new RagJobCleanupService();
 const ragRetrievalTraceRetention = new RagRetrievalTraceRetention();
-const hybridRetrievalService = new HybridRetrievalService(embeddingService, vectorStoreService, ragRerankerService);
+const hybridRetrievalService = new HybridRetrievalService(
+  embeddingService,
+  vectorStoreService,
+  ragRerankerService,
+);
 const ragWorker = new RagWorker(ragIndexService);
 
 export const ragServices = {

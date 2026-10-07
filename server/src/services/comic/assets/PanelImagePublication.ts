@@ -5,22 +5,32 @@ import { AppError } from "../../../middleware/errorHandler";
 import { throwIfExecutionAborted } from "../../../platform/execution";
 import type { ImageTargetAdapter } from "../../image/runtime";
 import type { PanelImageData } from "../ComicPanelImageService";
-import { confirmedPanelImage, panelRevisionPath, panelSourceFingerprint, type PanelArtifactSnapshot } from "./PanelArtifactSource";
+import {
+  confirmedPanelImage,
+  panelRevisionPath,
+  panelSourceFingerprint,
+  type PanelArtifactSnapshot,
+} from "./PanelArtifactSource";
 
 /** Each worker owns an immutable file revision and may only publish against its captured source. */
-export function createPanelImageAdapter(panel: PanelArtifactSnapshot): ImageTargetAdapter<PanelImageData> {
+export function createPanelImageAdapter(
+  panel: PanelArtifactSnapshot,
+): ImageTargetAdapter<PanelImageData> {
   const revision = randomUUID();
   const sourceFingerprint = panelSourceFingerprint(panel);
   const previousImage = confirmedPanelImage(panel);
   let expectedImageData = panel.imageData;
   let extension = "png";
   const sourceWhere = {
-    id: panel.id, visualPrompt: panel.visualPrompt ?? null, dialogues: panel.dialogues ?? null,
-    characterRefs: panel.characterRefs ?? null, sceneRef: panel.sceneRef ?? null,
+    id: panel.id,
+    visualPrompt: panel.visualPrompt ?? null,
+    dialogues: panel.dialogues ?? null,
+    characterRefs: panel.characterRefs ?? null,
+    sceneRef: panel.sceneRef ?? null,
   };
   return {
     kind: `comic.panel:${panel.id}`,
-    loadState: async () => previousImage as PanelImageData | null ?? { status: "idle" },
+    loadState: async () => (previousImage as PanelImageData | null) ?? { status: "idle" },
     async saveState(next) {
       throwIfExecutionAborted();
       if (next.status === "done") {
@@ -29,11 +39,15 @@ export function createPanelImageAdapter(panel: PanelArtifactSnapshot): ImageTarg
         if (!metadata.width || !metadata.height || metadata.width * metadata.height > 80_000_000) {
           throw new AppError("图片生成结果无法读取或尺寸过大，请重新生成。", 502);
         }
-        await sharp(panelRevisionPath(panel.id, revision, extension)).resize(1, 1).raw().toBuffer();
+        await sharp(panelRevisionPath(panel.id, revision, extension))
+          .resize(1, 1)
+          .raw()
+          .toBuffer();
       }
-      const state = next.status === "done"
-        ? { ...next, revision, ext: extension, sourceFingerprint }
-        : { ...next, generationRevision: revision, previousImage: previousImage ?? undefined };
+      const state =
+        next.status === "done"
+          ? { ...next, revision, ext: extension, sourceFingerprint }
+          : { ...next, generationRevision: revision, previousImage: previousImage ?? undefined };
       const serialized = JSON.stringify(state);
       const result = await prisma.comicPanel.updateMany({
         where: { ...sourceWhere, imageData: expectedImageData },

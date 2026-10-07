@@ -1,4 +1,9 @@
-import type { NovelWorkflowCheckpoint, NovelWorkflowLane, NovelWorkflowResumeTarget, NovelWorkflowStage } from "@ai-novel/shared/types/novelWorkflow";
+import type {
+  NovelWorkflowCheckpoint,
+  NovelWorkflowLane,
+  NovelWorkflowResumeTarget,
+  NovelWorkflowStage,
+} from "@ai-novel/shared/types/novelWorkflow";
 import { buildNovelCreateResumeTarget, parseResumeTarget } from "./novelWorkflow.shared";
 import {
   defaultProgressForStage,
@@ -58,16 +63,16 @@ export function buildRestoreTaskToCheckpointResult(input: {
     checkpointType,
     status: input.existing.status,
   });
-  const resumeTarget = checkpointType === "candidate_selection_required"
-    ? buildNovelCreateResumeTarget(input.taskId, "director")
-      : (
-      parseResumeTarget(input.existing.resumeTargetJson) ?? input.buildResumeTarget({
-        taskId: input.taskId,
-        novelId: input.existing.novelId ?? null,
-        lane: (input.existing.lane ?? "auto_director") as NovelWorkflowLane,
-        stage: checkpointStage,
-      })
-    );
+  const resumeTarget =
+    checkpointType === "candidate_selection_required"
+      ? buildNovelCreateResumeTarget(input.taskId, "director")
+      : (parseResumeTarget(input.existing.resumeTargetJson) ??
+        input.buildResumeTarget({
+          taskId: input.taskId,
+          novelId: input.existing.novelId ?? null,
+          lane: (input.existing.lane ?? "auto_director") as NovelWorkflowLane,
+          stage: checkpointStage,
+        }));
 
   return {
     checkpointStage,
@@ -75,20 +80,23 @@ export function buildRestoreTaskToCheckpointResult(input: {
     data: {
       status: checkpointType === "workflow_completed" ? "succeeded" : "waiting_approval",
       pendingManualRecovery: false,
-      finishedAt: checkpointType === "workflow_completed"
-        ? (input.existing.finishedAt ?? new Date())
-        : null,
+      finishedAt:
+        checkpointType === "workflow_completed" ? (input.existing.finishedAt ?? new Date()) : null,
       cancelRequestedAt: null,
       heartbeatAt: new Date(),
       currentStage: stageLabel(checkpointStage),
       currentItemKey: checkpointStage,
-      currentItemLabel: resolveCheckpointItemLabelFromRow({
-        checkpointType,
-        status: input.existing.status,
-      }) ?? input.existing.currentItemLabel ?? null,
-      progress: checkpointType === "workflow_completed"
-        ? 1
-        : Math.max(input.existing.progress ?? 0, defaultProgressForStage(checkpointStage)),
+      currentItemLabel:
+        resolveCheckpointItemLabelFromRow({
+          checkpointType,
+          status: input.existing.status,
+        }) ??
+        input.existing.currentItemLabel ??
+        null,
+      progress:
+        checkpointType === "workflow_completed"
+          ? 1
+          : Math.max(input.existing.progress ?? 0, defaultProgressForStage(checkpointStage)),
       resumeTargetJson: JSON.stringify(resumeTarget),
       lastError: null,
     },

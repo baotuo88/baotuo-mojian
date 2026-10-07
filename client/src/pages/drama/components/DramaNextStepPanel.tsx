@@ -55,9 +55,11 @@ export function DramaNextStepPanel(props: {
     if (step.kind === "script" && step.episodeOrder) props.onGenerateScript(step.episodeOrder);
     if (step.kind === "review" && step.episodeOrder) props.onReviewEpisode(step.episodeOrder);
     if (step.kind === "repair" && step.episodeOrder) props.onRepairEpisode(step.episodeOrder);
-    if (step.kind === "storyboard" && step.episodeOrder) props.onGenerateStoryboard(step.episodeOrder);
+    if (step.kind === "storyboard" && step.episodeOrder)
+      props.onGenerateStoryboard(step.episodeOrder);
     if (step.kind === "videoPrompt" && step.shot) props.onGenerateVideoPrompt(step.shot);
-    if (step.kind === "providerTask" && step.videoPrompt) props.onCreateProviderTask(step.videoPrompt);
+    if (step.kind === "providerTask" && step.videoPrompt)
+      props.onCreateProviderTask(step.videoPrompt);
   };
 
   return (
@@ -70,10 +72,16 @@ export function DramaNextStepPanel(props: {
           </div>
           <CardDescription>{step.description}</CardDescription>
         </div>
-        {step.kind === "settings" ? <Button asChild><Link to="/settings/media">{step.button}</Link></Button> : <Button type="button" disabled={props.busy} onClick={runStep}>
-          <StepIcon icon={step.icon} />
-          {props.busy ? "处理中..." : step.button}
-        </Button>}
+        {step.kind === "settings" ? (
+          <Button asChild>
+            <Link to="/settings/media">{step.button}</Link>
+          </Button>
+        ) : (
+          <Button type="button" disabled={props.busy} onClick={runStep}>
+            <StepIcon icon={step.icon} />
+            {props.busy ? "处理中..." : step.button}
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2 text-sm text-muted-foreground">
         <span>已整理素材：{props.project.sourceBundle ? "是" : "否"}</span>

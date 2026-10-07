@@ -68,20 +68,33 @@ function buildLabelBuffer(label: string, width: number): Buffer {
 }
 
 /** 将图片缩放到目标高度，返回 sharp 实例和宽度 */
-async function resizeToHeight(filePath: string, height: number): Promise<{ buf: Buffer; width: number }> {
-  const { data, info } = await sharp(filePath).resize({ height, withoutEnlargement: false })
-    .png().toBuffer({ resolveWithObject: true });
+async function resizeToHeight(
+  filePath: string,
+  height: number,
+): Promise<{ buf: Buffer; width: number }> {
+  const { data, info } = await sharp(filePath)
+    .resize({ height, withoutEnlargement: false })
+    .png()
+    .toBuffer({ resolveWithObject: true });
   return { buf: data, width: info.width };
 }
 
 /** 拼合单列（图片 + 标签）成 TARGET_HEIGHT + LABEL_HEIGHT 高的 Buffer */
-async function buildColumn(filePath: string, label: string): Promise<{ buf: Buffer; width: number }> {
+async function buildColumn(
+  filePath: string,
+  label: string,
+): Promise<{ buf: Buffer; width: number }> {
   const { buf: imgBuf, width } = await resizeToHeight(filePath, TARGET_HEIGHT);
   const labelBuf = buildLabelBuffer(truncLabel(label), width);
 
   // 合并图片 + 标签（竖排）
   const combined = await sharp({
-    create: { width, height: TOTAL_HEIGHT, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
+    create: {
+      width,
+      height: TOTAL_HEIGHT,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
   })
     .composite([
       { input: imgBuf, top: 0, left: 0 },
@@ -100,7 +113,9 @@ function buildPlaceholderColumn(label: string, width = 256): { buf: Buffer; widt
   <text x="${width / 2}" y="${TARGET_HEIGHT / 2}"
     font-family="sans-serif" font-size="13" fill="#999999"
     text-anchor="middle" dominant-baseline="middle">无参考图</text>
-  ${buildLabelBuffer(label, width).toString("utf-8").replace(/<svg[^>]*>|<\/svg>/g, "")}
+  ${buildLabelBuffer(label, width)
+    .toString("utf-8")
+    .replace(/<svg[^>]*>|<\/svg>/g, "")}
 </svg>`;
   return { buf: Buffer.from(svg), width };
 }
@@ -118,7 +133,10 @@ export class ComicSpriteSheetService {
     // 列 1：三视图
     if (input.sheetFilePath) {
       try {
-        const col = await buildColumn(input.sheetFilePath, `${truncLabel(input.characterName, 8)}·三视图`);
+        const col = await buildColumn(
+          input.sheetFilePath,
+          `${truncLabel(input.characterName, 8)}·三视图`,
+        );
         columns.push(col);
       } catch (err) {
         console.warn(`[sprite] 三视图加载失败：${err instanceof Error ? err.message : err}`);
@@ -133,7 +151,9 @@ export class ComicSpriteSheetService {
         const col = await buildColumn(resolved.filePath, `服装·${asset.name}`);
         columns.push(col);
         break;
-      } catch { /* 跳过损坏图 */ }
+      } catch {
+        /* 跳过损坏图 */
+      }
     }
 
     // 列 3+：其他道具/武器等（上限 MAX_ASSET_COLS 总列数）
@@ -144,7 +164,9 @@ export class ComicSpriteSheetService {
       try {
         const col = await buildColumn(resolved.filePath, asset.name);
         columns.push(col);
-      } catch { /* 跳过 */ }
+      } catch {
+        /* 跳过 */
+      }
     }
 
     // 没有任何可用图片
@@ -160,20 +182,32 @@ export class ComicSpriteSheetService {
     }
 
     const finalBuf = await sharp({
-      create: { width: totalWidth, height: TOTAL_HEIGHT, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
+      create: {
+        width: totalWidth,
+        height: TOTAL_HEIGHT,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 1 },
+      },
     })
       .composite(compositeInputs)
       .png()
       .toBuffer();
 
     // 写到临时文件
-    const tmpFile = path.join(os.tmpdir(), `comic-sprite-${Date.now()}-${Math.random().toString(36).slice(2)}.png`);
+    const tmpFile = path.join(
+      os.tmpdir(),
+      `comic-sprite-${Date.now()}-${Math.random().toString(36).slice(2)}.png`,
+    );
     await fs.writeFile(tmpFile, finalBuf);
 
     return {
       filePath: tmpFile,
       cleanup: async () => {
-        try { await fs.unlink(tmpFile); } catch { /* 忽略 */ }
+        try {
+          await fs.unlink(tmpFile);
+        } catch {
+          /* 忽略 */
+        }
       },
     };
   }

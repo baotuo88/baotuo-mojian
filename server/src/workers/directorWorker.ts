@@ -81,7 +81,11 @@ export class DirectorWorker {
     try {
       await stopRenewal.ready;
       this.queue.assertLeaseActive(stopRenewal);
-      await this.queue.acquireResourceGate(command.novelId, command.commandType, stopRenewal.signal);
+      await this.queue.acquireResourceGate(
+        command.novelId,
+        command.commandType,
+        stopRenewal.signal,
+      );
       try {
         await this.queue.markRunning(command.id, slotId);
         this.queue.assertLeaseActive(stopRenewal);
@@ -90,21 +94,24 @@ export class DirectorWorker {
           `[director.worker] executing commandId=${command.id} type=${command.commandType} taskId=${command.taskId} novelId=${command.novelId} slot=${slotId}`,
         );
 
-        const outcome = await runWithExecutionScope({
-          signal: stopRenewal.signal,
-          fence: {
-            kind: "director",
-            commandId: command.id,
-            leaseOwner: `${this.queue.workerId}:${slotId}`,
-            attempt: command.attempt,
-            controlAction: command.commandType === "cancel" ? "cancel" : undefined,
+        const outcome = await runWithExecutionScope(
+          {
+            signal: stopRenewal.signal,
+            fence: {
+              kind: "director",
+              commandId: command.id,
+              leaseOwner: `${this.queue.workerId}:${slotId}`,
+              attempt: command.attempt,
+              controlAction: command.commandType === "cancel" ? "cancel" : undefined,
+            },
           },
-        }, async () => {
-          // A cancellation command may operate on a cancelled task, but only
-          // while its own persisted lease and command type still authorize it.
-          if (command.commandType === "cancel") await assertExecutionWriteAllowed(prisma);
-          return this.commandExecutor.execute(command.id);
-        });
+          async () => {
+            // A cancellation command may operate on a cancelled task, but only
+            // while its own persisted lease and command type still authorize it.
+            if (command.commandType === "cancel") await assertExecutionWriteAllowed(prisma);
+            return this.commandExecutor.execute(command.id);
+          },
+        );
         this.queue.assertLeaseActive(stopRenewal);
 
         if (outcome === "cancelled") {
@@ -133,7 +140,10 @@ async function bootstrap(): Promise<void> {
     console.warn("[director.worker] failed to initialize RAG compatibility settings.", error);
   });
   await qualityDebtSettingsService.warnIfAutoPromotionEnabled().catch((error) => {
-    console.warn("[director.worker] failed to inspect pending review auto-promotion settings.", error);
+    console.warn(
+      "[director.worker] failed to inspect pending review auto-promotion settings.",
+      error,
+    );
   });
   await loadProviderApiKeys().catch((error) => {
     console.warn("[director.worker] failed to load provider API keys from database.", error);

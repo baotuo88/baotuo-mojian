@@ -37,7 +37,12 @@ import {
   type CreativeHubGraphStateValue,
   type CreativeHubRunSettings,
 } from "./langgraphState";
-import type { CreativeHubInterrupt, CreativeHubMessage, CreativeHubResourceBinding, CreativeHubThread } from "@ai-novel/shared/types/creativeHub";
+import type {
+  CreativeHubInterrupt,
+  CreativeHubMessage,
+  CreativeHubResourceBinding,
+  CreativeHubThread,
+} from "@ai-novel/shared/types/creativeHub";
 import type { CreativeHubStreamFrame } from "@ai-novel/shared/types/api";
 
 interface CreativeHubGraphInvocation {
@@ -161,9 +166,13 @@ export class CreativeHubLangGraph {
     // Even an adapter that ignores cancellation must not leave a newly created
     // run active after the graph has already unwound its invocation.
     if (getExecutionAbortSignal()?.aborted) {
-      await withoutExecutionScope(() => this.store.updateRun(run.id, {
-        status: "cancelled", currentStep: "cancelled", finishedAt: new Date(),
-      }));
+      await withoutExecutionScope(() =>
+        this.store.updateRun(run.id, {
+          status: "cancelled",
+          currentStep: "cancelled",
+          finishedAt: new Date(),
+        }),
+      );
       invocation.unregisterRun();
       throwIfExecutionAborted();
     }
@@ -348,7 +357,8 @@ export class CreativeHubLangGraph {
       },
       onRunStatus: (payload) => {
         threadStatus = deriveThreadStatusFromRunStatus(payload.status);
-        latestError = payload.status === "failed" ? payload.message ?? "创作中枢运行失败。" : null;
+        latestError =
+          payload.status === "failed" ? (payload.message ?? "创作中枢运行失败。") : null;
         this.emitFrame(state, {
           event: "creative_hub/run_status",
           data: payload,
@@ -390,7 +400,8 @@ export class CreativeHubLangGraph {
         plannerProfile: "creative_hub_readonly",
       },
       state.plannerResult.structuredIntent,
-      (runId, message, agentName, innerCallbacks) => this.failRun(runId, message, agentName, state, innerCallbacks),
+      (runId, message, agentName, innerCallbacks) =>
+        this.failRun(runId, message, agentName, state, innerCallbacks),
       callbacks,
     );
 
@@ -480,10 +491,10 @@ export class CreativeHubLangGraph {
         latestTurnSummary: turnSummary,
         planner: state.plannerResult
           ? {
-            source: state.plannerResult.source,
-            validationWarnings: state.plannerResult.validationWarnings,
-            structuredIntent: state.plannerResult.structuredIntent,
-          }
+              source: state.plannerResult.source,
+              validationWarnings: state.plannerResult.validationWarnings,
+              structuredIntent: state.plannerResult.structuredIntent,
+            }
           : undefined,
       },
     });
@@ -517,14 +528,20 @@ export class CreativeHubLangGraph {
     };
   }
 
-  async runThread(input: RunThreadInput, emitFrame: (frame: CreativeHubStreamFrame) => void, signal?: AbortSignal): Promise<CreativeHubGraphResult> {
+  async runThread(
+    input: RunThreadInput,
+    emitFrame: (frame: CreativeHubStreamFrame) => void,
+    signal?: AbortSignal,
+  ): Promise<CreativeHubGraphResult> {
     const resourceBindings = toBindings(input.resourceBindings);
     const activeRuns = await this.store.listRuns({
       sessionId: `creative_hub_${input.threadId}`,
       novelId: resourceBindings.novelId ?? undefined,
       limit: 10,
     });
-    const blockingRun = activeRuns.find((item) => item.status === "running" || item.status === "waiting_approval");
+    const blockingRun = activeRuns.find(
+      (item) => item.status === "running" || item.status === "waiting_approval",
+    );
     if (blockingRun) {
       throw new Error(
         blockingRun.status === "waiting_approval"
@@ -537,31 +554,36 @@ export class CreativeHubLangGraph {
     const controller = new AbortController();
     const invocation: CreativeHubGraphInvocation = { emitFrame, controller };
     this.invocations.set(invocationId, invocation);
-    const executionSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+    const executionSignal = signal
+      ? AbortSignal.any([signal, controller.signal])
+      : controller.signal;
     try {
       return await runWithExecutionScope({ signal: executionSignal }, async () => {
-        const result = await this.graph.invoke({
-          invocationId,
-          threadId: input.threadId,
-          sessionId: `creative_hub_${input.threadId}`,
-          messages: input.messages,
-          runtimeMessages: [],
-          goal: "",
-          resourceBindings,
-          runSettings: input.runSettings,
-          parentCheckpointId: input.parentCheckpointId ?? null,
-          runId: null,
-          plannerResult: null,
-          executionResult: null,
-          interrupts: [],
-          finalMessages: input.messages,
-          nextBindings: resourceBindings,
-          checkpoint: null,
-          threadStatus: "idle",
-          latestError: null,
-          diagnostics: undefined,
-          turnSummary: null,
-        }, { signal: getExecutionAbortSignal() });
+        const result = await this.graph.invoke(
+          {
+            invocationId,
+            threadId: input.threadId,
+            sessionId: `creative_hub_${input.threadId}`,
+            messages: input.messages,
+            runtimeMessages: [],
+            goal: "",
+            resourceBindings,
+            runSettings: input.runSettings,
+            parentCheckpointId: input.parentCheckpointId ?? null,
+            runId: null,
+            plannerResult: null,
+            executionResult: null,
+            interrupts: [],
+            finalMessages: input.messages,
+            nextBindings: resourceBindings,
+            checkpoint: null,
+            threadStatus: "idle",
+            latestError: null,
+            diagnostics: undefined,
+            turnSummary: null,
+          },
+          { signal: getExecutionAbortSignal() },
+        );
 
         return {
           runId: result.runId,

@@ -46,7 +46,10 @@ function SourceQualityChecklist(props: {
     {
       label: "来源节拍",
       ready: props.beatCount >= 8,
-      detail: props.beatCount >= 8 ? `${props.beatCount} 个节拍` : `${props.beatCount} 个节拍，可能不足以支撑长集数`,
+      detail:
+        props.beatCount >= 8
+          ? `${props.beatCount} 个节拍`
+          : `${props.beatCount} 个节拍，可能不足以支撑长集数`,
     },
     {
       label: "角色资源",
@@ -71,7 +74,9 @@ function SourceQualityChecklist(props: {
           <div key={check.label} className="rounded-md border p-3 text-sm">
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">{check.label}</span>
-              <Badge variant={check.ready ? "default" : "secondary"}>{check.ready ? "可用" : "需补充"}</Badge>
+              <Badge variant={check.ready ? "default" : "secondary"}>
+                {check.ready ? "可用" : "需补充"}
+              </Badge>
             </div>
             <div className="mt-1 text-muted-foreground">{check.detail}</div>
           </div>
@@ -103,9 +108,10 @@ function SourceSupplementPanel({ project }: { project: DramaProjectDetail }) {
   const [userSupplement, setUserSupplement] = useState("");
   const [guidance, setGuidance] = useState<DramaSourceSupplementGuidance | null>(null);
   const mutation = useMutation({
-    mutationFn: () => analyzeDramaSourceSupplement(project.id, {
-      userSupplement: userSupplement.trim() || undefined,
-    }),
+    mutationFn: () =>
+      analyzeDramaSourceSupplement(project.id, {
+        userSupplement: userSupplement.trim() || undefined,
+      }),
     onSuccess: (response) => {
       if (response.data) {
         setGuidance(response.data);
@@ -121,7 +127,12 @@ function SourceSupplementPanel({ project }: { project: DramaProjectDetail }) {
           <CardTitle className="text-lg">补充素材建议</CardTitle>
           <CardDescription>让系统指出影响策略、分集和台本生成的素材缺口。</CardDescription>
         </div>
-        <Button type="button" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
           {mutation.isPending ? "分析中..." : "生成补充建议"}
         </Button>
       </CardHeader>
@@ -156,7 +167,10 @@ function SourceSupplementPanel({ project }: { project: DramaProjectDetail }) {
             ) : null}
             <div className="space-y-2">
               {guidance.questions.map((question, index) => (
-                <div key={`${question.priority}-${index}`} className="rounded-md border p-3 text-sm">
+                <div
+                  key={`${question.priority}-${index}`}
+                  className="rounded-md border p-3 text-sm"
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{question.priority}</Badge>
                     <span className="font-medium">{question.question}</span>
@@ -204,11 +218,15 @@ export function DramaSourcePanel({ project }: { project: DramaProjectDetail }) {
           <CardContent className="space-y-4">
             <section className="space-y-2">
               <h3 className="text-sm font-medium">梗概</h3>
-              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{bundle.synopsis || "暂无梗概"}</p>
+              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                {bundle.synopsis || "暂无梗概"}
+              </p>
             </section>
             <section className="space-y-2">
               <h3 className="text-sm font-medium">设定要点</h3>
-              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{bundle.worldNotes || "暂无设定要点"}</p>
+              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                {bundle.worldNotes || "暂无设定要点"}
+              </p>
             </section>
           </CardContent>
         </Card>
@@ -218,12 +236,20 @@ export function DramaSourcePanel({ project }: { project: DramaProjectDetail }) {
               <CardTitle className="text-lg">来源节拍</CardTitle>
             </CardHeader>
             <CardContent className="max-h-[360px] space-y-2 overflow-auto">
-              {beats.length > 0 ? beats.slice(0, 24).map((beat, index) => (
-                <div key={index} className="rounded-md border p-3 text-sm">
-                  <div className="font-medium">{compactText(beat.title || beat.summary || `节拍 ${index + 1}`)}</div>
-                  <div className="mt-1 text-muted-foreground">{compactText(beat.summary || beat.description || beat)}</div>
-                </div>
-              )) : <div className="text-sm text-muted-foreground">暂无来源节拍。</div>}
+              {beats.length > 0 ? (
+                beats.slice(0, 24).map((beat, index) => (
+                  <div key={index} className="rounded-md border p-3 text-sm">
+                    <div className="font-medium">
+                      {compactText(beat.title || beat.summary || `节拍 ${index + 1}`)}
+                    </div>
+                    <div className="mt-1 text-muted-foreground">
+                      {compactText(beat.summary || beat.description || beat)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground">暂无来源节拍。</div>
+              )}
             </CardContent>
           </Card>
           <Card className="rounded-lg">
@@ -231,11 +257,15 @@ export function DramaSourcePanel({ project }: { project: DramaProjectDetail }) {
               <CardTitle className="text-lg">硬事实</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {facts.length > 0 ? facts.slice(0, 12).map((fact, index) => (
-                <div key={index} className="rounded-md border px-3 py-2 text-sm">
-                  {fact.text || compactText(fact)}
-                </div>
-              )) : <div className="text-sm text-muted-foreground">暂无硬事实。</div>}
+              {facts.length > 0 ? (
+                facts.slice(0, 12).map((fact, index) => (
+                  <div key={index} className="rounded-md border px-3 py-2 text-sm">
+                    {fact.text || compactText(fact)}
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground">暂无硬事实。</div>
+              )}
             </CardContent>
           </Card>
         </div>

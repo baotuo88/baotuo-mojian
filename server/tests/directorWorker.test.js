@@ -88,17 +88,15 @@ test("director worker renews a leased command while waiting for resource budget"
     "should mark the leased command as running",
   );
   assert.ok(events.includes("execute:command-1"), "should execute the leased command");
-  assert.ok(
-    events.includes("complete:command-1:slot-1"),
-    "should complete the leased command",
-  );
+  assert.ok(events.includes("complete:command-1:slot-1"), "should complete the leased command");
   assert.ok(
     events.includes("release-gate:novel-1:continue"),
     "should release per-novel resource gate",
   );
   assert.ok(events.includes("stop-renewal"), "should stop lease renewal");
   assert.ok(
-    events.indexOf("start-renewal:command-1:slot-1") < events.indexOf("acquire-gate:novel-1:continue"),
+    events.indexOf("start-renewal:command-1:slot-1") <
+      events.indexOf("acquire-gate:novel-1:continue"),
     "renewal should start before waiting for resource gate",
   );
 });
@@ -190,32 +188,49 @@ test("task dispatcher returns false on timeout", async () => {
   assert.equal(wasSignaled, false, "should return false on timeout");
 });
 
-
 test("lease loss aborts the running pipeline and rejects a late persistence attempt", async (t) => {
   const { fixture } = require("./support/executionFenceFixture.cjs");
   const { getExecutionAbortSignal } = require("../dist/platform/execution");
   const { raw, client, value } = await fixture(t);
-  await raw.directorRunCommand.updateMany({ where: { id: "cmd" }, data: { leaseOwner: "review:slot" } });
-  let renewals = 0;
-  const queue = new DirectorTaskQueue({ workerId: "review", leaseMs: 300 }, {
-    renewLease: async () => ++renewals === 1,
+  await raw.directorRunCommand.updateMany({
+    where: { id: "cmd" },
+    data: { leaseOwner: "review:slot" },
   });
-  queue.leaseNext = async () => ({ command: { id: "cmd", taskId: "task", novelId: null, commandType: "continue", attempt: 1 } });
+  let renewals = 0;
+  const queue = new DirectorTaskQueue(
+    { workerId: "review", leaseMs: 300 },
+    {
+      renewLease: async () => ++renewals === 1,
+    },
+  );
+  queue.leaseNext = async () => ({
+    command: { id: "cmd", taskId: "task", novelId: null, commandType: "continue", attempt: 1 },
+  });
   queue.acquireResourceGate = async () => {};
   queue.releaseResourceGate = () => {};
   queue.markRunning = async () => {};
   let completed = false;
-  queue.completeTask = async () => { completed = true; };
+  queue.completeTask = async () => {
+    completed = true;
+  };
   queue.failTask = async () => {};
   let signal;
-  const worker = new DirectorWorker({ queue, commandExecutor: { execute: async () => {
-    signal = getExecutionAbortSignal();
-    await delay(160);
-    // Simulate an adapter that resolves despite cancellation. The actual Prisma
-    // write boundary must reject it, not just a race around the execution promise.
-    await client.appSetting.updateMany({ where: { key: "result" }, data: { value: "late chapter" } });
-    return "completed";
-  } } });
+  const worker = new DirectorWorker({
+    queue,
+    commandExecutor: {
+      execute: async () => {
+        signal = getExecutionAbortSignal();
+        await delay(160);
+        // Simulate an adapter that resolves despite cancellation. The actual Prisma
+        // write boundary must reject it, not just a race around the execution promise.
+        await client.appSetting.updateMany({
+          where: { key: "result" },
+          data: { value: "late chapter" },
+        });
+        return "completed";
+      },
+    },
+  });
   await worker.tick("slot");
   assert.equal(signal?.aborted, true);
   assert.equal(completed, false);
@@ -227,29 +242,54 @@ test("cancel commands retain their persisted ownership check before dispatch and
   const { raw, client } = await fixture(t);
   const originalCount = prisma.directorRunCommand.count;
   prisma.directorRunCommand.count = (...args) => raw.directorRunCommand.count(...args);
-  t.after(() => { prisma.directorRunCommand.count = originalCount; });
-  await raw.directorRunCommand.updateMany({ where: { id: "cmd" }, data: { commandType: "cancel", leaseOwner: "review:slot" } });
+  t.after(() => {
+    prisma.directorRunCommand.count = originalCount;
+  });
+  await raw.directorRunCommand.updateMany({
+    where: { id: "cmd" },
+    data: { commandType: "cancel", leaseOwner: "review:slot" },
+  });
   await raw.novelWorkflowTask.updateMany({ where: { id: "task" }, data: { status: "cancelled" } });
-  const queue = new DirectorTaskQueue({ workerId: "review", leaseMs: 10_000 }, { renewLease: async () => true });
-  queue.leaseNext = async () => ({ command: { id: "cmd", taskId: "task", novelId: null, commandType: "cancel", attempt: 1 } });
+  const queue = new DirectorTaskQueue(
+    { workerId: "review", leaseMs: 10_000 },
+    { renewLease: async () => true },
+  );
+  queue.leaseNext = async () => ({
+    command: { id: "cmd", taskId: "task", novelId: null, commandType: "cancel", attempt: 1 },
+  });
   queue.acquireResourceGate = async () => {};
   queue.releaseResourceGate = () => {};
   queue.markRunning = async () => {};
   let executions = 0;
   let cancellations = 0;
   const failures = [];
-  queue.cancelTask = async () => { cancellations += 1; };
-  queue.failTask = async (_id, _slot, error) => { failures.push(error); };
-  const worker = new DirectorWorker({ queue, commandExecutor: { execute: async () => {
-    executions += 1;
-    await client.novelWorkflowTask.updateMany({ where: { id: "task" }, data: { status: "cancelled" } });
-    return "cancelled";
-  } } });
+  queue.cancelTask = async () => {
+    cancellations += 1;
+  };
+  queue.failTask = async (_id, _slot, error) => {
+    failures.push(error);
+  };
+  const worker = new DirectorWorker({
+    queue,
+    commandExecutor: {
+      execute: async () => {
+        executions += 1;
+        await client.novelWorkflowTask.updateMany({
+          where: { id: "task" },
+          data: { status: "cancelled" },
+        });
+        return "cancelled";
+      },
+    },
+  });
   await worker.tick("slot");
   assert.equal(executions, 1);
   assert.equal(cancellations, 1);
   assert.equal(failures.length, 0);
-  await raw.directorRunCommand.updateMany({ where: { id: "cmd" }, data: { leaseOwner: "replacement" } });
+  await raw.directorRunCommand.updateMany({
+    where: { id: "cmd" },
+    data: { leaseOwner: "replacement" },
+  });
   await worker.tick("slot");
   assert.equal(executions, 1, "a stale cancel command must not reach the executor");
   assert.equal(failures.length, 1);

@@ -252,14 +252,17 @@ export const novelReadToolDefinitions: Partial<
           },
         },
       });
-      const summaryMode = chapters.every((chapter) => chapter.chapterSummary?.summary?.trim()) && input.mode === "summary"
-        ? "chapter_summary"
-        : "content_excerpt";
+      const summaryMode =
+        chapters.every((chapter) => chapter.chapterSummary?.summary?.trim()) &&
+        input.mode === "summary"
+          ? "chapter_summary"
+          : "content_excerpt";
       const summary = chapters
         .map((chapter) => {
-          const basis = summaryMode === "chapter_summary"
-            ? chapter.chapterSummary?.summary?.trim() ?? ""
-            : (chapter.content ?? "").slice(0, 260).trim();
+          const basis =
+            summaryMode === "chapter_summary"
+              ? (chapter.chapterSummary?.summary?.trim() ?? "")
+              : (chapter.content ?? "").slice(0, 260).trim();
           return `第${chapter.order}章《${chapter.title}》：${basis || "暂无可用内容"}`;
         })
         .join("\n");
@@ -449,8 +452,10 @@ export const novelReadToolDefinitions: Partial<
         "从拆书或世界观里找参考",
       ],
       requiresNovelContext: false,
-      whenToUse: "用户在请求检索某个关键词、设定、关系模式、题材或世界观原型，尤其是要找类似参考，且答案可能存在于知识库、已索引的拆书资料或世界观库中。",
-      whenNotToUse: "用户已经明确要看某个具体世界观详情、具体拆书任务详情、具体小说列表或具体章节内容。",
+      whenToUse:
+        "用户在请求检索某个关键词、设定、关系模式、题材或世界观原型，尤其是要找类似参考，且答案可能存在于知识库、已索引的拆书资料或世界观库中。",
+      whenNotToUse:
+        "用户已经明确要看某个具体世界观详情、具体拆书任务详情、具体小说列表或具体章节内容。",
     },
     inputSchema: searchKnowledgeInput,
     outputSchema: searchKnowledgeOutput,

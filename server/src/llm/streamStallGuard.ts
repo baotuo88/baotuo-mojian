@@ -6,11 +6,17 @@ export const DEFAULT_STREAM_STALL_TIMEOUT_MS = 8 * 60_000;
 
 export function guardStreamStall<T>(
   stream: AsyncIterable<T>,
-  options?: { stallTimeoutMs?: number; label?: string; signal?: AbortSignal; onStall?: (error: Error) => void },
+  options?: {
+    stallTimeoutMs?: number;
+    label?: string;
+    signal?: AbortSignal;
+    onStall?: (error: Error) => void;
+  },
 ): AsyncIterable<T> {
-  const stallTimeoutMs = typeof options?.stallTimeoutMs === "number" && options.stallTimeoutMs > 0
-    ? options.stallTimeoutMs
-    : DEFAULT_STREAM_STALL_TIMEOUT_MS;
+  const stallTimeoutMs =
+    typeof options?.stallTimeoutMs === "number" && options.stallTimeoutMs > 0
+      ? options.stallTimeoutMs
+      : DEFAULT_STREAM_STALL_TIMEOUT_MS;
   const label = options?.label?.trim() || "LLM stream";
   const signal = options?.signal;
 
@@ -25,15 +31,18 @@ export function guardStreamStall<T>(
         const stalled = new Promise<never>((_resolve, reject) => {
           const onAbort = () => reject(signal?.reason ?? new Error("Stream cancelled."));
           signal?.addEventListener("abort", onAbort, { once: true });
-          const handle = setTimeout(
-            () => {
-              const error = new Error(`${label} stalled: no new chunk within ${Math.round(stallTimeoutMs / 1000)}s.`);
-              error.name = "StreamStallError";
-              try { options?.onStall?.(error); } catch { /* Preserve the timeout failure. */ }
-              reject(error);
-            },
-            stallTimeoutMs,
-          );
+          const handle = setTimeout(() => {
+            const error = new Error(
+              `${label} stalled: no new chunk within ${Math.round(stallTimeoutMs / 1000)}s.`,
+            );
+            error.name = "StreamStallError";
+            try {
+              options?.onStall?.(error);
+            } catch {
+              /* Preserve the timeout failure. */
+            }
+            reject(error);
+          }, stallTimeoutMs);
           release = () => {
             clearTimeout(handle);
             signal?.removeEventListener("abort", onAbort);
@@ -45,7 +54,10 @@ export function guardStreamStall<T>(
         } finally {
           (release as (() => void) | null)?.();
         }
-        if (result.done) { completed = true; return; }
+        if (result.done) {
+          completed = true;
+          return;
+        }
         signal?.throwIfAborted();
         yield result.value;
       }
@@ -53,7 +65,10 @@ export function guardStreamStall<T>(
       // return() queues behind a pending async-generator next(). Timeout and
       // cancellation must not wait for that same hung read. The owner aborts the
       // request through onStall/signal; iterator cleanup remains best effort.
-      if (!completed) void Promise.resolve().then(() => iterator.return?.()).catch(() => {});
+      if (!completed)
+        void Promise.resolve()
+          .then(() => iterator.return?.())
+          .catch(() => {});
     }
   }
 

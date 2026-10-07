@@ -62,14 +62,14 @@ export function hasCharacterHardFacts(value: CharacterHardFacts | null | undefin
     return false;
   }
   return Boolean(
-    compactText(value.identityLabel)
-    || compactText(value.factionLabel)
-    || compactText(value.stanceLabel)
-    || compactText(value.powerLevel)
-    || compactText(value.realm)
-    || compactText(value.currentLocation)
-    || compactText(value.availability)
-    || normalizeCharacterProhibitions(value.prohibitions).length > 0,
+    compactText(value.identityLabel) ||
+    compactText(value.factionLabel) ||
+    compactText(value.stanceLabel) ||
+    compactText(value.powerLevel) ||
+    compactText(value.realm) ||
+    compactText(value.currentLocation) ||
+    compactText(value.availability) ||
+    normalizeCharacterProhibitions(value.prohibitions).length > 0,
   );
 }
 
@@ -91,10 +91,10 @@ export function buildRuntimeCharacterHardFacts(
     currentLocation: compactText(character.currentLocation),
     availability: compactText(character.availability),
     currentState: pendingFields.has("currentState")
-      ? compactText(pendingReview?.currentState) ?? compactText(character.currentState)
+      ? (compactText(pendingReview?.currentState) ?? compactText(character.currentState))
       : compactText(character.currentState),
     currentGoal: pendingFields.has("currentGoal")
-      ? compactText(pendingReview?.currentGoal) ?? compactText(character.currentGoal)
+      ? (compactText(pendingReview?.currentGoal) ?? compactText(character.currentGoal))
       : compactText(character.currentGoal),
     prohibitions: normalizeCharacterProhibitions(character.prohibitions),
     pendingReviewFields: pendingReview?.pendingReviewFields ?? [],
@@ -106,21 +106,21 @@ export function buildRuntimeCharacterHardFactsList(
   pendingReviewByCharacterId: PendingCharacterHardFactReviewMap = new Map(),
 ): GenerationContextPackage["characterHardFacts"] {
   return characters
-    .map((character) => buildRuntimeCharacterHardFacts(
-      character,
-      pendingReviewByCharacterId.get(character.id),
-    ))
-    .filter((item) => (
-      Boolean(item.gender)
-      || Boolean(item.identityLabel)
-      || Boolean(item.factionLabel)
-      || Boolean(item.stanceLabel)
-      || Boolean(item.powerLevel)
-      || Boolean(item.realm)
-      || Boolean(item.currentLocation)
-      || Boolean(item.availability)
-      || Boolean(item.currentState)
-      || Boolean(item.currentGoal)
-      || item.prohibitions.length > 0
-    ));
+    .map((character) =>
+      buildRuntimeCharacterHardFacts(character, pendingReviewByCharacterId.get(character.id)),
+    )
+    .filter(
+      (item) =>
+        Boolean(item.gender) ||
+        Boolean(item.identityLabel) ||
+        Boolean(item.factionLabel) ||
+        Boolean(item.stanceLabel) ||
+        Boolean(item.powerLevel) ||
+        Boolean(item.realm) ||
+        Boolean(item.currentLocation) ||
+        Boolean(item.availability) ||
+        Boolean(item.currentState) ||
+        Boolean(item.currentGoal) ||
+        item.prohibitions.length > 0,
+    );
 }

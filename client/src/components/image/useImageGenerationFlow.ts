@@ -31,14 +31,24 @@ export function useImageGenerationFlow() {
   const [submitting, setSubmitting] = useState(false);
   const requestVersion = useRef(0);
   const submitLock = useRef(false);
-  const activeGenerate = useRef<((overrides: ImageGenerationOverrides) => Promise<void>) | null>(null);
+  const activeGenerate = useRef<((overrides: ImageGenerationOverrides) => Promise<void>) | null>(
+    null,
+  );
 
-  useEffect(() => () => {
-    requestVersion.current += 1;
-    activeGenerate.current = null;
-  }, []);
+  useEffect(
+    () => () => {
+      requestVersion.current += 1;
+      activeGenerate.current = null;
+    },
+    [],
+  );
 
-  const start = async <TResult>({ prepare, generate, onSuccess, onError }: StartOptions<TResult>) => {
+  const start = async <TResult>({
+    prepare,
+    generate,
+    onSuccess,
+    onError,
+  }: StartOptions<TResult>) => {
     if (submitLock.current) return;
     const version = ++requestVersion.current;
     activeGenerate.current = null;

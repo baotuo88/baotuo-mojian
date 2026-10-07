@@ -1,7 +1,19 @@
 import { prisma } from "../../../db/prisma";
 import { AppError } from "../../../middleware/errorHandler";
-import type { NovelWorkflowCheckpoint, NovelWorkflowStage } from "@ai-novel/shared/types/novelWorkflow";
-import { buildNovelCreateResumeTarget, appendMilestone, defaultWorkflowTitle, mergeSeedPayload, parseMilestones, parseResumeTarget, parseSeedPayload, stringifyResumeTarget } from "./novelWorkflow.shared";
+import type {
+  NovelWorkflowCheckpoint,
+  NovelWorkflowStage,
+} from "@ai-novel/shared/types/novelWorkflow";
+import {
+  buildNovelCreateResumeTarget,
+  appendMilestone,
+  defaultWorkflowTitle,
+  mergeSeedPayload,
+  parseMilestones,
+  parseResumeTarget,
+  parseSeedPayload,
+  stringifyResumeTarget,
+} from "./novelWorkflow.shared";
 import {
   BootstrapWorkflowInput,
   SyncWorkflowStageInput,
@@ -13,7 +25,10 @@ import {
   stageLabel,
 } from "./novelWorkflow.helpers";
 import { buildRestoreTaskToCheckpointResult } from "./novelWorkflowCheckpoint";
-import { applyDirectorLlmOverride, type DirectorWorkflowSeedPayload } from "../director/runtime/novelDirectorHelpers";
+import {
+  applyDirectorLlmOverride,
+  type DirectorWorkflowSeedPayload,
+} from "../director/runtime/novelDirectorHelpers";
 import type { DirectorLLMOptions } from "@ai-novel/shared/types/novelDirector";
 import { NovelWorkflowStoreService } from "./NovelWorkflowStoreService";
 
@@ -72,8 +87,13 @@ export class NovelWorkflowApplicationService {
     }
 
     if (input.novelId?.trim() && input.forceNew !== true) {
-      const visibleRows = await this.workflow.getVisibleRowsByNovelId(input.novelId.trim(), input.lane);
-      const active = visibleRows.find((row) => ["queued", "running", "waiting_approval"].includes(row.status as string));
+      const visibleRows = await this.workflow.getVisibleRowsByNovelId(
+        input.novelId.trim(),
+        input.lane,
+      );
+      const active = visibleRows.find((row) =>
+        ["queued", "running", "waiting_approval"].includes(row.status as string),
+      );
       if (active) {
         return active;
       }
@@ -103,18 +123,25 @@ export class NovelWorkflowApplicationService {
     if (existingTask?.novelId) {
       return { task: existingTask, novel: await this.workflow.getNovelById(existingTask.novelId) };
     }
-    const task = existingTask ?? await this.workflow.createWorkflow({
-      workflowTaskId: stableTaskId,
-      lane: "manual_create",
-      title: input.title,
-      seedPayload: input.seedPayload,
-    });
-    const novel = await this.workflow.getNovelById(stableNovelId) ?? await input.createNovel(stableNovelId);
+    const task =
+      existingTask ??
+      (await this.workflow.createWorkflow({
+        workflowTaskId: stableTaskId,
+        lane: "manual_create",
+        title: input.title,
+        seedPayload: input.seedPayload,
+      }));
+    const novel =
+      (await this.workflow.getNovelById(stableNovelId)) ?? (await input.createNovel(stableNovelId));
     const attached = await this.attachNovelToTask(task.id, novel.id);
     return { task: attached, novel };
   }
 
-  async attachNovelToTask(taskId: string, novelId: string, stage: NovelWorkflowStage = "project_setup") {
+  async attachNovelToTask(
+    taskId: string,
+    novelId: string,
+    stage: NovelWorkflowStage = "project_setup",
+  ) {
     const existing = await this.workflow.getTaskById(taskId);
     if (!existing) {
       throw new AppError("Workflow task not found.", 404);
@@ -127,27 +154,34 @@ export class NovelWorkflowApplicationService {
         title: novelTitle ?? existing.title,
         progress: Math.max(existing.progress, defaultProgressForStage(stage)),
         currentStage: stageLabel(stage),
-        currentItemKey: existing.lane === "auto_director"
-          ? (existing.currentItemKey ?? "novel_create")
-          : stage,
-        currentItemLabel: existing.lane === "auto_director"
-          ? (existing.currentItemLabel ?? "正在创建小说项目")
-          : (stage === "project_setup" ? "小说项目已创建" : (existing.currentItemLabel ?? "已恢复小说主任务")),
-        resumeTargetJson: stringifyResumeTarget(this.workflow.buildResumeTarget({
-          taskId,
-          novelId,
-          lane: existing.lane,
-          stage,
-        })),
+        currentItemKey:
+          existing.lane === "auto_director" ? (existing.currentItemKey ?? "novel_create") : stage,
+        currentItemLabel:
+          existing.lane === "auto_director"
+            ? (existing.currentItemLabel ?? "正在创建小说项目")
+            : stage === "project_setup"
+              ? "小说项目已创建"
+              : (existing.currentItemLabel ?? "已恢复小说主任务"),
+        resumeTargetJson: stringifyResumeTarget(
+          this.workflow.buildResumeTarget({
+            taskId,
+            novelId,
+            lane: existing.lane,
+            stage,
+          }),
+        ),
         heartbeatAt: new Date(),
       },
     });
   }
 
-  async claimAutoDirectorNovelCreation(taskId: string, input: {
-    itemLabel: string;
-    progress: number;
-  }): Promise<AutoDirectorNovelCreationClaim> {
+  async claimAutoDirectorNovelCreation(
+    taskId: string,
+    input: {
+      itemLabel: string;
+      progress: number;
+    },
+  ): Promise<AutoDirectorNovelCreationClaim> {
     const existing = await this.workflow.getTaskByIdWithoutHealing(taskId);
     if (!existing) {
       throw new AppError("Workflow task not found.", 404);
@@ -211,16 +245,19 @@ export class NovelWorkflowApplicationService {
     };
   }
 
-  async markTaskRunning(taskId: string, input: {
-    stage: NovelWorkflowStage;
-    itemLabel: string;
-    itemKey?: string | null;
-    progress?: number;
-    clearCheckpoint?: boolean;
-    chapterId?: string | null;
-    volumeId?: string | null;
-    seedPayload?: Record<string, unknown>;
-  }) {
+  async markTaskRunning(
+    taskId: string,
+    input: {
+      stage: NovelWorkflowStage;
+      itemLabel: string;
+      itemKey?: string | null;
+      progress?: number;
+      clearCheckpoint?: boolean;
+      chapterId?: string | null;
+      volumeId?: string | null;
+      seedPayload?: Record<string, unknown>;
+    },
+  ) {
     const existing = await this.workflow.getTaskById(taskId);
     if (!existing) {
       throw new AppError("Workflow task not found.", 404);
@@ -247,9 +284,18 @@ export class NovelWorkflowApplicationService {
         currentStage: stageLabel(input.stage),
         currentItemKey: input.itemKey ?? input.stage,
         currentItemLabel: input.itemLabel,
-        progress: Math.max(existing.progress, input.progress ?? defaultProgressForStage(input.stage)),
-        checkpointType: input.clearCheckpoint || existing.checkpointType === "workflow_completed" ? null : existing.checkpointType,
-        checkpointSummary: input.clearCheckpoint || existing.checkpointType === "workflow_completed" ? null : existing.checkpointSummary,
+        progress: Math.max(
+          existing.progress,
+          input.progress ?? defaultProgressForStage(input.stage),
+        ),
+        checkpointType:
+          input.clearCheckpoint || existing.checkpointType === "workflow_completed"
+            ? null
+            : existing.checkpointType,
+        checkpointSummary:
+          input.clearCheckpoint || existing.checkpointType === "workflow_completed"
+            ? null
+            : existing.checkpointSummary,
         resumeTargetJson: stringifyResumeTarget(resumeTarget),
         seedPayloadJson: input.seedPayload
           ? mergeSeedPayload(existing.seedPayloadJson, input.seedPayload)
@@ -260,18 +306,21 @@ export class NovelWorkflowApplicationService {
     });
   }
 
-  async markTaskWaitingApproval(taskId: string, input: {
-    stage: NovelWorkflowStage;
-    itemLabel: string;
-    itemKey?: string | null;
-    progress?: number;
-    clearCheckpoint?: boolean;
-    checkpointType?: NovelWorkflowCheckpoint | null;
-    checkpointSummary?: string | null;
-    chapterId?: string | null;
-    volumeId?: string | null;
-    seedPayload?: Record<string, unknown>;
-  }) {
+  async markTaskWaitingApproval(
+    taskId: string,
+    input: {
+      stage: NovelWorkflowStage;
+      itemLabel: string;
+      itemKey?: string | null;
+      progress?: number;
+      clearCheckpoint?: boolean;
+      checkpointType?: NovelWorkflowCheckpoint | null;
+      checkpointSummary?: string | null;
+      chapterId?: string | null;
+      volumeId?: string | null;
+      seedPayload?: Record<string, unknown>;
+    },
+  ) {
     const existing = await this.workflow.getTaskById(taskId);
     if (!existing) {
       throw new AppError("Workflow task not found.", 404);
@@ -296,7 +345,10 @@ export class NovelWorkflowApplicationService {
         currentStage: stageLabel(input.stage),
         currentItemKey: input.itemKey ?? input.stage,
         currentItemLabel: input.itemLabel,
-        progress: Math.max(existing.progress, input.progress ?? defaultProgressForStage(input.stage)),
+        progress: Math.max(
+          existing.progress,
+          input.progress ?? defaultProgressForStage(input.stage),
+        ),
         checkpointType: input.clearCheckpoint
           ? null
           : (input.checkpointType ?? existing.checkpointType),
@@ -322,14 +374,16 @@ export class NovelWorkflowApplicationService {
       return existing;
     }
     const stage = patch?.stage ?? "auto_director";
-    const resumeTarget = parseResumeTarget(existing.resumeTargetJson) ?? this.workflow.buildResumeTarget({
-      taskId,
-      novelId: existing.novelId,
-      lane: existing.lane,
-      stage,
-      chapterId: patch?.chapterId,
-      volumeId: patch?.volumeId,
-    });
+    const resumeTarget =
+      parseResumeTarget(existing.resumeTargetJson) ??
+      this.workflow.buildResumeTarget({
+        taskId,
+        novelId: existing.novelId,
+        lane: existing.lane,
+        stage,
+        chapterId: patch?.chapterId,
+        volumeId: patch?.volumeId,
+      });
     return this.workflow.updateWorkflowTaskWithNotifications({
       before: existing,
       data: {
@@ -386,13 +440,13 @@ export class NovelWorkflowApplicationService {
     taskId: string,
     row = null as Awaited<ReturnType<typeof prisma.novelWorkflowTask.findUnique>> | null,
   ) {
-    const existing = row ?? await this.workflow.getTaskByIdWithoutHealing(taskId);
+    const existing = row ?? (await this.workflow.getTaskByIdWithoutHealing(taskId));
     const restored = existing
       ? buildRestoreTaskToCheckpointResult({
-        taskId,
-        existing,
-        buildResumeTarget: (params) => this.workflow.buildResumeTarget(params),
-      })
+          taskId,
+          existing,
+          buildResumeTarget: (params) => this.workflow.buildResumeTarget(params),
+        })
       : null;
     if (!existing || !restored) {
       return existing;
@@ -483,10 +537,13 @@ export class NovelWorkflowApplicationService {
     });
   }
 
-  async recordCandidateSelectionRequired(taskId: string, input: {
-    seedPayload?: Record<string, unknown>;
-    summary: string;
-  }) {
+  async recordCandidateSelectionRequired(
+    taskId: string,
+    input: {
+      seedPayload?: Record<string, unknown>;
+      summary: string;
+    },
+  ) {
     const existing = await this.workflow.getTaskById(taskId);
     if (!existing) {
       throw new AppError("Workflow task not found.", 404);
@@ -509,14 +566,21 @@ export class NovelWorkflowApplicationService {
         seedPayloadJson: input.seedPayload
           ? mergeSeedPayload(existing.seedPayloadJson, input.seedPayload)
           : existing.seedPayloadJson,
-        milestonesJson: appendMilestone(existing.milestonesJson, "candidate_selection_required", input.summary),
+        milestonesJson: appendMilestone(
+          existing.milestonesJson,
+          "candidate_selection_required",
+          input.summary,
+        ),
       },
     });
   }
 
-  async recordRewriteSnapshotMilestone(taskId: string, input: {
-    summary: string;
-  }) {
+  async recordRewriteSnapshotMilestone(
+    taskId: string,
+    input: {
+      summary: string;
+    },
+  ) {
     const existing = await this.workflow.getTaskById(taskId);
     if (!existing) {
       throw new AppError("Workflow task not found.", 404);
@@ -540,16 +604,19 @@ export class NovelWorkflowApplicationService {
     });
   }
 
-  async recordCheckpoint(taskId: string, input: {
-    stage: NovelWorkflowStage;
-    checkpointType: NovelWorkflowCheckpoint;
-    checkpointSummary: string;
-    itemLabel: string;
-    chapterId?: string | null;
-    volumeId?: string | null;
-    progress?: number;
-    seedPayload?: Record<string, unknown>;
-  }) {
+  async recordCheckpoint(
+    taskId: string,
+    input: {
+      stage: NovelWorkflowStage;
+      checkpointType: NovelWorkflowCheckpoint;
+      checkpointSummary: string;
+      itemLabel: string;
+      chapterId?: string | null;
+      volumeId?: string | null;
+      progress?: number;
+      seedPayload?: Record<string, unknown>;
+    },
+  ) {
     const existing = await this.workflow.getTaskById(taskId);
     if (!existing) {
       throw new AppError("Workflow task not found.", 404);
@@ -569,7 +636,10 @@ export class NovelWorkflowApplicationService {
       before: existing,
       data: {
         status: input.checkpointType === "workflow_completed" ? "succeeded" : "waiting_approval",
-        progress: input.checkpointType === "workflow_completed" ? 1 : input.progress ?? defaultProgressForStage(input.stage),
+        progress:
+          input.checkpointType === "workflow_completed"
+            ? 1
+            : (input.progress ?? defaultProgressForStage(input.stage)),
         currentStage: stageLabel(input.stage),
         currentItemKey: input.stage,
         currentItemLabel: input.itemLabel,
@@ -582,7 +652,11 @@ export class NovelWorkflowApplicationService {
         seedPayloadJson: input.seedPayload
           ? mergeSeedPayload(existing.seedPayloadJson, input.seedPayload)
           : existing.seedPayloadJson,
-        milestonesJson: appendMilestone(existing.milestonesJson, input.checkpointType, input.checkpointSummary),
+        milestonesJson: appendMilestone(
+          existing.milestonesJson,
+          input.checkpointType,
+          input.checkpointSummary,
+        ),
         lastError: null,
       },
     });
@@ -613,9 +687,10 @@ export class NovelWorkflowApplicationService {
         checkpointSummary: input.checkpointSummary ?? task.checkpointSummary,
         resumeTargetJson: stringifyResumeTarget(resumeTarget),
         heartbeatAt: new Date(),
-        milestonesJson: input.checkpointType && input.checkpointSummary
-          ? appendMilestone(task.milestonesJson, input.checkpointType, input.checkpointSummary)
-          : task.milestonesJson,
+        milestonesJson:
+          input.checkpointType && input.checkpointSummary
+            ? appendMilestone(task.milestonesJson, input.checkpointType, input.checkpointSummary)
+            : task.milestonesJson,
       },
     });
   }

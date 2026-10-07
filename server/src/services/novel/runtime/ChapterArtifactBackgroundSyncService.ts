@@ -2,10 +2,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { prisma } from "../../../db/prisma";
 import { payoffLedgerSyncService } from "../../payoff/PayoffLedgerSyncService";
-import {
-  parsePipelinePayload,
-  stringifyPipelinePayload,
-} from "../pipelineJobState";
+import { parsePipelinePayload, stringifyPipelinePayload } from "../pipelineJobState";
 import type {
   ArtifactSyncMode,
   PipelineBackgroundSyncActivity,
@@ -53,8 +50,7 @@ interface ArtifactSyncTiming {
 }
 
 export type ChapterArtifactBackgroundSyncResult =
-  | { status: "succeeded" }
-  | { status: "failed"; error: string };
+  { status: "succeeded" } | { status: "failed"; error: string };
 
 const DEFAULT_ARTIFACT_SYNC_MODE: ArtifactSyncMode = "adaptive";
 const DEFERRED_SYNC_DELAY_MS = 5000;
@@ -76,9 +72,14 @@ function readCheckpointMetadata(metadataJson: string | null): Record<string, unk
 
 function requiresFullReconcile(metadata: Record<string, unknown>): boolean {
   const syncPlan = metadata.syncPlan;
-  return metadata.requiresFullReconcile === true
-    || Boolean(syncPlan && typeof syncPlan === "object"
-      && (syncPlan as Record<string, unknown>).payoffLedger === "full_reconcile");
+  return (
+    metadata.requiresFullReconcile === true ||
+    Boolean(
+      syncPlan &&
+      typeof syncPlan === "object" &&
+      (syncPlan as Record<string, unknown>).payoffLedger === "full_reconcile",
+    )
+  );
 }
 
 export class ChapterArtifactBackgroundSyncService {
@@ -128,7 +129,14 @@ export class ChapterArtifactBackgroundSyncService {
     if (this.latestSyncedContentHashByChapter.get(chapterKey) === contentHash) {
       return { status: "succeeded" };
     }
-    const sync = this.runChapterSync(novelId, chapterId, content, artifactSyncMode, contentHash, options)
+    const sync = this.runChapterSync(
+      novelId,
+      chapterId,
+      content,
+      artifactSyncMode,
+      contentHash,
+      options,
+    )
       .then((): ChapterArtifactBackgroundSyncResult => {
         this.latestSyncedContentHashByChapter.set(chapterKey, contentHash);
         return { status: "succeeded" };
@@ -182,39 +190,44 @@ export class ChapterArtifactBackgroundSyncService {
       chapterTitle: chapter.title,
     };
 
-    const deltaMetadata = await this.runCheckpointedActivity({
-      ...checkpointScope,
-      artifactType: "artifact_delta",
-      metadata: {
-        reason: "artifact_delta_started",
-        contentProvenance: options.contentProvenance ?? "confirmed",
+    const deltaMetadata = await this.runCheckpointedActivity(
+      {
+        ...checkpointScope,
+        artifactType: "artifact_delta",
+        metadata: {
+          reason: "artifact_delta_started",
+          contentProvenance: options.contentProvenance ?? "confirmed",
+        },
       },
-    }, context, "artifact_delta", async () => {
-      const result = await this.getArtifactDeltaService().syncChapterArtifacts({
-        novelId,
-        chapterId,
-        content,
-        sourceType: "chapter_background_sync",
-        sourceStage: "chapter_execution",
-        provider: options.provider,
-        model: options.model,
-        temperature: options.temperature,
-        contentProvenance: options.contentProvenance,
-      });
-      return {
-        stateSnapshotId: result.stateSnapshotId,
-        characterResourceProposalCount: result.characterResourceProposalCount,
-        characterDynamicsCount: result.characterDynamicsCount,
-        characterKnowledgeStateCount: result.characterKnowledgeStateCount,
-        payoffDeltaCount: result.payoffDeltaCount,
-        canonicalCommittedCount: result.canonicalCommittedCount,
-        concreteFactCount: result.concreteFactCount,
-        syncPlan: result.output.syncPlan,
-        requiresFullReconcile: result.requiresFullReconcile,
-        confidence: result.output.confidence,
-        contentProvenance: options.contentProvenance ?? "confirmed",
-      };
-    });
+      context,
+      "artifact_delta",
+      async () => {
+        const result = await this.getArtifactDeltaService().syncChapterArtifacts({
+          novelId,
+          chapterId,
+          content,
+          sourceType: "chapter_background_sync",
+          sourceStage: "chapter_execution",
+          provider: options.provider,
+          model: options.model,
+          temperature: options.temperature,
+          contentProvenance: options.contentProvenance,
+        });
+        return {
+          stateSnapshotId: result.stateSnapshotId,
+          characterResourceProposalCount: result.characterResourceProposalCount,
+          characterDynamicsCount: result.characterDynamicsCount,
+          characterKnowledgeStateCount: result.characterKnowledgeStateCount,
+          payoffDeltaCount: result.payoffDeltaCount,
+          canonicalCommittedCount: result.canonicalCommittedCount,
+          concreteFactCount: result.concreteFactCount,
+          syncPlan: result.output.syncPlan,
+          requiresFullReconcile: result.requiresFullReconcile,
+          confidence: result.output.confidence,
+          contentProvenance: options.contentProvenance ?? "confirmed",
+        };
+      },
+    );
 
     const requiresFullReconcileFromDelta = requiresFullReconcile(deltaMetadata);
     const shouldReconcile = await this.shouldRunPayoffFullReconcile({
@@ -224,24 +237,29 @@ export class ChapterArtifactBackgroundSyncService {
       requiresFullReconcileFromDelta,
     });
     if (shouldReconcile) {
-      await this.runCheckpointedActivity({
-        ...checkpointScope,
-        artifactType: "payoff_ledger_full_reconcile",
-        metadata: { reason: "payoff_full_reconcile_started" },
-      }, context, "payoff_ledger", async () => {
-        await payoffLedgerSyncService.syncLedger(novelId, {
-          chapterOrder: chapter.order,
-          sourceChapterId: chapterId,
-        });
-        return {
-          trigger: this.describePayoffReconcileTrigger({
+      await this.runCheckpointedActivity(
+        {
+          ...checkpointScope,
+          artifactType: "payoff_ledger_full_reconcile",
+          metadata: { reason: "payoff_full_reconcile_started" },
+        },
+        context,
+        "payoff_ledger",
+        async () => {
+          await payoffLedgerSyncService.syncLedger(novelId, {
             chapterOrder: chapter.order,
-            artifactSyncMode,
-            requiresFullReconcileFromDelta,
-            isVolumeTail: await this.isVolumeTail(novelId, chapter.order),
-          }),
-        };
-      });
+            sourceChapterId: chapterId,
+          });
+          return {
+            trigger: this.describePayoffReconcileTrigger({
+              chapterOrder: chapter.order,
+              artifactSyncMode,
+              requiresFullReconcileFromDelta,
+              isVolumeTail: await this.isVolumeTail(novelId, chapter.order),
+            }),
+          };
+        },
+      );
     }
   }
 
@@ -264,10 +282,16 @@ export class ChapterArtifactBackgroundSyncService {
       return metadata;
     } catch (error) {
       await heartbeat.stop().catch(() => {});
-      await this.markCheckpointFailed({
-        ...input,
-        metadata: { ...input.metadata, reason: error instanceof Error ? error.message : String(error) },
-      }, claim.leaseMetadataJson);
+      await this.markCheckpointFailed(
+        {
+          ...input,
+          metadata: {
+            ...input.metadata,
+            reason: error instanceof Error ? error.message : String(error),
+          },
+        },
+        claim.leaseMetadataJson,
+      );
       throw error;
     }
   }
@@ -360,22 +384,29 @@ export class ChapterArtifactBackgroundSyncService {
     let failure: unknown = null;
     const timer = setInterval(() => {
       if (heartbeat || failure) return;
-      heartbeat = prisma.chapterArtifactSyncCheckpoint.updateMany({
-        where: {
-          novelId: input.novelId,
-          chapterId: input.chapterId,
-          contentHash: input.contentHash,
-          artifactType: input.artifactType,
-          syncMode: input.syncMode,
-          status: "running",
-          metadataJson: leaseMetadataJson,
-        },
-        data: { updatedAt: new Date() },
-      }).then((updated) => {
-        if (updated.count !== 1) throw new Error("章节资产同步租约已失效，需要重新确认同步结果。");
-      }).catch((error) => {
-        failure = error;
-      }).finally(() => { heartbeat = null; });
+      heartbeat = prisma.chapterArtifactSyncCheckpoint
+        .updateMany({
+          where: {
+            novelId: input.novelId,
+            chapterId: input.chapterId,
+            contentHash: input.contentHash,
+            artifactType: input.artifactType,
+            syncMode: input.syncMode,
+            status: "running",
+            metadataJson: leaseMetadataJson,
+          },
+          data: { updatedAt: new Date() },
+        })
+        .then((updated) => {
+          if (updated.count !== 1)
+            throw new Error("章节资产同步租约已失效，需要重新确认同步结果。");
+        })
+        .catch((error) => {
+          failure = error;
+        })
+        .finally(() => {
+          heartbeat = null;
+        });
     }, this.timing.heartbeatIntervalMs);
     timer.unref?.();
     return {
@@ -451,7 +482,10 @@ export class ChapterArtifactBackgroundSyncService {
     }
   }
 
-  private async markCheckpoint(input: ArtifactSyncCheckpointInput, leaseMetadataJson: string): Promise<void> {
+  private async markCheckpoint(
+    input: ArtifactSyncCheckpointInput,
+    leaseMetadataJson: string,
+  ): Promise<void> {
     const updated = await prisma.chapterArtifactSyncCheckpoint.updateMany({
       where: {
         novelId: input.novelId,
@@ -487,25 +521,30 @@ export class ChapterArtifactBackgroundSyncService {
     }
   }
 
-  private async markCheckpointFailed(input: ArtifactSyncCheckpointInput, leaseMetadataJson: string): Promise<void> {
-    await prisma.chapterArtifactSyncCheckpoint.updateMany({
-      where: {
-        novelId: input.novelId,
-        chapterId: input.chapterId,
-        contentHash: input.contentHash,
-        artifactType: input.artifactType,
-        syncMode: input.syncMode,
-        status: "running",
-        metadataJson: leaseMetadataJson,
-      },
-      data: {
-        status: "failed",
-        sourceType: input.sourceType ?? null,
-        sourceStage: input.sourceStage ?? null,
-        metadataJson: JSON.stringify(input.metadata ?? {}),
-        updatedAt: new Date(),
-      },
-    }).catch(() => null);
+  private async markCheckpointFailed(
+    input: ArtifactSyncCheckpointInput,
+    leaseMetadataJson: string,
+  ): Promise<void> {
+    await prisma.chapterArtifactSyncCheckpoint
+      .updateMany({
+        where: {
+          novelId: input.novelId,
+          chapterId: input.chapterId,
+          contentHash: input.contentHash,
+          artifactType: input.artifactType,
+          syncMode: input.syncMode,
+          status: "running",
+          metadataJson: leaseMetadataJson,
+        },
+        data: {
+          status: "failed",
+          sourceType: input.sourceType ?? null,
+          sourceStage: input.sourceStage ?? null,
+          metadataJson: JSON.stringify(input.metadata ?? {}),
+          updatedAt: new Date(),
+        },
+      })
+      .catch(() => null);
   }
 
   private async updateBackgroundActivity(
@@ -519,19 +558,23 @@ export class ChapterArtifactBackgroundSyncService {
       return;
     }
 
-    await Promise.all(jobRows.map((job) => this.mutateJobActivities(job.id, (payload) =>
-      (payload.backgroundSync?.activities ?? [])
-        .filter((item) => item.kind !== kind)
-        .concat({
-          kind,
-          status,
-          chapterId: chapter.chapterId,
-          chapterOrder: chapter.chapterOrder,
-          chapterTitle: chapter.chapterTitle,
-          updatedAt: new Date().toISOString(),
-        })
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
-    )));
+    await Promise.all(
+      jobRows.map((job) =>
+        this.mutateJobActivities(job.id, (payload) =>
+          (payload.backgroundSync?.activities ?? [])
+            .filter((item) => item.kind !== kind)
+            .concat({
+              kind,
+              status,
+              chapterId: chapter.chapterId,
+              chapterOrder: chapter.chapterOrder,
+              chapterTitle: chapter.chapterTitle,
+              updatedAt: new Date().toISOString(),
+            })
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+        ),
+      ),
+    );
   }
 
   private async clearBackgroundActivity(
@@ -552,12 +595,18 @@ export class ChapterArtifactBackgroundSyncService {
       return;
     }
 
-    await Promise.all(jobRows.map((job) => this.mutateJobActivities(job.id, (payload) => {
-      const current = payload.backgroundSync?.activities ?? [];
-      const next = current.filter((item) => !(item.kind === kind && item.chapterId === chapterId));
-      // filter only removes; equal length ⇒ nothing matched ⇒ no-op (skip the write).
-      return next.length === current.length ? null : next;
-    })));
+    await Promise.all(
+      jobRows.map((job) =>
+        this.mutateJobActivities(job.id, (payload) => {
+          const current = payload.backgroundSync?.activities ?? [];
+          const next = current.filter(
+            (item) => !(item.kind === kind && item.chapterId === chapterId),
+          );
+          // filter only removes; equal length ⇒ nothing matched ⇒ no-op (skip the write).
+          return next.length === current.length ? null : next;
+        }),
+      ),
+    );
   }
 
   // Read-modify-write of generationJob.payload: two concurrent activity updates for the
@@ -572,10 +621,12 @@ export class ChapterArtifactBackgroundSyncService {
     attempts = 4,
   ): Promise<void> {
     for (let attempt = 0; attempt < attempts; attempt += 1) {
-      const job = await prisma.generationJob.findUnique({
-        where: { id: jobId },
-        select: { payload: true, status: true },
-      }).catch(() => null);
+      const job = await prisma.generationJob
+        .findUnique({
+          where: { id: jobId },
+          select: { payload: true, status: true },
+        })
+        .catch(() => null);
       if (!job || (job.status !== "queued" && job.status !== "running")) {
         return;
       }
@@ -592,13 +643,15 @@ export class ChapterArtifactBackgroundSyncService {
       if ((job.payload ?? "") === nextPayloadString) {
         return;
       }
-      const updated = await prisma.generationJob.updateMany({
-        where: { id: jobId, payload: job.payload },
-        data: {
-          payload: nextPayloadString,
-          heartbeatAt: new Date(),
-        },
-      }).catch(() => null);
+      const updated = await prisma.generationJob
+        .updateMany({
+          where: { id: jobId, payload: job.payload },
+          data: {
+            payload: nextPayloadString,
+            heartbeatAt: new Date(),
+          },
+        })
+        .catch(() => null);
       if (updated && updated.count === 1) {
         return;
       }

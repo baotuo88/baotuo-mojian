@@ -4,9 +4,18 @@ import { ragConfig } from "../../config/rag";
 import { getRagEmbeddingSettings } from "../settings/RagSettingsService";
 import { EmbeddingService } from "./EmbeddingService";
 import { VectorStoreService } from "./VectorStoreService";
-import { RagContextualChunkService, type RagContextualChunkDocument } from "./RagContextualChunkService";
+import {
+  RagContextualChunkService,
+  type RagContextualChunkDocument,
+} from "./RagContextualChunkService";
 import { resolveEmbeddingChunkTokenBudget } from "./embeddingModelLimits";
-import type { RagChunkCandidate, RagJobStatus, RagJobType, RagOwnerType, RagSourceDocument } from "./types";
+import type {
+  RagChunkCandidate,
+  RagJobStatus,
+  RagJobType,
+  RagOwnerType,
+  RagSourceDocument,
+} from "./types";
 import { buildChunkId, computeChunkHash, estimateTokenCount, splitRagChunks } from "./utils";
 import {
   encodeFacetKeys,
@@ -111,7 +120,9 @@ export class RagIndexService {
     }
   }
 
-  private createProgressSnapshot(input: Omit<RagJobProgressSnapshot, "updatedAt">): RagJobProgressSnapshot {
+  private createProgressSnapshot(
+    input: Omit<RagJobProgressSnapshot, "updatedAt">,
+  ): RagJobProgressSnapshot {
     return {
       ...input,
       percent: Math.min(1, Math.max(0, Number.isFinite(input.percent) ? input.percent : 0)),
@@ -132,7 +143,10 @@ export class RagIndexService {
     }
   }
 
-  private async updateJobProgress(jobId: string, progress: Omit<RagJobProgressSnapshot, "updatedAt">): Promise<void> {
+  private async updateJobProgress(
+    jobId: string,
+    progress: Omit<RagJobProgressSnapshot, "updatedAt">,
+  ): Promise<void> {
     const record = await prisma.ragIndexJob.findUnique({
       where: { id: jobId },
       select: { payloadJson: true },
@@ -174,7 +188,11 @@ export class RagIndexService {
     onProgress?: (payload: { processed: number; total: number }) => Promise<void>,
   ): Promise<{ vectors: number[][]; provider: string; model: string }> {
     if (texts.length === 0) {
-      return { vectors: [], provider: ragConfig.embeddingProvider, model: ragConfig.embeddingModel };
+      return {
+        vectors: [],
+        provider: ragConfig.embeddingProvider,
+        model: ragConfig.embeddingModel,
+      };
     }
     const batchSize = ragConfig.embeddingBatchSize;
     const concurrency = ragConfig.embeddingConcurrency;
@@ -222,43 +240,50 @@ export class RagIndexService {
       const isKnowledgeDoc = document.ownerType === "knowledge_document";
       const sourcePieces: SourcePiece[] = document.preChunks?.length
         ? document.preChunks.flatMap((preChunk) => {
-          const pieces = splitRagChunks(preChunk.chunkText, ragConfig.chunkSize, ragConfig.chunkOverlap, {
-            maxTokens: options?.maxTokens ?? null,
-          });
-          return pieces.map((chunkText) => ({
-            chunkText,
-            facets: preChunk.facets,
-            anchor: preChunk.anchor,
-            metadata: preChunk.metadata,
-          }));
-        })
+            const pieces = splitRagChunks(
+              preChunk.chunkText,
+              ragConfig.chunkSize,
+              ragConfig.chunkOverlap,
+              {
+                maxTokens: options?.maxTokens ?? null,
+              },
+            );
+            return pieces.map((chunkText) => ({
+              chunkText,
+              facets: preChunk.facets,
+              anchor: preChunk.anchor,
+              metadata: preChunk.metadata,
+            }));
+          })
         : splitRagChunks(document.content, ragConfig.chunkSize, ragConfig.chunkOverlap, {
-          maxTokens: options?.maxTokens ?? null,
-        }).map((chunkText): SourcePiece => {
-          if (!isKnowledgeDoc) {
-            return { chunkText };
-          }
-          // 知识库文档：自动从 chunk 正文抽取章节锚点和角色名，填充 facets
-          const chapterAnchors = extractChapterAnchorFromChunk(chunkText);
-          const characterRoles = candidateNames.length > 0
-            ? extractCharacterRolesFromChunk(chunkText, candidateNames)
-            : [];
-          const facets: RagChunkFacets = {};
-          if (chapterAnchors.length > 0) {
-            facets.chapterAnchor = chapterAnchors;
-          }
-          if (characterRoles.length > 0) {
-            facets.characterRole = characterRoles;
-          }
-          return {
-            chunkText,
-            facets: Object.keys(facets).length > 0 ? facets : undefined,
-          };
-        });
+            maxTokens: options?.maxTokens ?? null,
+          }).map((chunkText): SourcePiece => {
+            if (!isKnowledgeDoc) {
+              return { chunkText };
+            }
+            // 知识库文档：自动从 chunk 正文抽取章节锚点和角色名，填充 facets
+            const chapterAnchors = extractChapterAnchorFromChunk(chunkText);
+            const characterRoles =
+              candidateNames.length > 0
+                ? extractCharacterRolesFromChunk(chunkText, candidateNames)
+                : [];
+            const facets: RagChunkFacets = {};
+            if (chapterAnchors.length > 0) {
+              facets.chapterAnchor = chapterAnchors;
+            }
+            if (characterRoles.length > 0) {
+              facets.characterRole = characterRoles;
+            }
+            return {
+              chunkText,
+              facets: Object.keys(facets).length > 0 ? facets : undefined,
+            };
+          });
       for (const piece of sourcePieces) {
         const chunkText = piece.chunkText;
-        const chunkOrder = candidates.filter((item) =>
-          item.ownerType === document.ownerType && item.ownerId === document.ownerId).length;
+        const chunkOrder = candidates.filter(
+          (item) => item.ownerType === document.ownerType && item.ownerId === document.ownerId,
+        ).length;
         const metadata = {
           ...(document.metadata ?? {}),
           ...(piece.metadata ?? {}),
@@ -266,9 +291,10 @@ export class RagIndexService {
           ...(piece.anchor ? { anchor: piece.anchor } : {}),
         };
         const facetKeys = encodeFacetKeys(piece.facets);
-        const chapterAnchor = piece.anchor?.chapterIndex !== undefined
-          ? String(piece.anchor.chapterIndex)
-          : piece.facets?.chapterAnchor?.[0] ?? null;
+        const chapterAnchor =
+          piece.anchor?.chapterIndex !== undefined
+            ? String(piece.anchor.chapterIndex)
+            : (piece.facets?.chapterAnchor?.[0] ?? null);
         const chunkHash = computeChunkHash(
           `${document.tenantId}|${document.ownerType}|${document.ownerId}|${chunkOrder}|${chunkText}`,
         );
@@ -298,18 +324,22 @@ export class RagIndexService {
     return candidates;
   }
 
-  private buildContextualDocumentMap(documents: RagSourceDocument[]): Map<string, RagContextualChunkDocument> {
-    return new Map(documents.map((document) => [
-      `${document.ownerType}:${document.ownerId}`,
-      {
-        ownerType: document.ownerType,
-        ownerId: document.ownerId,
-        title: document.title,
-        novelId: document.novelId,
-        worldId: document.worldId,
-        metadata: document.metadata,
-      },
-    ]));
+  private buildContextualDocumentMap(
+    documents: RagSourceDocument[],
+  ): Map<string, RagContextualChunkDocument> {
+    return new Map(
+      documents.map((document) => [
+        `${document.ownerType}:${document.ownerId}`,
+        {
+          ownerType: document.ownerType,
+          ownerId: document.ownerId,
+          title: document.title,
+          novelId: document.novelId,
+          worldId: document.worldId,
+          metadata: document.metadata,
+        },
+      ]),
+    );
   }
 
   private async deleteOwnerChunks(
@@ -363,10 +393,14 @@ export class RagIndexService {
       chunks: 0,
       percent: 0.05,
     });
-    const jobPayload = this.parseJobPayload((await prisma.ragIndexJob.findUnique({
-      where: { id: jobId },
-      select: { payloadJson: true },
-    }))?.payloadJson ?? null);
+    const jobPayload = this.parseJobPayload(
+      (
+        await prisma.ragIndexJob.findUnique({
+          where: { id: jobId },
+          select: { payloadJson: true },
+        })
+      )?.payloadJson ?? null,
+    );
     const docs = await loadRagSourceDocuments(ownerType, ownerId, tenantId, jobPayload);
     await this.assertJobNotCancelled(jobId);
     if (docs.length === 0) {
@@ -408,10 +442,15 @@ export class RagIndexService {
       knownCharacterNames = chars.map((c) => c.name).filter((n) => n.length >= 2);
     }
 
-    const candidates = this.buildChunkCandidates(docs, embeddingSettings.embeddingProvider, embeddingSettings.embeddingModel, {
-      maxTokens: embeddingTokenBudget,
-      knownCharacterNames,
-    });
+    const candidates = this.buildChunkCandidates(
+      docs,
+      embeddingSettings.embeddingProvider,
+      embeddingSettings.embeddingModel,
+      {
+        maxTokens: embeddingTokenBudget,
+        knownCharacterNames,
+      },
+    );
     await this.updateJobProgress(jobId, {
       stage: "chunking",
       label: "切分分块",
@@ -573,13 +612,15 @@ export class RagIndexService {
       });
     } catch (error) {
       // DB 写入失败，回滚：删除刚写的新 Qdrant 分块
-      await this.vectorStoreService.deletePoints(candidates.map((item) => item.id)).catch((rollbackError) => {
-        console.warn("[RAG][Index] 回滚新向量分块失败，可能残留孤立向量。", {
-          jobId,
-          newChunkCount: candidates.length,
-          error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+      await this.vectorStoreService
+        .deletePoints(candidates.map((item) => item.id))
+        .catch((rollbackError) => {
+          console.warn("[RAG][Index] 回滚新向量分块失败，可能残留孤立向量。", {
+            jobId,
+            newChunkCount: candidates.length,
+            error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+          });
         });
-      });
       throw error;
     }
 
@@ -656,9 +697,12 @@ export class RagIndexService {
     };
 
     if (scope === "novel" || scope === "all") {
-      const novelIds = scope === "novel"
-        ? (id ? [id] : [])
-        : (await prisma.novel.findMany({ select: { id: true } })).map((item) => item.id);
+      const novelIds =
+        scope === "novel"
+          ? id
+            ? [id]
+            : []
+          : (await prisma.novel.findMany({ select: { id: true } })).map((item) => item.id);
       if (scope === "novel" && !id) {
         const all = await prisma.novel.findMany({ select: { id: true } });
         all.forEach((item) => novelIds.push(item.id));
@@ -697,9 +741,12 @@ export class RagIndexService {
     }
 
     if (scope === "world" || scope === "all") {
-      const worldIds = scope === "world"
-        ? (id ? [id] : [])
-        : (await prisma.world.findMany({ select: { id: true } })).map((item) => item.id);
+      const worldIds =
+        scope === "world"
+          ? id
+            ? [id]
+            : []
+          : (await prisma.world.findMany({ select: { id: true } })).map((item) => item.id);
       if (scope === "world" && !id) {
         const all = await prisma.world.findMany({ select: { id: true } });
         all.forEach((item) => worldIds.push(item.id));
@@ -789,12 +836,15 @@ export class RagIndexService {
     };
   }
 
-  async updateJobStatus(jobId: string, payload: {
-    status: RagJobStatus;
-    attempts?: number;
-    runAfter?: Date;
-    lastError?: string | null;
-  }) {
+  async updateJobStatus(
+    jobId: string,
+    payload: {
+      status: RagJobStatus;
+      attempts?: number;
+      runAfter?: Date;
+      lastError?: string | null;
+    },
+  ) {
     const current = await prisma.ragIndexJob.findUnique({
       where: { id: jobId },
       select: { status: true, payloadJson: true },
@@ -897,7 +947,8 @@ export class RagIndexService {
       await this.updateJobProgress(job.id, {
         stage: "completed",
         label: "索引完成",
-        detail: result.deleted > 0 ? `已删除 ${result.deleted} 条旧分块。` : "没有需要删除的旧分块。",
+        detail:
+          result.deleted > 0 ? `已删除 ${result.deleted} 条旧分块。` : "没有需要删除的旧分块。",
         current: result.deleted,
         total: result.deleted,
         chunks: result.deleted,
@@ -918,17 +969,18 @@ export class RagIndexService {
       return;
     }
 
-    const nextStatus = jobType === "delete" && (status === "succeeded" || status === "cancelled")
-      ? "idle"
-      : status === "queued"
-        ? "queued"
-        : status === "running"
-          ? "running"
-          : status === "succeeded"
-            ? "succeeded"
-            : status === "cancelled"
-              ? "idle"
-              : "failed";
+    const nextStatus =
+      jobType === "delete" && (status === "succeeded" || status === "cancelled")
+        ? "idle"
+        : status === "queued"
+          ? "queued"
+          : status === "running"
+            ? "running"
+            : status === "succeeded"
+              ? "succeeded"
+              : status === "cancelled"
+                ? "idle"
+                : "failed";
 
     await prisma.knowledgeDocument.updateMany({
       where: { id: ownerId },

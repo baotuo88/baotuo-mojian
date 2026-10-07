@@ -1,6 +1,13 @@
 import type { BaseMessageChunk } from "@langchain/core/messages";
-import type { StreamDoneHelpers, StreamDonePayload, WritableSSEFrame } from "../../../llm/streaming";
-import type { ChapterRuntimePackage, GenerationContextPackage } from "@ai-novel/shared/types/chapterRuntime";
+import type {
+  StreamDoneHelpers,
+  StreamDonePayload,
+  WritableSSEFrame,
+} from "../../../llm/streaming";
+import type {
+  ChapterRuntimePackage,
+  GenerationContextPackage,
+} from "@ai-novel/shared/types/chapterRuntime";
 import { prisma } from "../../../db/prisma";
 import { ChapterWritingGraph } from "../chapterWritingGraph";
 import { toText } from "../novelP0Utils";
@@ -19,7 +26,11 @@ import {
 } from "./ChapterContentFinalizationService";
 
 export interface ChapterStreamGenerationAgentRuntime {
-  createChapterGenRun: (novelId: string, chapterId: string, chapterOrder: number) => Promise<string>;
+  createChapterGenRun: (
+    novelId: string,
+    chapterId: string,
+    chapterOrder: number,
+  ) => Promise<string>;
   finishChapterGenRun: (runId: string, summary: string, durationMs: number) => Promise<void>;
   failChapterGenRun?: (runId: string, summary: string, durationMs: number) => Promise<void>;
 }
@@ -28,7 +39,10 @@ export interface ChapterStreamGenerationOrchestratorDeps {
   assembler: Pick<GenerationContextAssembler, "assemble">;
   chapterWritingGraph: Pick<ChapterWritingGraph, "createChapterStream">;
   readinessService: Pick<ChapterRuntimeReadinessService, "assertReady">;
-  contentFinalizationService: Pick<ChapterContentFinalizationService, "finalizeChapterContent" | "markChapterStatus">;
+  contentFinalizationService: Pick<
+    ChapterContentFinalizationService,
+    "finalizeChapterContent" | "markChapterStatus"
+  >;
   agentRuntime: ChapterStreamGenerationAgentRuntime;
   validateRequest: (input: ChapterRuntimeRequestInput) => ChapterRuntimeRequestInput;
   ensureNovelCharacters: (novelId: string, actionName: string, minCount?: number) => Promise<void>;
@@ -56,11 +70,18 @@ export class ChapterStreamGenerationOrchestrator {
     onDone: (fullContent: string, helpers: StreamDoneHelpers) => Promise<void | StreamDonePayload>;
   }> {
     const { request, assembled } = await this.prepareRuntimeChapter(novelId, chapterId, options);
-    await this.markChapterStatus(chapterId, "generating", { novelId, content: assembled.chapter.content });
+    await this.markChapterStatus(chapterId, "generating", {
+      novelId,
+      content: assembled.chapter.content,
+    });
 
     let traceRunId: string | null = null;
     try {
-      traceRunId = await this.deps.agentRuntime.createChapterGenRun(novelId, chapterId, assembled.chapter.order);
+      traceRunId = await this.deps.agentRuntime.createChapterGenRun(
+        novelId,
+        chapterId,
+        assembled.chapter.order,
+      );
     } catch {
       traceRunId = null;
     }
@@ -195,11 +216,13 @@ export class ChapterStreamGenerationOrchestrator {
         source: "chapter_runtime_writer",
       });
       if (traceRunId) {
-        await this.deps.agentRuntime.finishChapterGenRun(
-          traceRunId,
-          `batch chapter draft generated, ${content.length} chars`,
-          Date.now() - traceStartedAt,
-        ).catch(() => {});
+        await this.deps.agentRuntime
+          .finishChapterGenRun(
+            traceRunId,
+            `batch chapter draft generated, ${content.length} chars`,
+            Date.now() - traceStartedAt,
+          )
+          .catch(() => {});
       }
       return {
         content,
@@ -211,14 +234,18 @@ export class ChapterStreamGenerationOrchestrator {
       if (traceRunId) {
         const summary = `batch chapter draft failed: ${error instanceof Error ? error.message : String(error)}`;
         if (this.deps.agentRuntime.failChapterGenRun) {
-          await this.deps.agentRuntime.failChapterGenRun(traceRunId, summary, Date.now() - traceStartedAt).catch(() => {});
+          await this.deps.agentRuntime
+            .failChapterGenRun(traceRunId, summary, Date.now() - traceStartedAt)
+            .catch(() => {});
         }
       }
       throw error;
     }
   }
 
-  finalizeChapterContent(input: Parameters<ChapterContentFinalizationService["finalizeChapterContent"]>[0]): Promise<FinalizeChapterContentResult> {
+  finalizeChapterContent(
+    input: Parameters<ChapterContentFinalizationService["finalizeChapterContent"]>[0],
+  ): Promise<FinalizeChapterContentResult> {
     return this.deps.contentFinalizationService.finalizeChapterContent(input);
   }
 
@@ -230,7 +257,10 @@ export class ChapterStreamGenerationOrchestrator {
     return this.deps.contentFinalizationService.markChapterStatus(chapterId, chapterStatus, source);
   }
 
-  private assertStateDrivenReady(contextPackage: GenerationContextPackage, request: ChapterRuntimeRequestInput): void {
+  private assertStateDrivenReady(
+    contextPackage: GenerationContextPackage,
+    request: ChapterRuntimeRequestInput,
+  ): void {
     if (contextPackage.nextAction === "hold_for_review") {
       const isFullBookAutopilot = request.controlPolicy?.advanceMode === "full_book_autopilot";
       const hasPendingStateProposals = contextPackage.pendingReviewProposalCount > 0;
@@ -270,14 +300,17 @@ export class ChapterStreamGenerationOrchestrator {
   }> {
     try {
       const normalized = await input.writerDone();
-      const finalContent = assertChapterContentNotEmpty(normalized?.finalContent ?? input.fallbackContent, {
-        novelId: input.novelId,
-        chapterId: input.chapterId,
-        chapterOrder: input.assembled.chapter.order,
-        source: "chapter_stream_writer",
-        attempt: 1,
-        maxEmptyRetries: 1,
-      });
+      const finalContent = assertChapterContentNotEmpty(
+        normalized?.finalContent ?? input.fallbackContent,
+        {
+          novelId: input.novelId,
+          chapterId: input.chapterId,
+          chapterOrder: input.assembled.chapter.order,
+          source: "chapter_stream_writer",
+          attempt: 1,
+          maxEmptyRetries: 1,
+        },
+      );
       return {
         ...(normalized ?? {}),
         finalContent,
@@ -321,7 +354,10 @@ export class ChapterStreamGenerationOrchestrator {
           willRetry: false,
           attempt: 2,
         });
-        await this.markChapterStatus(input.chapterId, "pending_generation", { novelId: input.novelId, content: input.assembled.chapter.content });
+        await this.markChapterStatus(input.chapterId, "pending_generation", {
+          novelId: input.novelId,
+          content: input.assembled.chapter.content,
+        });
       }
       throw error;
     }

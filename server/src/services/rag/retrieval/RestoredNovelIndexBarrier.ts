@@ -13,7 +13,8 @@ export async function hasPendingRestoredNovelIndex(novelId: string): Promise<boo
   const ids = metadata.ragBarrierJobIds;
   if (!Array.isArray(ids) || ids.length === 0) return false;
   const jobs = await prisma.ragIndexJob.findMany({
-    where: { id: { in: ids } }, select: { id: true, status: true },
+    where: { id: { in: ids } },
+    select: { id: true, status: true },
   });
   if (jobs.length !== ids.length || jobs.some((job) => job.status !== "succeeded")) return true;
   // Persist completion before queue history can be cleaned. Missing task records

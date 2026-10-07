@@ -1,4 +1,7 @@
-import type { ChapterRuntimePackage, GenerationContextPackage } from "@ai-novel/shared/types/chapterRuntime";
+import type {
+  ChapterRuntimePackage,
+  GenerationContextPackage,
+} from "@ai-novel/shared/types/chapterRuntime";
 import type { ContentProvenance } from "@ai-novel/shared/types/canonicalState";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import type { QualityScore, ReviewIssue } from "@ai-novel/shared/types/novel";
@@ -31,7 +34,13 @@ export interface PipelineRuntimeInput extends ChapterRuntimeRequestInput {
   autoRepair?: boolean;
   auditMode?: "light" | "full" | "repair_only";
   qualityThreshold?: number;
-  repairMode?: "detect_only" | "light_repair" | "heavy_repair" | "continuity_only" | "character_only" | "ending_only";
+  repairMode?:
+    | "detect_only"
+    | "light_repair"
+    | "heavy_repair"
+    | "continuity_only"
+    | "character_only"
+    | "ending_only";
 }
 
 /**
@@ -93,14 +102,24 @@ export interface PipelineRecoverableRepairFailure {
 
 export interface AssembledRuntimeChapter {
   novel: { id: string; title: string };
-  chapter: { id: string; title: string; order: number; content: string | null; expectation: string | null };
+  chapter: {
+    id: string;
+    title: string;
+    order: number;
+    content: string | null;
+    expectation: string | null;
+  };
   contextPackage: GenerationContextPackage;
 }
 
 interface RunPipelineChapterDeps {
   validateRequest: (input: ChapterRuntimeRequestInput) => ChapterRuntimeRequestInput;
   ensureNovelCharacters: (novelId: string, actionName: string, minCount?: number) => Promise<void>;
-  assemble: (novelId: string, chapterId: string, request: ChapterRuntimeRequestInput) => Promise<AssembledRuntimeChapter>;
+  assemble: (
+    novelId: string,
+    chapterId: string,
+    request: ChapterRuntimeRequestInput,
+  ) => Promise<AssembledRuntimeChapter>;
   generateDraftFromWriter: (input: {
     novelId: string;
     chapterId: string;
@@ -116,7 +135,12 @@ interface RunPipelineChapterDeps {
     chapterId: string,
     content: string,
     generationState: "drafted" | "repaired",
-    options?: { scheduleBackgroundSync?: boolean; artifactSyncMode?: PipelineRuntimeInput["artifactSyncMode"]; syncArtifacts?: boolean; expectedContent?: string | null },
+    options?: {
+      scheduleBackgroundSync?: boolean;
+      artifactSyncMode?: PipelineRuntimeInput["artifactSyncMode"];
+      syncArtifacts?: boolean;
+      expectedContent?: string | null;
+    },
   ) => Promise<void>;
   syncFinalChapterArtifacts: (
     novelId: string,
@@ -149,7 +173,10 @@ const QUALITY_THRESHOLD = { coherence: 80, repetition: 75, engagement: 75 };
 const EMPTY_CONTENT_GENERATION_RETRY_LIMIT = 1;
 const NON_PATCHABLE_REVIEW_ISSUE_CODES = new Set(["acceptance_gate_unavailable"]);
 
-const AUDIT_CATEGORY_MAP: Record<"continuity" | "character" | "plot" | "mode_fit", ReviewIssue["category"]> = {
+const AUDIT_CATEGORY_MAP: Record<
+  "continuity" | "character" | "plot" | "mode_fit",
+  ReviewIssue["category"]
+> = {
   continuity: "coherence",
   character: "logic",
   plot: "pacing",
@@ -216,7 +243,14 @@ export async function runPipelineChapterWithRuntime(
     }
 
     if (!autoReview) {
-      await syncFinalRetainedChapterArtifacts(deps, novelId, chapterId, content, artifactSyncMode, "confirmed");
+      await syncFinalRetainedChapterArtifacts(
+        deps,
+        novelId,
+        chapterId,
+        content,
+        artifactSyncMode,
+        "confirmed",
+      );
       await deps.markChapterGenerationState(chapterId, "approved", content);
       return {
         reviewExecuted: false,
@@ -247,7 +281,10 @@ export async function runPipelineChapterWithRuntime(
       runId: null,
       startMs: null,
     });
-    const styleLeakageIssues = detectStyleReferenceLeakageIssues(content, latestResult.runtimePackage);
+    const styleLeakageIssues = detectStyleReferenceLeakageIssues(
+      content,
+      latestResult.runtimePackage,
+    );
     latestIssues = [
       ...toReviewIssues(latestResult.runtimePackage),
       ...toAcceptanceDirectiveIssues(latestResult.runtimePackage),
@@ -258,14 +295,17 @@ export async function runPipelineChapterWithRuntime(
 
     const acceptanceStatus = latestResult.runtimePackage.meta?.acceptanceStatus;
     const continuePolicy = latestResult.runtimePackage.meta?.continuePolicy;
-    const shouldPauseForAcceptance = continuePolicy === "pause" || acceptanceStatus === "needs_manual_review";
-    const shouldRepairFromAcceptance = continuePolicy === "repair_once" || acceptanceStatus === "repairable";
-    pass = !shouldPauseForAcceptance
-      && !shouldRepairFromAcceptance
-      && !latestResult.runtimePackage.audit.hasBlockingIssues
-      && latestResult.runtimePackage.timelineCheck?.status !== "failed"
-      && isQualityPass(latestResult.runtimePackage.audit.score, qualityThreshold)
-      && styleLeakageIssues.length === 0;
+    const shouldPauseForAcceptance =
+      continuePolicy === "pause" || acceptanceStatus === "needs_manual_review";
+    const shouldRepairFromAcceptance =
+      continuePolicy === "repair_once" || acceptanceStatus === "repairable";
+    pass =
+      !shouldPauseForAcceptance &&
+      !shouldRepairFromAcceptance &&
+      !latestResult.runtimePackage.audit.hasBlockingIssues &&
+      latestResult.runtimePackage.timelineCheck?.status !== "failed" &&
+      isQualityPass(latestResult.runtimePackage.audit.score, qualityThreshold) &&
+      styleLeakageIssues.length === 0;
     if (pass) {
       await deps.markChapterGenerationState(chapterId, "approved", content);
       break;
@@ -274,13 +314,19 @@ export async function runPipelineChapterWithRuntime(
     // 收集首次失败的归因信息（只在第一次失败时记录）
     if (attempt === 0) {
       firstFailureIssueCodes = extractIssueCodes(latestResult.runtimePackage);
-      firstFailureClassificationCode = latestResult.runtimePackage.failureClassification?.code ?? null;
+      firstFailureClassificationCode =
+        latestResult.runtimePackage.failureClassification?.code ?? null;
       firstMissingObligationKinds = (latestResult.runtimePackage.obligationCoverage?.missing ?? [])
         .map((m) => String(m.kind))
         .filter((kind) => kind.trim().length > 0);
     }
 
-    if (shouldPauseForAcceptance || !autoRepair || repairMode === "detect_only" || attempt >= effectiveMaxRetries) {
+    if (
+      shouldPauseForAcceptance ||
+      !autoRepair ||
+      repairMode === "detect_only" ||
+      attempt >= effectiveMaxRetries
+    ) {
       // 若是 attempt >= effectiveMaxRetries，这是第二次失败，记录二次 codes
       if (attempt > 0) {
         secondFailureIssueCodes = extractIssueCodes(latestResult.runtimePackage);
@@ -336,15 +382,16 @@ export async function runPipelineChapterWithRuntime(
   );
 
   // 章节未通过时构建归因对象
-  const qualityDebtAttribution: QualityDebtAttribution | null = (!pass && firstFailureIssueCodes.length > 0)
-    ? buildQualityDebtAttribution({
-        firstFailureIssueCodes,
-        secondFailureIssueCodes,
-        firstFailureClassificationCode,
-        firstMissingObligationKinds,
-        patchAnchorFailed: repairEscalatedFromPatch,
-      })
-    : null;
+  const qualityDebtAttribution: QualityDebtAttribution | null =
+    !pass && firstFailureIssueCodes.length > 0
+      ? buildQualityDebtAttribution({
+          firstFailureIssueCodes,
+          secondFailureIssueCodes,
+          firstFailureClassificationCode,
+          firstMissingObligationKinds,
+          patchAnchorFailed: repairEscalatedFromPatch,
+        })
+      : null;
 
   return {
     reviewExecuted: true,
@@ -432,10 +479,12 @@ async function syncFinalRetainedChapterArtifacts(
 }
 
 function isQualityPass(score: QualityScore, qualityThreshold: number): boolean {
-  return score.coherence >= QUALITY_THRESHOLD.coherence
-    && score.repetition >= QUALITY_THRESHOLD.repetition
-    && score.engagement >= QUALITY_THRESHOLD.engagement
-    && score.overall >= qualityThreshold;
+  return (
+    score.coherence >= QUALITY_THRESHOLD.coherence &&
+    score.repetition >= QUALITY_THRESHOLD.repetition &&
+    score.engagement >= QUALITY_THRESHOLD.engagement &&
+    score.overall >= qualityThreshold
+  );
 }
 
 function toReviewIssues(runtimePackage: ChapterRuntimePackage): ReviewIssue[] {
@@ -447,25 +496,28 @@ function toReviewIssues(runtimePackage: ChapterRuntimePackage): ReviewIssue[] {
   }));
   return issues.length > 0
     ? issues
-    : runtimePackage.audit.reports.flatMap((report) => report.issues.map((issue) => ({
-      severity: issue.severity,
-      category: AUDIT_CATEGORY_MAP[report.auditType],
-      evidence: issue.evidence,
-      fixSuggestion: issue.fixSuggestion,
-    })));
+    : runtimePackage.audit.reports.flatMap((report) =>
+        report.issues.map((issue) => ({
+          severity: issue.severity,
+          category: AUDIT_CATEGORY_MAP[report.auditType],
+          evidence: issue.evidence,
+          fixSuggestion: issue.fixSuggestion,
+        })),
+      );
 }
 
 function toAcceptanceDirectiveIssues(runtimePackage: ChapterRuntimePackage): ReviewIssue[] {
   const directives = runtimePackage.meta?.repairDirectives ?? [];
   return directives.map((directive) => ({
     severity: directive.mode === "manual" || directive.mode === "rewrite" ? "high" : "medium",
-    category: directive.target === "character"
-      ? "logic"
-      : directive.target === "plot" || directive.target === "ending"
-        ? "pacing"
-        : directive.target === "voice"
-          ? "voice"
-          : "coherence",
+    category:
+      directive.target === "character"
+        ? "logic"
+        : directive.target === "plot" || directive.target === "ending"
+          ? "pacing"
+          : directive.target === "voice"
+            ? "voice"
+            : "coherence",
     evidence: `acceptance_directive:${directive.target}`,
     fixSuggestion: directive.instruction,
   }));
@@ -475,19 +527,20 @@ function detectStyleReferenceLeakageIssues(
   content: string,
   runtimePackage: ChapterRuntimePackage,
 ): ReviewIssue[] {
-  const leakedEntities = detectForbiddenStyleEntities(
-    content,
-    runtimePackage.context.styleContext,
-  );
+  const leakedEntities = detectForbiddenStyleEntities(content, runtimePackage.context.styleContext);
   if (leakedEntities.length === 0) {
     return [];
   }
-  return [{
-    severity: "critical",
-    category: "voice",
-    evidence: "Generated chapter contains source-reference entities from the bound style profile.",
-    fixSuggestion: "Rewrite the chapter with transferable style guidance only; remove source-work names, places, titles, catchphrases, and iconic plot references.",
-  }];
+  return [
+    {
+      severity: "critical",
+      category: "voice",
+      evidence:
+        "Generated chapter contains source-reference entities from the bound style profile.",
+      fixSuggestion:
+        "Rewrite the chapter with transferable style guidance only; remove source-work names, places, titles, catchphrases, and iconic plot references.",
+    },
+  ];
 }
 
 async function repairDraftContent(input: {
@@ -501,14 +554,23 @@ async function repairDraftContent(input: {
     provider?: LLMProvider;
     model?: string;
     temperature?: number;
-    repairMode?: "detect_only" | "light_repair" | "heavy_repair" | "continuity_only" | "character_only" | "ending_only";
+    repairMode?:
+      | "detect_only"
+      | "light_repair"
+      | "heavy_repair"
+      | "continuity_only"
+      | "character_only"
+      | "ending_only";
   };
 }): Promise<{
   content: string;
   escalatedFromPatch: boolean;
   recoverableFailure?: PipelineRecoverableRepairFailure | null;
 }> {
-  if (!input.forceFullRewrite && shouldDeferNonPatchableReviewRisk(input.runtimePackage, input.issues)) {
+  if (
+    !input.forceFullRewrite &&
+    shouldDeferNonPatchableReviewRisk(input.runtimePackage, input.issues)
+  ) {
     return {
       content: input.content,
       escalatedFromPatch: false,
@@ -550,8 +612,9 @@ function shouldDeferNonPatchableReviewRisk(
 ): boolean {
   const openIssues = runtimePackage.audit.openIssues ?? [];
   if (openIssues.length > 0) {
-    return openIssues.every((issue) => typeof issue.code === "string"
-      && NON_PATCHABLE_REVIEW_ISSUE_CODES.has(issue.code));
+    return openIssues.every(
+      (issue) => typeof issue.code === "string" && NON_PATCHABLE_REVIEW_ISSUE_CODES.has(issue.code),
+    );
   }
   return issues.length > 0 && issues.every(issueLooksLikeNonPatchableReviewRisk);
 }
@@ -560,10 +623,12 @@ function issueLooksLikeNonPatchableReviewRisk(issue: ReviewIssue): boolean {
   const evidence = issue.evidence.toLowerCase();
   const fixSuggestion = issue.fixSuggestion.toLowerCase();
   const combined = `${evidence}\n${fixSuggestion}`;
-  return combined.includes("acceptance_gate_unavailable")
-    || combined.includes("接收闸门未返回可用结构化结果")
-    || combined.includes("章节接收判断不可用")
-    || combined.includes("结构化判断缺失");
+  return (
+    combined.includes("acceptance_gate_unavailable") ||
+    combined.includes("接收闸门未返回可用结构化结果") ||
+    combined.includes("章节接收判断不可用") ||
+    combined.includes("结构化判断缺失")
+  );
 }
 
 /** 从 runtimePackage 提取 openIssues 的 code 列表（过滤空值） */
@@ -599,18 +664,20 @@ function buildQualityDebtAttribution(input: {
   const hasBothFailures = secondFailureIssueCodes.length > 0;
   const firstSet = new Set(firstFailureIssueCodes);
   const secondSet = new Set(secondFailureIssueCodes);
-  const sameObligationRepeated = hasBothFailures
-    && firstSet.size > 0
-    && firstSet.size === secondSet.size
-    && [...firstSet].every((code) => secondSet.has(code));
+  const sameObligationRepeated =
+    hasBothFailures &&
+    firstSet.size > 0 &&
+    firstSet.size === secondSet.size &&
+    [...firstSet].every((code) => secondSet.has(code));
 
   // 根因 D：义务分类 = 义务不可达
-  const planMisaligned = firstFailureClassificationCode === "draft_obligation_unmet"
-    || firstFailureClassificationCode === "replan_required";
+  const planMisaligned =
+    firstFailureClassificationCode === "draft_obligation_unmet" ||
+    firstFailureClassificationCode === "replan_required";
 
   // 根因 E：首次 length 类、二次 content 类（签名漂移）
-  const firstHasLengthOnly = firstFailureIssueCodes.length > 0
-    && firstFailureIssueCodes.every(isLengthIssueCode);
+  const firstHasLengthOnly =
+    firstFailureIssueCodes.length > 0 && firstFailureIssueCodes.every(isLengthIssueCode);
   const secondHasContentIssue = secondFailureIssueCodes.some((code) => !isLengthIssueCode(code));
   const lengthVsContentDrift = hasBothFailures && firstHasLengthOnly && secondHasContentIssue;
 

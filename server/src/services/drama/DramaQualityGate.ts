@@ -5,14 +5,8 @@ import {
   type DramaQualityOutput,
 } from "../../prompting/prompts/drama/drama.prompts";
 import { dramaContextAssembler } from "./DramaContextAssembler";
-import {
-  describeDramaPaywallPlan,
-  resolveDramaPaywallPlan,
-} from "./engine/paywallPlanPolicy";
-import {
-  dramaComplianceService,
-  mergeComplianceIntoQuality,
-} from "./DramaComplianceService";
+import { describeDramaPaywallPlan, resolveDramaPaywallPlan } from "./engine/paywallPlanPolicy";
+import { dramaComplianceService, mergeComplianceIntoQuality } from "./DramaComplianceService";
 import { rhythmEngine } from "./engine/rhythmEngine";
 import type { DramaLLMOptions } from "./DramaStrategyService";
 
@@ -27,18 +21,25 @@ interface EpisodeRhythmLite {
 type DramaQualityFlag = DramaQualityOutput["flags"][number];
 
 function buildEpisodeRhythmDigest(episodes: EpisodeRhythmLite[], focusOrder: number): string {
-  return episodes
-    .filter((episode) => episode.order >= focusOrder - 3 && episode.order <= focusOrder + 3)
-    .map((episode) => [
-      `第${episode.order}集《${episode.title}》`,
-      episode.isPaywall ? "付费卡点" : "普通集",
-      `情绪净值:${episode.emotionNet ?? "待定"}`,
-      `结尾:${episode.cliffhanger ?? "待定"}`,
-    ].join(" | "))
-    .join("\n") || "暂无相邻分集节奏。";
+  return (
+    episodes
+      .filter((episode) => episode.order >= focusOrder - 3 && episode.order <= focusOrder + 3)
+      .map((episode) =>
+        [
+          `第${episode.order}集《${episode.title}》`,
+          episode.isPaywall ? "付费卡点" : "普通集",
+          `情绪净值:${episode.emotionNet ?? "待定"}`,
+          `结尾:${episode.cliffhanger ?? "待定"}`,
+        ].join(" | "),
+      )
+      .join("\n") || "暂无相邻分集节奏。"
+  );
 }
 
-function addRepairInstruction(existing: DramaQualityOutput["repairPlan"], flags: DramaQualityFlag[]): DramaQualityOutput["repairPlan"] {
+function addRepairInstruction(
+  existing: DramaQualityOutput["repairPlan"],
+  flags: DramaQualityFlag[],
+): DramaQualityOutput["repairPlan"] {
   if (existing) {
     return existing;
   }
@@ -59,17 +60,22 @@ export function applyPaywallQualityRules(
 ): DramaQualityOutput {
   const plan = resolveDramaPaywallPlan(input.strategyJson, input.targetEpisodes);
   const flags: DramaQualityFlag[] = [];
-  const isPaywallEpisode = input.episode.isPaywall
-    || rhythmEngine.isPaywallEpisode(input.episode.order, input.targetEpisodes, plan);
+  const isPaywallEpisode =
+    input.episode.isPaywall ||
+    rhythmEngine.isPaywallEpisode(input.episode.order, input.targetEpisodes, plan);
 
   if (input.episode.order === plan.firstPaywallAt - 1) {
-    const freeStageEpisodes = input.episodes.filter((episode) =>
-      episode.order < plan.firstPaywallAt && typeof episode.emotionNet === "number"
+    const freeStageEpisodes = input.episodes.filter(
+      (episode) => episode.order < plan.firstPaywallAt && typeof episode.emotionNet === "number",
     );
     const minEmotionNet = freeStageEpisodes.length
       ? Math.min(...freeStageEpisodes.map((episode) => episode.emotionNet as number))
       : null;
-    if (minEmotionNet !== null && typeof input.episode.emotionNet === "number" && input.episode.emotionNet > minEmotionNet) {
+    if (
+      minEmotionNet !== null &&
+      typeof input.episode.emotionNet === "number" &&
+      input.episode.emotionNet > minEmotionNet
+    ) {
       flags.push({
         severity: "high",
         code: "pre_paywall_buildup_not_lowest",
@@ -84,7 +90,8 @@ export function applyPaywallQualityRules(
       severity: "high",
       code: "paywall_cliffhanger_below_plan",
       evidence: `付费卡点评分 ${output.score.paywall} 低于计划阈值 ${plan.cliffhangerStrengthThreshold}。`,
-      suggestion: "强化本集结尾的身份揭示、危机升级或反打承诺，让用户有明确理由继续付费观看下一集。",
+      suggestion:
+        "强化本集结尾的身份揭示、危机升级或反打承诺，让用户有明确理由继续付费观看下一集。",
     });
   }
 
@@ -97,17 +104,25 @@ export function applyPaywallQualityRules(
     ...output,
     status,
     flags: output.flags.concat(flags),
-    repairPlan: status === "repairable" ? addRepairInstruction(output.repairPlan, flags) : output.repairPlan,
+    repairPlan:
+      status === "repairable" ? addRepairInstruction(output.repairPlan, flags) : output.repairPlan,
   };
 }
 
 export class DramaQualityGate {
   async reviewEpisode(projectId: string, episodeOrder: number, options: DramaLLMOptions = {}) {
-    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder, options);
+    const context = await dramaContextAssembler.buildEpisodeContext(
+      projectId,
+      episodeOrder,
+      options,
+    );
     if (!context.episode.content?.trim()) {
       throw new Error(`第 ${episodeOrder} 集尚未生成台本，不能执行质量闸。`);
     }
-    const paywallPlan = resolveDramaPaywallPlan(context.strategyJson, context.project.targetEpisodes);
+    const paywallPlan = resolveDramaPaywallPlan(
+      context.strategyJson,
+      context.project.targetEpisodes,
+    );
     const result = await runStructuredPrompt({
       asset: dramaQualityPrompt,
       promptInput: {
@@ -133,11 +148,18 @@ export class DramaQualityGate {
     });
     const compliance = await dramaComplianceService.checkEpisodeContext(context, options);
     const output = mergeComplianceIntoQuality(qualityOutput, compliance);
-    const status = output.status === "approved" ? "approved"
-      : output.status === "repairable" || output.status === "blocked" ? "needs_repair"
-        : "reviewed";
-    await saveEpisodeAssessment(context.episode.id, context.episode.revision, context.episode.qualityFlags,
-      { status, qualityFlags: JSON.stringify(output) });
+    const status =
+      output.status === "approved"
+        ? "approved"
+        : output.status === "repairable" || output.status === "blocked"
+          ? "needs_repair"
+          : "reviewed";
+    await saveEpisodeAssessment(
+      context.episode.id,
+      context.episode.revision,
+      context.episode.qualityFlags,
+      { status, qualityFlags: JSON.stringify(output) },
+    );
     return output;
   }
 }

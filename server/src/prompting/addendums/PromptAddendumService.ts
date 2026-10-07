@@ -255,10 +255,11 @@ function isMissingPromptAddendumTableError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }
-  return error.message.includes("PromptAddendum") && (
-    error.message.includes("does not exist")
-    || error.message.includes("no such table")
-    || error.message.includes("Unknown table")
+  return (
+    error.message.includes("PromptAddendum") &&
+    (error.message.includes("does not exist") ||
+      error.message.includes("no such table") ||
+      error.message.includes("Unknown table"))
   );
 }
 
@@ -276,11 +277,7 @@ export class PromptAddendumService {
             ]
           : [{ scope: "global", novelId: null }],
       },
-      orderBy: [
-        { scope: "asc" },
-        { promptId: "asc" },
-        { updatedAt: "desc" },
-      ],
+      orderBy: [{ scope: "asc" }, { promptId: "asc" }, { updatedAt: "desc" }],
     });
     return rows.map(toView);
   }
@@ -378,31 +375,32 @@ export class PromptAddendumService {
               ]
             : [{ scope: "global", novelId: null }],
         },
-        orderBy: [
-          { scope: "asc" },
-          { updatedAt: "asc" },
-        ],
+        orderBy: [{ scope: "asc" }, { updatedAt: "asc" }],
       });
 
       return rows
         .filter((row) => row.content.trim().length > 0)
         .sort((left, right) => {
-          const scopeOrder = (scope: string) => scope === "global" ? 0 : 1;
-          return scopeOrder(left.scope) - scopeOrder(right.scope)
-            || left.updatedAt.getTime() - right.updatedAt.getTime();
+          const scopeOrder = (scope: string) => (scope === "global" ? 0 : 1);
+          return (
+            scopeOrder(left.scope) - scopeOrder(right.scope) ||
+            left.updatedAt.getTime() - right.updatedAt.getTime()
+          );
         })
-        .map((row, index) => createContextBlock({
-          id: `${CUSTOM_ADDENDUM_CONTEXT_GROUP}:${row.scope}:${row.id}`,
-          group: CUSTOM_ADDENDUM_CONTEXT_GROUP,
-          priority: row.scope === "global" ? 999 - index : 899 - index,
-          required: true,
-          allowSummary: true,
-          content: [
-            row.scope === "global" ? "【全局补充要求】" : "【本书补充要求】",
-            row.title,
-            row.content,
-          ].join("\n"),
-        }));
+        .map((row, index) =>
+          createContextBlock({
+            id: `${CUSTOM_ADDENDUM_CONTEXT_GROUP}:${row.scope}:${row.id}`,
+            group: CUSTOM_ADDENDUM_CONTEXT_GROUP,
+            priority: row.scope === "global" ? 999 - index : 899 - index,
+            required: true,
+            allowSummary: true,
+            content: [
+              row.scope === "global" ? "【全局补充要求】" : "【本书补充要求】",
+              row.title,
+              row.content,
+            ].join("\n"),
+          }),
+        );
     } catch (error) {
       if (!isMissingPromptAddendumTableError(error)) {
         console.warn("[prompt.addendum] failed to resolve custom addendums", error);

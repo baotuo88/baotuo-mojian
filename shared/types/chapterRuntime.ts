@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-  chapterScenePlanSchema,
-  lengthBudgetContractSchema,
-} from "./chapterLengthControl.js";
+import { chapterScenePlanSchema, lengthBudgetContractSchema } from "./chapterLengthControl.js";
 import {
   canonicalStateSnapshotSchema,
   chapterStateGoalSchema,
@@ -44,8 +41,17 @@ import {
 
 export * from "./chapterRuntime/index.js";
 
-const llmProviderSchema = z.custom<LLMProvider>((value) => typeof value === "string" && value.trim().length > 0);
-const chapterGenerationStateSchema = z.enum(["planned", "drafted", "reviewed", "repaired", "approved", "published"]);
+const llmProviderSchema = z.custom<LLMProvider>(
+  (value) => typeof value === "string" && value.trim().length > 0,
+);
+const chapterGenerationStateSchema = z.enum([
+  "planned",
+  "drafted",
+  "reviewed",
+  "repaired",
+  "approved",
+  "published",
+]);
 const storyPlanRoleSchema = z.enum(["setup", "progress", "pressure", "turn", "payoff", "cooldown"]);
 const auditModeSchema = z.enum(["light", "full", "repair_only"]);
 const contextBlockTierSchema = z.enum(["hard_required", "situational", "optional"]);
@@ -659,7 +665,9 @@ export type RuntimePlanScene = z.infer<typeof runtimePlanSceneSchema>;
 export type RuntimePlan = z.infer<typeof runtimePlanSchema>;
 export type RuntimeCharacter = z.infer<typeof runtimeCharacterSchema>;
 export type ChapterCharacterHardFact = z.infer<typeof chapterCharacterHardFactSchema>;
-export type ChapterCharacterPendingReviewField = z.infer<typeof chapterCharacterPendingReviewFieldSchema>;
+export type ChapterCharacterPendingReviewField = z.infer<
+  typeof chapterCharacterPendingReviewFieldSchema
+>;
 export type RuntimeCreativeDecision = z.infer<typeof runtimeCreativeDecisionSchema>;
 export type RuntimeStateSnapshot = z.infer<typeof runtimeStateSnapshotSchema>;
 export type RuntimeOpenConflict = z.infer<typeof runtimeOpenConflictSchema>;
@@ -676,10 +684,16 @@ export type MacroConstraintContext = z.infer<typeof macroConstraintContextSchema
 export type VolumeWindowContext = z.infer<typeof volumeWindowContextSchema>;
 export type ChapterMissionContext = z.infer<typeof chapterMissionContextSchema>;
 export type ChapterBoundaryContract = z.infer<typeof chapterBoundaryContractSchema>;
-export type ChapterExecutionObligationContract = z.infer<typeof chapterExecutionObligationContractSchema>;
+export type ChapterExecutionObligationContract = z.infer<
+  typeof chapterExecutionObligationContractSchema
+>;
 export type ChapterExecutionObligationKind = z.infer<typeof chapterExecutionObligationKindSchema>;
-export type ChapterExecutionMissingObligation = z.infer<typeof chapterExecutionMissingObligationSchema>;
-export type ChapterExecutionObligationCoverage = z.infer<typeof chapterExecutionObligationCoverageSchema>;
+export type ChapterExecutionMissingObligation = z.infer<
+  typeof chapterExecutionMissingObligationSchema
+>;
+export type ChapterExecutionObligationCoverage = z.infer<
+  typeof chapterExecutionObligationCoverageSchema
+>;
 export type ChapterFailureClassification = z.infer<typeof chapterFailureClassificationSchema>;
 export type ChapterCharacterBehaviorGuide = z.infer<typeof chapterCharacterBehaviorGuideSchema>;
 export type ChapterRelationStageGuide = z.infer<typeof chapterRelationStageGuideSchema>;

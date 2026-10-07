@@ -73,16 +73,20 @@ export function mergeComplianceIntoQuality(
   if (compliance.level === "pass") {
     return { ...quality, compliance };
   }
-  const nextStatus = compliance.level === "block"
-    ? "blocked"
-    : quality.status === "approved" ? "continue_with_warning" : quality.status;
+  const nextStatus =
+    compliance.level === "block"
+      ? "blocked"
+      : quality.status === "approved"
+        ? "continue_with_warning"
+        : quality.status;
   return {
     ...quality,
     status: nextStatus,
     flags: quality.flags.concat(complianceFlags),
-    repairPlan: compliance.level === "block"
-      ? mergeRepairPlan(quality.repairPlan, complianceFlags)
-      : quality.repairPlan,
+    repairPlan:
+      compliance.level === "block"
+        ? mergeRepairPlan(quality.repairPlan, complianceFlags)
+        : quality.repairPlan,
     compliance,
   };
 }
@@ -94,8 +98,12 @@ export function mergeComplianceIntoStoredQuality(
   const current = safeJsonParse<Record<string, unknown>>(rawQualityFlags, {});
   const currentFlags = Array.isArray(current.flags)
     ? current.flags.filter((flag) => {
-      return !(flag && typeof flag === "object" && String((flag as { code?: unknown }).code ?? "").startsWith("compliance_"));
-    })
+        return !(
+          flag &&
+          typeof flag === "object" &&
+          String((flag as { code?: unknown }).code ?? "").startsWith("compliance_")
+        );
+      })
     : [];
   const complianceFlags = complianceToQualityFlags(compliance);
   const next: Record<string, unknown> = {
@@ -118,17 +126,29 @@ export function mergeComplianceIntoStoredQuality(
 
 export class DramaComplianceService {
   async checkEpisode(projectId: string, episodeOrder: number, options: DramaLLMOptions = {}) {
-    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder, options);
+    const context = await dramaContextAssembler.buildEpisodeContext(
+      projectId,
+      episodeOrder,
+      options,
+    );
     const compliance = await this.checkEpisodeContext(context, options);
     const qualityFlags = mergeComplianceIntoStoredQuality(context.episode.qualityFlags, compliance);
-    await saveEpisodeAssessment(context.episode.id, context.episode.revision, context.episode.qualityFlags, {
-      status: compliance.level === "block" ? "needs_repair" : context.episode.status,
-      qualityFlags: JSON.stringify(qualityFlags),
-    });
+    await saveEpisodeAssessment(
+      context.episode.id,
+      context.episode.revision,
+      context.episode.qualityFlags,
+      {
+        status: compliance.level === "block" ? "needs_repair" : context.episode.status,
+        qualityFlags: JSON.stringify(qualityFlags),
+      },
+    );
     return compliance;
   }
 
-  async checkProject(projectId: string, options: DramaLLMOptions = {}): Promise<DramaComplianceBatchResult> {
+  async checkProject(
+    projectId: string,
+    options: DramaLLMOptions = {},
+  ): Promise<DramaComplianceBatchResult> {
     const episodes = await prisma.dramaEpisode.findMany({
       where: { projectId },
       orderBy: { order: "asc" },
@@ -154,7 +174,10 @@ export class DramaComplianceService {
     };
   }
 
-  async checkEpisodeContext(context: ComplianceContext, options: DramaLLMOptions = {}): Promise<DramaComplianceOutput> {
+  async checkEpisodeContext(
+    context: ComplianceContext,
+    options: DramaLLMOptions = {},
+  ): Promise<DramaComplianceOutput> {
     if (!context.episode.content?.trim()) {
       throw new Error(`第 ${context.episode.order} 集尚未生成台本，不能执行合规预检。`);
     }

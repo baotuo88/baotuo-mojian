@@ -5,8 +5,16 @@ import { dramaContextAssembler } from "./DramaContextAssembler";
 import type { DramaLLMOptions } from "./DramaStrategyService";
 
 export class DramaScriptService {
-  async generateEpisodeScript(projectId: string, episodeOrder: number, options: DramaLLMOptions = {}) {
-    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder, options);
+  async generateEpisodeScript(
+    projectId: string,
+    episodeOrder: number,
+    options: DramaLLMOptions = {},
+  ) {
+    const context = await dramaContextAssembler.buildEpisodeContext(
+      projectId,
+      episodeOrder,
+      options,
+    );
     const result = await runStructuredPrompt({
       asset: dramaScriptPrompt,
       promptInput: {
@@ -27,7 +35,8 @@ export class DramaScriptService {
 
     const output = result.output;
     await commitEpisodeEdit({
-      episodeId: context.episode.id, expectedRevision: context.episode.revision,
+      episodeId: context.episode.id,
+      expectedRevision: context.episode.revision,
       changes: { content: output.content, durationSec: output.durationSec },
       source: "script",
       facts: output.newlyIntroducedFacts,

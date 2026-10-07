@@ -7,12 +7,26 @@ const { DramaBatchOrchestrator } = require("../dist/services/drama/production/in
 test.after(async () => prisma.$disconnect());
 
 async function fixture(count = 3) {
-  const project = await prisma.dramaProject.create({ data: { title: "短剧恢复回归", source: "original" } });
-  const episode = await prisma.dramaEpisode.create({ data: { projectId: project.id, order: 1, title: "首集" } });
-  const storyboard = await prisma.dramaStoryboard.create({ data: {
-    projectId: project.id, episodeId: episode.id,
-    shots: { create: Array.from({ length: count }, (_, index) => ({ order: index + 1, action: `镜头 ${index + 1}`, durationSec: 5 })) },
-  }, include: { shots: { orderBy: { order: "asc" } } } });
+  const project = await prisma.dramaProject.create({
+    data: { title: "短剧恢复回归", source: "original" },
+  });
+  const episode = await prisma.dramaEpisode.create({
+    data: { projectId: project.id, order: 1, title: "首集" },
+  });
+  const storyboard = await prisma.dramaStoryboard.create({
+    data: {
+      projectId: project.id,
+      episodeId: episode.id,
+      shots: {
+        create: Array.from({ length: count }, (_, index) => ({
+          order: index + 1,
+          action: `镜头 ${index + 1}`,
+          durationSec: 5,
+        })),
+      },
+    },
+    include: { shots: { orderBy: { order: "asc" } } },
+  });
   return { project, episode, storyboard };
 }
 
@@ -22,20 +36,33 @@ const progress = (job) => JSON.parse(job.progress);
 
 function gate() {
   let resolve;
-  const promise = new Promise((done) => { resolve = done; });
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 
 test("duplicate creation shares one pending job and completed jobs never execute again", async () => {
   const { project } = await fixture(1);
   let calls = 0;
-  const worker = new DramaBatchOrchestrator({ generateKeyframe: async () => { calls += 1; } });
+  const worker = new DramaBatchOrchestrator({
+    generateKeyframe: async () => {
+      calls += 1;
+    },
+  });
   const [one, two] = await Promise.all([
     worker.createEpisodeBatchJob(project.id, 1, input, manual),
     worker.createEpisodeBatchJob(project.id, 1, input, manual),
   ]);
   assert.equal(one.id, two.id);
-  await Promise.all([worker.runBatchJob(one.id), new DramaBatchOrchestrator({ generateKeyframe: async () => { calls += 1; } }).runBatchJob(one.id)]);
+  await Promise.all([
+    worker.runBatchJob(one.id),
+    new DramaBatchOrchestrator({
+      generateKeyframe: async () => {
+        calls += 1;
+      },
+    }).runBatchJob(one.id),
+  ]);
   assert.equal(calls, 1);
   const done = await worker.runBatchJob(one.id);
   assert.equal(done.status, "done");
@@ -48,10 +75,15 @@ test("pause finishes current shot; resume preserves completed shots and accumula
   const started = gate();
   const release = gate();
   const calls = [];
-  const worker = new DramaBatchOrchestrator({ generateKeyframe: async (id) => {
-    calls.push(id);
-    if (calls.length === 1) { started.resolve(); await release.promise; }
-  } });
+  const worker = new DramaBatchOrchestrator({
+    generateKeyframe: async (id) => {
+      calls.push(id);
+      if (calls.length === 1) {
+        started.resolve();
+        await release.promise;
+      }
+    },
+  });
   const job = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
   const running = worker.runBatchJob(job.id);
   await started.promise;
@@ -75,13 +107,20 @@ test("pause finishes current shot; resume preserves completed shots and accumula
 test("restart exposes interrupted work without issuing provider requests", async () => {
   const { project, storyboard } = await fixture(2);
   let calls = 0;
-  const worker = new DramaBatchOrchestrator({ generateKeyframe: async () => { calls += 1; } });
+  const worker = new DramaBatchOrchestrator({
+    generateKeyframe: async () => {
+      calls += 1;
+    },
+  });
   const job = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
   const saved = progress(job);
   saved.done = 1;
   saved.completedShotIds = [storyboard.shots[0].id];
   saved.currentShotId = storyboard.shots[1].id;
-  await prisma.dramaBatchJob.update({ where: { id: job.id }, data: { status: "running", progress: JSON.stringify(saved) } });
+  await prisma.dramaBatchJob.update({
+    where: { id: job.id },
+    data: { status: "running", progress: JSON.stringify(saved) },
+  });
   await worker.recoverInterruptedJobs();
   const paused = await prisma.dramaBatchJob.findUnique({ where: { id: job.id } });
   assert.equal(paused.status, "paused");
@@ -96,13 +135,21 @@ test("restart exposes interrupted work without issuing provider requests", async
 test("changed storyboard prevents stale work and allows a new pinned task", async () => {
   const { project, episode } = await fixture(1);
   let calls = 0;
-  const worker = new DramaBatchOrchestrator({ generateKeyframe: async () => { calls += 1; } });
+  const worker = new DramaBatchOrchestrator({
+    generateKeyframe: async () => {
+      calls += 1;
+    },
+  });
   const job = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
   await worker.pauseBatchJob(project.id, job.id);
-  const newer = await prisma.dramaStoryboard.create({ data: {
-    projectId: project.id, episodeId: episode.id, createdAt: new Date(Date.now() + 1000),
-    shots: { create: [{ order: 1, action: "新分镜" }] },
-  } });
+  const newer = await prisma.dramaStoryboard.create({
+    data: {
+      projectId: project.id,
+      episodeId: episode.id,
+      createdAt: new Date(Date.now() + 1000),
+      shots: { create: [{ order: 1, action: "新分镜" }] },
+    },
+  });
   await assert.rejects(worker.resumeBatchJob(project.id, job.id, true, manual), /分镜已变化/);
   const replacement = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
   assert.notEqual(replacement.id, job.id);
@@ -118,10 +165,12 @@ test("failed shots can resume without regenerating successful shots or resetting
   const { project, storyboard } = await fixture(2);
   let shouldFail = true;
   const calls = [];
-  const worker = new DramaBatchOrchestrator({ generateKeyframe: async (id) => {
-    calls.push(id);
-    if (id === storyboard.shots[1].id && shouldFail) throw new Error("供应商暂时不可用");
-  } });
+  const worker = new DramaBatchOrchestrator({
+    generateKeyframe: async (id) => {
+      calls.push(id);
+      if (id === storyboard.shots[1].id && shouldFail) throw new Error("供应商暂时不可用");
+    },
+  });
   const job = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
   const failed = await worker.runBatchJob(job.id);
   assert.equal(failed.status, "failed");
@@ -138,22 +187,31 @@ test("failed shots can resume without regenerating successful shots or resetting
 
 test("project ownership and empty legacy targets cannot bypass recovery validation", async () => {
   const { project } = await fixture(1);
-  const worker = new DramaBatchOrchestrator({ generateKeyframe: async () => assert.fail("must not invoke") });
+  const worker = new DramaBatchOrchestrator({
+    generateKeyframe: async () => assert.fail("must not invoke"),
+  });
   const job = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
   await assert.rejects(worker.pauseBatchJob("another-project", job.id), /未找到/);
-  await prisma.dramaBatchJob.update({ where: { id: job.id }, data: { progress: '{"provider":"openai"}' } });
+  await prisma.dramaBatchJob.update({
+    where: { id: job.id },
+    data: { progress: '{"provider":"openai"}' },
+  });
   const result = await worker.runBatchJob(job.id);
   assert.equal(result.status, "failed");
   assert.match(progress(result).interruptionReason, /镜头缺失/);
 });
 
-
 test("script revision invalidates a paused batch even before replacement storyboards exist", async () => {
   const { project, episode } = await fixture(1);
-  const worker = new DramaBatchOrchestrator({ generateKeyframe: async () => assert.fail("stale work must not call provider") });
+  const worker = new DramaBatchOrchestrator({
+    generateKeyframe: async () => assert.fail("stale work must not call provider"),
+  });
   const job = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
   await worker.pauseBatchJob(project.id, job.id);
-  await prisma.dramaEpisode.update({ where: { id: episode.id }, data: { revision: { increment: 1 } } });
+  await prisma.dramaEpisode.update({
+    where: { id: episode.id },
+    data: { revision: { increment: 1 } },
+  });
   await assert.rejects(worker.resumeBatchJob(project.id, job.id, true, manual), /新的版本/);
   await assert.rejects(worker.createEpisodeBatchJob(project.id, 1, input, manual), /新的版本/);
 });
@@ -161,10 +219,20 @@ test("script revision invalidates a paused batch even before replacement storybo
 test("startup recovers synchronous media claims while preserving previously usable assets", async () => {
   const { storyboard } = await fixture(1);
   const shotId = storyboard.shots[0].id;
-  await prisma.dramaShot.update({ where: { id: shotId }, data: {
-    keyframeData: JSON.stringify({ status: "generating", url: "/previous-image.png", fileName: "retained.png" }),
-    dialogueAudioData: JSON.stringify({ status: "generating", items: [{ audioUrl: "/previous-audio.wav" }] }),
-  } });
+  await prisma.dramaShot.update({
+    where: { id: shotId },
+    data: {
+      keyframeData: JSON.stringify({
+        status: "generating",
+        url: "/previous-image.png",
+        fileName: "retained.png",
+      }),
+      dialogueAudioData: JSON.stringify({
+        status: "generating",
+        items: [{ audioUrl: "/previous-audio.wav" }],
+      }),
+    },
+  });
   await new DramaBatchOrchestrator().recoverInterruptedJobs();
   const shot = await prisma.dramaShot.findUnique({ where: { id: shotId } });
   assert.equal(JSON.parse(shot.keyframeData).status, "error");
@@ -175,9 +243,14 @@ test("startup recovers synchronous media claims while preserving previously usab
 
 test("an edit during the final paid call prevents a successful batch completion", async () => {
   const { project, episode } = await fixture(1);
-  const worker = new DramaBatchOrchestrator({ generateKeyframe: async () => {
-    await prisma.dramaEpisode.update({ where: { id: episode.id }, data: { revision: { increment: 1 } } });
-  } });
+  const worker = new DramaBatchOrchestrator({
+    generateKeyframe: async () => {
+      await prisma.dramaEpisode.update({
+        where: { id: episode.id },
+        data: { revision: { increment: 1 } },
+      });
+    },
+  });
   const job = await worker.createEpisodeBatchJob(project.id, 1, input, manual);
   const result = await worker.runBatchJob(job.id);
   assert.equal(result.status, "failed");

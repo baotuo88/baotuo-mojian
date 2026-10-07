@@ -1,4 +1,9 @@
-import type { AuditReport, AuditType, QualityScore, ReviewIssue } from "@ai-novel/shared/types/novel";
+import type {
+  AuditReport,
+  AuditType,
+  QualityScore,
+  ReviewIssue,
+} from "@ai-novel/shared/types/novel";
 import type {
   ChapterExecutionMissingObligation,
   GenerationContextPackage,
@@ -46,7 +51,9 @@ function categoryToAuditType(category: AcceptanceIssue["category"]): AuditType {
   return "mode_fit";
 }
 
-function categoryToReviewIssueCategory(category: AcceptanceIssue["category"]): ReviewIssue["category"] {
+function categoryToReviewIssueCategory(
+  category: AcceptanceIssue["category"],
+): ReviewIssue["category"] {
   if (category === "character") return "logic";
   if (category === "plot") return "pacing";
   if (category === "voice") return "voice";
@@ -54,13 +61,15 @@ function categoryToReviewIssueCategory(category: AcceptanceIssue["category"]): R
   return "coherence";
 }
 
-function missingObligationToReviewIssue(obligation: ChapterExecutionMissingObligation): ReviewIssue {
-  const category: ReviewIssue["category"] = obligation.kind === "character_appearance"
-    || obligation.kind === "goal_change"
-    ? "logic"
-    : obligation.kind === "forbidden_crossing"
-      ? "coherence"
-      : "pacing";
+function missingObligationToReviewIssue(
+  obligation: ChapterExecutionMissingObligation,
+): ReviewIssue {
+  const category: ReviewIssue["category"] =
+    obligation.kind === "character_appearance" || obligation.kind === "goal_change"
+      ? "logic"
+      : obligation.kind === "forbidden_crossing"
+        ? "coherence"
+        : "pacing";
   return {
     severity: obligation.kind === "forbidden_crossing" ? "high" : "medium",
     category,
@@ -83,10 +92,18 @@ function shouldDropLengthIssue(input: {
   minWordCount: number | null;
   maxWordCount: number | null;
 }): boolean {
-  if (input.issue.code === "length_insufficient" && input.minWordCount != null && input.actualWordCount >= input.minWordCount) {
+  if (
+    input.issue.code === "length_insufficient" &&
+    input.minWordCount != null &&
+    input.actualWordCount >= input.minWordCount
+  ) {
     return true;
   }
-  if (input.issue.code === "length_excessive" && input.maxWordCount != null && input.actualWordCount <= input.maxWordCount) {
+  if (
+    input.issue.code === "length_excessive" &&
+    input.maxWordCount != null &&
+    input.actualWordCount <= input.maxWordCount
+  ) {
     return true;
   }
   return false;
@@ -102,12 +119,18 @@ function reconcileLengthAssessment(
     return output;
   }
   const actualWordCount = countChapterCharacters(content);
-  const resolvedLengthCodes = new Set(output.blockingIssues.filter((issue) => shouldDropLengthIssue({
-    issue,
-    actualWordCount,
-    minWordCount: range.minWordCount,
-    maxWordCount: range.maxWordCount,
-  })).map((issue) => issue.code));
+  const resolvedLengthCodes = new Set(
+    output.blockingIssues
+      .filter((issue) =>
+        shouldDropLengthIssue({
+          issue,
+          actualWordCount,
+          minWordCount: range.minWordCount,
+          maxWordCount: range.maxWordCount,
+        }),
+      )
+      .map((issue) => issue.code),
+  );
   if (resolvedLengthCodes.size === 0) {
     return output;
   }
@@ -116,10 +139,11 @@ function reconcileLengthAssessment(
     blockingIssues: output.blockingIssues.filter((issue) => !resolvedLengthCodes.has(issue.code)),
     // Unlinked directives can contain independent obligations. Only discard a
     // directive when every explicitly referenced issue was a resolved length issue.
-    repairDirectives: output.repairDirectives.filter((directive) => (
-      !directive.issueCodes?.length
-      || !directive.issueCodes.every((code) => resolvedLengthCodes.has(code))
-    )),
+    repairDirectives: output.repairDirectives.filter(
+      (directive) =>
+        !directive.issueCodes?.length ||
+        !directive.issueCodes.every((code) => resolvedLengthCodes.has(code)),
+    ),
     riskTags: output.riskTags.filter((tag) => !resolvedLengthCodes.has(tag)),
   };
 }
@@ -132,15 +156,17 @@ export function normalizeAssessment(
   const reconciled = reconcileLengthAssessment(output, content, targetWordCount);
   const score = normalizeScore(reconciled.score ?? ruleScore(content));
   const missingObligations = reconciled.missingObligations ?? [];
-  const hasHighRisk = reconciled.blockingIssues.some((issue) => issue.severity === "high" || issue.severity === "critical");
+  const hasHighRisk = reconciled.blockingIssues.some(
+    (issue) => issue.severity === "high" || issue.severity === "critical",
+  );
   const hasHardMissingObligation = missingObligations.some(isHardMissingObligation);
   const hasSoftOnlyMissingObligations = missingObligations.length > 0 && !hasHardMissingObligation;
-  const hasRepairWork = reconciled.blockingIssues.length > 0
-    || reconciled.repairDirectives.length > 0
-    || missingObligations.length > 0;
-  let status: ChapterAcceptanceAssessmentOutput["status"] = reconciled.status === "accepted" && hasHighRisk
-    ? "repairable"
-    : reconciled.status;
+  const hasRepairWork =
+    reconciled.blockingIssues.length > 0 ||
+    reconciled.repairDirectives.length > 0 ||
+    missingObligations.length > 0;
+  let status: ChapterAcceptanceAssessmentOutput["status"] =
+    reconciled.status === "accepted" && hasHighRisk ? "repairable" : reconciled.status;
   if (status === "accepted" && missingObligations.length > 0) {
     status = hasHardMissingObligation ? "repairable" : "continue_with_risk";
   }
@@ -148,10 +174,10 @@ export function normalizeAssessment(
     status = hasRepairWork ? "repairable" : "continue_with_risk";
   }
   if (
-    status === "repairable"
-    && hasSoftOnlyMissingObligations
-    && !hasHighRisk
-    && reconciled.repairability === "patchable_obligation_gap"
+    status === "repairable" &&
+    hasSoftOnlyMissingObligations &&
+    !hasHighRisk &&
+    reconciled.repairability === "patchable_obligation_gap"
   ) {
     status = "continue_with_risk";
   }
@@ -161,13 +187,15 @@ export function normalizeAssessment(
   if (reconciled.repairability === "plan_misalignment") {
     status = "needs_manual_review";
   }
-  const continuePolicy = status === "needs_manual_review"
-    ? "pause"
-    : status === "repairable"
-      ? "repair_once"
-      : status === "continue_with_risk" && (reconciled.continuePolicy === "pause" || !hasRepairWork)
-        ? "continue"
-        : reconciled.continuePolicy;
+  const continuePolicy =
+    status === "needs_manual_review"
+      ? "pause"
+      : status === "repairable"
+        ? "repair_once"
+        : status === "continue_with_risk" &&
+            (reconciled.continuePolicy === "pause" || !hasRepairWork)
+          ? "continue"
+          : reconciled.continuePolicy;
   return {
     ...reconciled,
     status,
@@ -186,13 +214,15 @@ function buildFallbackAssessment(content: string): ChapterAcceptanceAssessmentOu
     status: "continue_with_risk",
     score,
     summary: "正文已生成，接收闸门未完成结构化判断，系统将保留正文并标记后续复查风险。",
-    blockingIssues: [{
-      severity: "medium",
-      category: "mode_fit",
-      code: "acceptance_gate_unavailable",
-      evidence: "章节接收闸门未返回可用结构化结果。",
-      fixSuggestion: "保留正文，后续可重新执行章节审校或局部修文。",
-    }],
+    blockingIssues: [
+      {
+        severity: "medium",
+        category: "mode_fit",
+        code: "acceptance_gate_unavailable",
+        evidence: "章节接收闸门未返回可用结构化结果。",
+        fixSuggestion: "保留正文，后续可重新执行章节审校或局部修文。",
+      },
+    ],
     repairDirectives: [],
     missingObligations: [],
     repairability: "none",
@@ -208,24 +238,36 @@ function buildFallbackAssessment(content: string): ChapterAcceptanceAssessmentOu
 }
 
 export class ChapterAcceptanceAssessmentService {
-  async assess(input: ChapterAcceptanceAssessmentInput): Promise<ChapterAcceptanceAssessmentResult> {
-    const assessment = await this.invokeAssessment(input).catch(() => buildFallbackAssessment(input.content));
+  async assess(
+    input: ChapterAcceptanceAssessmentInput,
+  ): Promise<ChapterAcceptanceAssessmentResult> {
+    const assessment = await this.invokeAssessment(input).catch(() =>
+      buildFallbackAssessment(input.content),
+    );
     const normalized = normalizeAssessment(assessment, input.content, input.targetWordCount);
     const score = normalizeScore(normalized.score);
-    const issues = normalized.blockingIssues.map((issue) => ({
-      severity: issue.severity,
-      category: categoryToReviewIssueCategory(issue.category),
-      evidence: issue.evidence,
-      fixSuggestion: issue.fixSuggestion,
-    })).concat(normalized.missingObligations.map((obligation) => missingObligationToReviewIssue(obligation)));
+    const issues = normalized.blockingIssues
+      .map((issue) => ({
+        severity: issue.severity,
+        category: categoryToReviewIssueCategory(issue.category),
+        evidence: issue.evidence,
+        fixSuggestion: issue.fixSuggestion,
+      }))
+      .concat(
+        normalized.missingObligations.map((obligation) =>
+          missingObligationToReviewIssue(obligation),
+        ),
+      );
     const auditReports = await this.persistAcceptanceReports(input, normalized, score);
-    await openConflictService.syncFromAuditReports({
-      novelId: input.novelId,
-      chapterId: input.chapterId,
-      chapterOrder: input.chapterOrder,
-      sourceSnapshotId: null,
-      auditReports,
-    }).catch(() => null);
+    await openConflictService
+      .syncFromAuditReports({
+        novelId: input.novelId,
+        chapterId: input.chapterId,
+        chapterOrder: input.chapterOrder,
+        sourceSnapshotId: null,
+        auditReports,
+      })
+      .catch(() => null);
     return {
       assessment: normalized,
       score,
@@ -234,7 +276,9 @@ export class ChapterAcceptanceAssessmentService {
     };
   }
 
-  private async invokeAssessment(input: ChapterAcceptanceAssessmentInput): Promise<ChapterAcceptanceAssessmentOutput> {
+  private async invokeAssessment(
+    input: ChapterAcceptanceAssessmentInput,
+  ): Promise<ChapterAcceptanceAssessmentOutput> {
     const fallbackBlocks = input.contextPackage.chapterReviewContext
       ? buildChapterReviewContextBlocks(input.contextPackage.chapterReviewContext)
       : [];

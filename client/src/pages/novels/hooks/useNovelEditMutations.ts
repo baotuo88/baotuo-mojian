@@ -1,5 +1,10 @@
 import { useMutation, type QueryClient } from "@tanstack/react-query";
-import type { Chapter, PipelineRepairMode, PipelineRunMode, VolumePlanDocument } from "@ai-novel/shared/types/novel";
+import type {
+  Chapter,
+  PipelineRepairMode,
+  PipelineRunMode,
+  VolumePlanDocument,
+} from "@ai-novel/shared/types/novel";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import {
   createNovelChapter,
@@ -103,9 +108,10 @@ export function useNovelEditMutations({
   const saveBasicMutation = useMutation({
     mutationFn: async () => {
       const updated = await updateNovel(id, buildNovelUpdatePayload(basicForm));
-      const platform = basicForm.writingPlatformPreference === "ai_recommend"
-        ? (await recommendNovelWritingPlatform(id)).data?.platform
-        : basicForm.writingPlatformPreference;
+      const platform =
+        basicForm.writingPlatformPreference === "ai_recommend"
+          ? (await recommendNovelWritingPlatform(id)).data?.platform
+          : basicForm.writingPlatformPreference;
       if (!platform) throw new Error("AI 未返回可用的平台建议，请重试。");
       await updateNovelWritingPlatform(id, platform);
       return updated;
@@ -140,10 +146,11 @@ export function useNovelEditMutations({
   });
 
   const saveStructuredMutation = useMutation({
-    mutationFn: () => updateNovelVolumes(id, {
-      ...volumeDocument,
-      syncToChapterExecution: true,
-    }),
+    mutationFn: () =>
+      updateNovelVolumes(id, {
+        ...volumeDocument,
+        syncToChapterExecution: true,
+      }),
     onSuccess: async () => {
       setStructuredMessage("节奏拆章已保存，章节执行区会直接使用同一批章节。");
       await syncNovelWorkflowStageSilently({
@@ -193,11 +200,12 @@ export function useNovelEditMutations({
   });
 
   const syncStructuredChaptersMutation = useMutation({
-    mutationFn: (options: StructuredSyncOptions) => syncNovelVolumeChapters(id, {
-      volumes: volumeDocument.volumes,
-      preserveContent: options.preserveContent,
-      applyDeletes: options.applyDeletes,
-    }),
+    mutationFn: (options: StructuredSyncOptions) =>
+      syncNovelVolumeChapters(id, {
+        volumes: volumeDocument.volumes,
+        preserveContent: options.preserveContent,
+        applyDeletes: options.applyDeletes,
+      }),
     onSuccess: async (response) => {
       const preview = response.data;
       setStructuredMessage(
@@ -284,17 +292,25 @@ export function useNovelEditMutations({
         itemLabel: "章节流水线运行中",
         status: "running",
       });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.novels.pipelineJob(id, response.data?.id ?? "none") });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.novels.pipelineJob(id, response.data?.id ?? "none"),
+      });
       await invalidateActivePipelineJob();
     },
     onError: (error) => {
-      setPipelineMessage(error instanceof Error ? error.message : "流水线启动失败，请检查章节范围后重试。");
+      setPipelineMessage(
+        error instanceof Error ? error.message : "流水线启动失败，请检查章节范围后重试。",
+      );
     },
   });
 
   const reviewMutation = useMutation({
     mutationFn: async () => {
-      const source = { novelId: id, chapterId: selectedChapterId, content: chapters.find((chapter) => chapter.id === selectedChapterId)?.content ?? null };
+      const source = {
+        novelId: id,
+        chapterId: selectedChapterId,
+        content: chapters.find((chapter) => chapter.id === selectedChapterId)?.content ?? null,
+      };
       const response = await reviewNovelChapter(source.novelId, source.chapterId, {
         provider: llm.provider,
         model: llm.model,

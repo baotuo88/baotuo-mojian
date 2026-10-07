@@ -8,17 +8,17 @@ export type WritableSSEFrame = Extract<
   SSEFrame,
   {
     type:
-    | "chunk"
-    | "done"
-    | "error"
-    | "ping"
-    | "reasoning"
-    | "runtime_package"
-    | "tool_call"
-    | "tool_result"
-    | "approval_required"
-    | "approval_resolved"
-    | "run_status";
+      | "chunk"
+      | "done"
+      | "error"
+      | "ping"
+      | "reasoning"
+      | "runtime_package"
+      | "tool_call"
+      | "tool_result"
+      | "approval_required"
+      | "approval_resolved"
+      | "run_status";
   }
 >;
 

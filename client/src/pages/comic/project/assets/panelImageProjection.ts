@@ -19,5 +19,7 @@ export function readPanelImage(raw: string | null | undefined): PanelImageDispla
       return { ...value.previousImage, retained: true };
     }
     return value;
-  } catch { return {}; }
+  } catch {
+    return {};
+  }
 }

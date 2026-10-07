@@ -29,15 +29,27 @@ export class NovelCoreCrudService {
   private readonly workflowService = new NovelWorkflowService();
   private readonly volumeService = new NovelVolumeService();
 
-  private validateStoryModeSelection(primaryStoryModeId?: string | null, secondaryStoryModeId?: string | null): void {
+  private validateStoryModeSelection(
+    primaryStoryModeId?: string | null,
+    secondaryStoryModeId?: string | null,
+  ): void {
     if (primaryStoryModeId && secondaryStoryModeId && primaryStoryModeId === secondaryStoryModeId) {
       throw new AppError("主流派模式和副流派模式不能选择同一项。", 400);
     }
   }
 
-  async listNovels({ page, limit, search, status, narrativeForm, writingMode, sort = "updated" }: PaginationInput) {
+  async listNovels({
+    page,
+    limit,
+    search,
+    status,
+    narrativeForm,
+    writingMode,
+    sort = "updated",
+  }: PaginationInput) {
     const normalizedSearch = search?.trim();
-    const orderBy = sort === "created" ? { createdAt: "desc" as const } : { updatedAt: "desc" as const };
+    const orderBy =
+      sort === "created" ? { createdAt: "desc" as const } : { updatedAt: "desc" as const };
     const [items, total] = await Promise.all([
       prisma.novel.findMany({
         skip: (page - 1) * limit,
@@ -47,12 +59,14 @@ export class NovelCoreCrudService {
           ...(status ? { status } : {}),
           ...(narrativeForm ? { narrativeForm } : {}),
           ...(writingMode ? { writingMode } : {}),
-          ...(normalizedSearch ? {
-            OR: [
-              { title: { contains: normalizedSearch } },
-              { description: { contains: normalizedSearch } },
-            ],
-          } : {}),
+          ...(normalizedSearch
+            ? {
+                OR: [
+                  { title: { contains: normalizedSearch } },
+                  { description: { contains: normalizedSearch } },
+                ],
+              }
+            : {}),
         },
         select: {
           id: true,
@@ -111,12 +125,14 @@ export class NovelCoreCrudService {
           ...(status ? { status } : {}),
           ...(narrativeForm ? { narrativeForm } : {}),
           ...(writingMode ? { writingMode } : {}),
-          ...(normalizedSearch ? {
-            OR: [
-              { title: { contains: normalizedSearch } },
-              { description: { contains: normalizedSearch } },
-            ],
-          } : {}),
+          ...(normalizedSearch
+            ? {
+                OR: [
+                  { title: { contains: normalizedSearch } },
+                  { description: { contains: normalizedSearch } },
+                ],
+              }
+            : {}),
         },
       }),
     ]);
@@ -150,29 +166,38 @@ export class NovelCoreCrudService {
     }
     const coverTaskByNovelId = new Map<string, (typeof coverTasks)[number]>();
     for (const task of coverTasks) {
-      if (task.novelId && !coverTaskByNovelId.has(task.novelId)) coverTaskByNovelId.set(task.novelId, task);
+      if (task.novelId && !coverTaskByNovelId.has(task.novelId))
+        coverTaskByNovelId.set(task.novelId, task);
     }
 
     return {
       items: items.map((item) => {
         const normalized = normalizeNovelOutput(item);
-        const world = normalized.world ?? (normalized.novelWorld
-          ? {
-            id: normalized.novelWorld.sourceWorld?.id ?? normalized.novelWorld.id,
-            name: normalized.novelWorld.sourceWorld?.name ?? normalized.novelWorld.title ?? "本书世界",
-            worldType: normalized.novelWorld.sourceWorld?.worldType ?? null,
-          }
-          : null);
+        const world =
+          normalized.world ??
+          (normalized.novelWorld
+            ? {
+                id: normalized.novelWorld.sourceWorld?.id ?? normalized.novelWorld.id,
+                name:
+                  normalized.novelWorld.sourceWorld?.name ??
+                  normalized.novelWorld.title ??
+                  "本书世界",
+                worldType: normalized.novelWorld.sourceWorld?.worldType ?? null,
+              }
+            : null);
         return {
-        ...normalized,
-        world,
-        latestAutoDirectorTask: latestAutoDirectorTaskByNovelId.get(item.id) ?? null,
-        latestCreationStudioTask: latestCreationStudioTaskByNovelId.get(item.id) ?? null,
-        tokenUsage: tokenUsageByNovelId.get(item.id) ?? null,
-        primaryCover: primaryCoverByNovelId.get(item.id) ?? null,
-        coverGeneration: coverTaskByNovelId.has(item.id)
-          ? { taskId: coverTaskByNovelId.get(item.id)!.id, status: coverTaskByNovelId.get(item.id)!.status }
-          : null,
+          ...normalized,
+          world,
+          latestAutoDirectorTask: latestAutoDirectorTaskByNovelId.get(item.id) ?? null,
+          latestCreationStudioTask: latestCreationStudioTaskByNovelId.get(item.id) ?? null,
+          tokenUsage: tokenUsageByNovelId.get(item.id) ?? null,
+          primaryCover: primaryCoverByNovelId.get(item.id) ?? null,
+          coverGeneration: coverTaskByNovelId.has(item.id)
+            ? {
+                taskId: coverTaskByNovelId.get(item.id)!.id,
+                status: coverTaskByNovelId.get(item.id)!.status,
+              }
+            : null,
         };
       }),
       page,
@@ -211,7 +236,10 @@ export class NovelCoreCrudService {
       },
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     });
-    const archivedTaskIds = await getArchivedTaskIdSet("novel_workflow", rows.map((row) => row.id));
+    const archivedTaskIds = await getArchivedTaskIdSet(
+      "novel_workflow",
+      rows.map((row) => row.id),
+    );
     const result = new Map<string, NovelAutoDirectorTaskSummary>();
     for (const row of rows) {
       if (!row.novelId || result.has(row.novelId) || archivedTaskIds.has(row.id)) continue;
@@ -272,7 +300,10 @@ export class NovelCoreCrudService {
       }
     }
 
-    const archivedTaskIds = await getArchivedTaskIdSet("novel_workflow", rows.map((row) => row.id));
+    const archivedTaskIds = await getArchivedTaskIdSet(
+      "novel_workflow",
+      rows.map((row) => row.id),
+    );
     const visibleRows: typeof rows = [];
     const seenNovelIds = new Set<string>();
     for (const row of rows) {
@@ -284,7 +315,10 @@ export class NovelCoreCrudService {
     }
 
     const liveTaskIds = visibleRows
-      .filter((row) => row.status === "queued" || row.status === "running" || row.status === "waiting_approval")
+      .filter(
+        (row) =>
+          row.status === "queued" || row.status === "running" || row.status === "waiting_approval",
+      )
       .map((row) => row.id);
     const latestLiveStepLabelByTaskId = new Map<string, string>();
     if (liveTaskIds.length > 0) {
@@ -317,10 +351,14 @@ export class NovelCoreCrudService {
         continue;
       }
       const rowCurrentItemLabel = row.currentItemLabel?.trim() || null;
-      taskByNovelId.set(novelId, mapNovelAutoDirectorTaskSummary({
-        ...row,
-        currentItemLabel: rowCurrentItemLabel ?? latestLiveStepLabelByTaskId.get(row.id) ?? row.currentItemLabel,
-      }));
+      taskByNovelId.set(
+        novelId,
+        mapNovelAutoDirectorTaskSummary({
+          ...row,
+          currentItemLabel:
+            rowCurrentItemLabel ?? latestLiveStepLabelByTaskId.get(row.id) ?? row.currentItemLabel,
+        }),
+      );
     }
     return taskByNovelId;
   }
@@ -331,7 +369,9 @@ export class NovelCoreCrudService {
     const sourceKnowledgeDocumentId = input.sourceKnowledgeDocumentId ?? null;
     const continuationBookAnalysisId = input.continuationBookAnalysisId ?? null;
     const normalizedContinuationBookAnalysisId =
-      writingMode === "continuation" && (sourceNovelId || sourceKnowledgeDocumentId) ? continuationBookAnalysisId : null;
+      writingMode === "continuation" && (sourceNovelId || sourceKnowledgeDocumentId)
+        ? continuationBookAnalysisId
+        : null;
     const continuationBookAnalysisSections = serializeContinuationBookAnalysisSections(
       input.continuationBookAnalysisSections,
     );
@@ -378,12 +418,13 @@ export class NovelCoreCrudService {
         outlineStatus: input.outlineStatus,
         resourceReadyScore: input.resourceReadyScore,
         sourceNovelId: writingMode === "continuation" ? sourceNovelId : null,
-        sourceKnowledgeDocumentId: writingMode === "continuation" ? sourceKnowledgeDocumentId : null,
+        sourceKnowledgeDocumentId:
+          writingMode === "continuation" ? sourceKnowledgeDocumentId : null,
         continuationBookAnalysisId: normalizedContinuationBookAnalysisId,
         continuationBookAnalysisSections:
-          writingMode === "continuation"
-          && (sourceNovelId || sourceKnowledgeDocumentId)
-          && normalizedContinuationBookAnalysisId
+          writingMode === "continuation" &&
+          (sourceNovelId || sourceKnowledgeDocumentId) &&
+          normalizedContinuationBookAnalysisId
             ? continuationBookAnalysisSections
             : null,
       },
@@ -436,23 +477,30 @@ export class NovelCoreCrudService {
       throw new Error("小说不存在");
     }
 
-    const nextWritingMode = input.writingMode ?? (existing.writingMode === "continuation" ? "continuation" : "original");
-    const nextSourceNovelId = input.sourceNovelId !== undefined ? input.sourceNovelId : existing.sourceNovelId;
-    const nextSourceKnowledgeDocumentId = input.sourceKnowledgeDocumentId !== undefined
-      ? input.sourceKnowledgeDocumentId
-      : existing.sourceKnowledgeDocumentId;
-    const nextContinuationBookAnalysisId = input.continuationBookAnalysisId !== undefined
-      ? input.continuationBookAnalysisId
-      : existing.continuationBookAnalysisId;
-    const nextContinuationBookAnalysisSections = input.continuationBookAnalysisSections !== undefined
-      ? input.continuationBookAnalysisSections
-      : parseContinuationBookAnalysisSections(existing.continuationBookAnalysisSections);
-    const nextPrimaryStoryModeId = input.primaryStoryModeId !== undefined
-      ? input.primaryStoryModeId
-      : existing.primaryStoryModeId;
-    const nextSecondaryStoryModeId = input.secondaryStoryModeId !== undefined
-      ? input.secondaryStoryModeId
-      : existing.secondaryStoryModeId;
+    const nextWritingMode =
+      input.writingMode ?? (existing.writingMode === "continuation" ? "continuation" : "original");
+    const nextSourceNovelId =
+      input.sourceNovelId !== undefined ? input.sourceNovelId : existing.sourceNovelId;
+    const nextSourceKnowledgeDocumentId =
+      input.sourceKnowledgeDocumentId !== undefined
+        ? input.sourceKnowledgeDocumentId
+        : existing.sourceKnowledgeDocumentId;
+    const nextContinuationBookAnalysisId =
+      input.continuationBookAnalysisId !== undefined
+        ? input.continuationBookAnalysisId
+        : existing.continuationBookAnalysisId;
+    const nextContinuationBookAnalysisSections =
+      input.continuationBookAnalysisSections !== undefined
+        ? input.continuationBookAnalysisSections
+        : parseContinuationBookAnalysisSections(existing.continuationBookAnalysisSections);
+    const nextPrimaryStoryModeId =
+      input.primaryStoryModeId !== undefined
+        ? input.primaryStoryModeId
+        : existing.primaryStoryModeId;
+    const nextSecondaryStoryModeId =
+      input.secondaryStoryModeId !== undefined
+        ? input.secondaryStoryModeId
+        : existing.secondaryStoryModeId;
     const normalizedNextContinuationBookAnalysisId =
       nextWritingMode === "continuation" && (nextSourceNovelId || nextSourceKnowledgeDocumentId)
         ? nextContinuationBookAnalysisId
@@ -477,10 +525,13 @@ export class NovelCoreCrudService {
       ...restInput
     } = input;
 
-    const serializedContinuationSections = serializeContinuationBookAnalysisSections(nextContinuationBookAnalysisSections);
-    const commercialTagsJson = input.commercialTags !== undefined
-      ? serializeCommercialTagsJson(input.commercialTags)
-      : undefined;
+    const serializedContinuationSections = serializeContinuationBookAnalysisSections(
+      nextContinuationBookAnalysisSections,
+    );
+    const commercialTagsJson =
+      input.commercialTags !== undefined
+        ? serializeCommercialTagsJson(input.commercialTags)
+        : undefined;
     const nextWorldId = input.worldId !== undefined ? input.worldId : existing.worldId;
     const shouldResetWorldSlice = nextWorldId !== existing.worldId;
 
@@ -489,7 +540,8 @@ export class NovelCoreCrudService {
       data: {
         ...restInput,
         sourceNovelId: nextWritingMode === "continuation" ? nextSourceNovelId : null,
-        sourceKnowledgeDocumentId: nextWritingMode === "continuation" ? nextSourceKnowledgeDocumentId : null,
+        sourceKnowledgeDocumentId:
+          nextWritingMode === "continuation" ? nextSourceKnowledgeDocumentId : null,
         continuationBookAnalysisId: normalizedNextContinuationBookAnalysisId,
         primaryStoryModeId: nextPrimaryStoryModeId ?? null,
         secondaryStoryModeId: nextSecondaryStoryModeId ?? null,
@@ -499,17 +551,17 @@ export class NovelCoreCrudService {
         first30ChapterPromise: normalizeOptionalTextForUpdate(input.first30ChapterPromise),
         commercialTagsJson,
         continuationBookAnalysisSections:
-          nextWritingMode === "continuation"
-          && (nextSourceNovelId || nextSourceKnowledgeDocumentId)
-          && normalizedNextContinuationBookAnalysisId
+          nextWritingMode === "continuation" &&
+          (nextSourceNovelId || nextSourceKnowledgeDocumentId) &&
+          normalizedNextContinuationBookAnalysisId
             ? serializedContinuationSections
             : null,
         ...(shouldResetWorldSlice
           ? {
-            storyWorldSliceJson: null,
-            storyWorldSliceOverridesJson: null,
-            storyWorldSliceSchemaVersion: STORY_WORLD_SLICE_SCHEMA_VERSION,
-          }
+              storyWorldSliceJson: null,
+              storyWorldSliceOverridesJson: null,
+              storyWorldSliceSchemaVersion: STORY_WORLD_SLICE_SCHEMA_VERSION,
+            }
           : {}),
       },
       include: {
@@ -567,18 +619,20 @@ export class NovelCoreCrudService {
     if (chapter.content) {
       await syncChapterArtifacts(novelId, chapter.id, chapter.content);
     }
-    await this.volumeService.mirrorChapterIntoWorkspace(novelId, {
-      id: chapter.id,
-      order: chapter.order,
-      title: chapter.title,
-      expectation: chapter.expectation,
-      targetWordCount: chapter.targetWordCount,
-      conflictLevel: chapter.conflictLevel,
-      revealLevel: chapter.revealLevel,
-      mustAvoid: chapter.mustAvoid,
-      taskSheet: chapter.taskSheet,
-      sceneCards: chapter.sceneCards,
-    }).catch(() => null);
+    await this.volumeService
+      .mirrorChapterIntoWorkspace(novelId, {
+        id: chapter.id,
+        order: chapter.order,
+        title: chapter.title,
+        expectation: chapter.expectation,
+        targetWordCount: chapter.targetWordCount,
+        conflictLevel: chapter.conflictLevel,
+        revealLevel: chapter.revealLevel,
+        mustAvoid: chapter.mustAvoid,
+        taskSheet: chapter.taskSheet,
+        sceneCards: chapter.sceneCards,
+      })
+      .catch(() => null);
     queueRagUpsert("chapter", chapter.id);
     return chapter;
   }
@@ -587,61 +641,71 @@ export class NovelCoreCrudService {
     if (typeof input.content === "string" && input.expectedContent === undefined) {
       throw new AppError("保存正文需要原稿版本，请先读取章节后重试。", 409);
     }
-    const exists = await prisma.chapter.findFirst({ where: { id: chapterId, novelId }, select: { id: true } });
+    const exists = await prisma.chapter.findFirst({
+      where: { id: chapterId, novelId },
+      select: { id: true },
+    });
     if (!exists) {
       throw new Error("章节不存在");
     }
 
-    const chapter = await prisma.chapter.update({
-      where: {
-        id: chapterId,
-        novelId,
-        ...(typeof input.content === "string" && input.expectedContent !== undefined
-          ? { content: input.expectedContent }
-          : {}),
-      },
-      data: {
-        title: input.title,
-        order: input.order,
-        content: input.content,
-        expectation: input.expectation,
-        chapterStatus: input.chapterStatus,
-        targetWordCount: input.targetWordCount,
-        conflictLevel: input.conflictLevel,
-        revealLevel: input.revealLevel,
-        mustAvoid: input.mustAvoid,
-        taskSheet: input.taskSheet,
-        sceneCards: input.sceneCards,
-        repairHistory: input.repairHistory,
-        qualityScore: input.qualityScore,
-        continuityScore: input.continuityScore,
-        characterScore: input.characterScore,
-        pacingScore: input.pacingScore,
-        riskFlags: input.riskFlags,
-      },
-    }).catch((error: unknown) => {
-      if (typeof input.content === "string" && input.expectedContent !== undefined
-        && (error as { code?: string })?.code === "P2025") {
-        throw new AppError("章节正文已在其他位置更新，你的草稿已保留，请核对版本后再保存。", 409);
-      }
-      throw error;
-    });
+    const chapter = await prisma.chapter
+      .update({
+        where: {
+          id: chapterId,
+          novelId,
+          ...(typeof input.content === "string" && input.expectedContent !== undefined
+            ? { content: input.expectedContent }
+            : {}),
+        },
+        data: {
+          title: input.title,
+          order: input.order,
+          content: input.content,
+          expectation: input.expectation,
+          chapterStatus: input.chapterStatus,
+          targetWordCount: input.targetWordCount,
+          conflictLevel: input.conflictLevel,
+          revealLevel: input.revealLevel,
+          mustAvoid: input.mustAvoid,
+          taskSheet: input.taskSheet,
+          sceneCards: input.sceneCards,
+          repairHistory: input.repairHistory,
+          qualityScore: input.qualityScore,
+          continuityScore: input.continuityScore,
+          characterScore: input.characterScore,
+          pacingScore: input.pacingScore,
+          riskFlags: input.riskFlags,
+        },
+      })
+      .catch((error: unknown) => {
+        if (
+          typeof input.content === "string" &&
+          input.expectedContent !== undefined &&
+          (error as { code?: string })?.code === "P2025"
+        ) {
+          throw new AppError("章节正文已在其他位置更新，你的草稿已保留，请核对版本后再保存。", 409);
+        }
+        throw error;
+      });
 
     if (typeof input.content === "string") {
       await syncChapterArtifacts(novelId, chapterId, input.content);
     }
-    await this.volumeService.mirrorChapterIntoWorkspace(novelId, {
-      id: chapter.id,
-      order: chapter.order,
-      title: chapter.title,
-      expectation: chapter.expectation,
-      targetWordCount: chapter.targetWordCount,
-      conflictLevel: chapter.conflictLevel,
-      revealLevel: chapter.revealLevel,
-      mustAvoid: chapter.mustAvoid,
-      taskSheet: chapter.taskSheet,
-      sceneCards: chapter.sceneCards,
-    }).catch(() => null);
+    await this.volumeService
+      .mirrorChapterIntoWorkspace(novelId, {
+        id: chapter.id,
+        order: chapter.order,
+        title: chapter.title,
+        expectation: chapter.expectation,
+        targetWordCount: chapter.targetWordCount,
+        conflictLevel: chapter.conflictLevel,
+        revealLevel: chapter.revealLevel,
+        mustAvoid: chapter.mustAvoid,
+        taskSheet: chapter.taskSheet,
+        sceneCards: chapter.sceneCards,
+      })
+      .catch(() => null);
     queueRagUpsert("chapter", chapterId);
     return chapter;
   }
@@ -664,14 +728,15 @@ export class NovelCoreCrudService {
     if (!chapter) {
       throw new Error("章节不存在");
     }
-    const canRemove = chapter.generationState === "planned"
-      && (chapter.chapterStatus ?? "unplanned") === "unplanned"
-      && !chapter.content?.trim()
-      && !chapter.expectation?.trim()
-      && !chapter.taskSheet?.trim()
-      && !chapter.sceneCards?.trim()
-      && !chapter.repairHistory?.trim()
-      && !chapter.riskFlags?.trim();
+    const canRemove =
+      chapter.generationState === "planned" &&
+      (chapter.chapterStatus ?? "unplanned") === "unplanned" &&
+      !chapter.content?.trim() &&
+      !chapter.expectation?.trim() &&
+      !chapter.taskSheet?.trim() &&
+      !chapter.sceneCards?.trim() &&
+      !chapter.repairHistory?.trim() &&
+      !chapter.riskFlags?.trim();
     if (!canRemove) {
       throw new Error("只能移除尚未进入写作或规划流程的空白手动章节");
     }

@@ -4,6 +4,8 @@ packages:
   - site
   - shared
 injectWorkspacePackages: true
+syncInjectedDepsAfterScripts:
+  - build
 onlyBuiltDependencies:
   - '@prisma/engines'
   - better-sqlite3

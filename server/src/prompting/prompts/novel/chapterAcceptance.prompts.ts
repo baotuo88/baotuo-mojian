@@ -36,7 +36,10 @@ function normalizeAcceptanceStatus(value: unknown): unknown {
   if (typeof value !== "string") {
     return value;
   }
-  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   if (["acceptable", "accept", "pass", "passed", "approved", "ok", "okay"].includes(normalized)) {
     return "accepted";
   }
@@ -61,18 +64,23 @@ function normalizeRepairTarget(value: unknown): unknown {
     return "continuity";
   }
   if (
-    normalized === "pacing"
-    || normalized === "repetition"
-    || normalized === "middle"
-    || normalized === "internal_monologue"
-    || normalized === "internal monologue"
+    normalized === "pacing" ||
+    normalized === "repetition" ||
+    normalized === "middle" ||
+    normalized === "internal_monologue" ||
+    normalized === "internal monologue"
   ) {
     return "plot";
   }
   if (normalized === "ending_hook" || normalized === "ending hook" || normalized === "hook") {
     return "ending";
   }
-  if (normalized === "style" || normalized === "tone" || normalized === "ending_tone" || normalized === "ending tone") {
+  if (
+    normalized === "style" ||
+    normalized === "tone" ||
+    normalized === "ending_tone" ||
+    normalized === "ending tone"
+  ) {
     return "voice";
   }
   return normalized;
@@ -83,7 +91,12 @@ function normalizeRepairMode(value: unknown): unknown {
     return value;
   }
   const normalized = value.trim().toLowerCase();
-  if (normalized === "local" || normalized === "light" || normalized === "minor" || normalized === "fix") {
+  if (
+    normalized === "local" ||
+    normalized === "light" ||
+    normalized === "minor" ||
+    normalized === "fix"
+  ) {
     return "patch";
   }
   if (normalized === "full_rewrite" || normalized === "full rewrite" || normalized === "redo") {
@@ -154,7 +167,13 @@ function normalizeMissingObligation(value: unknown): unknown {
   const kind = normalizeMissingObligationKind(
     record.kind ?? record.obligationType ?? record.type ?? record.category,
   );
-  const summary = readAliasString(record, ["summary", "target", "fixSuggestion", "description", "issue"]);
+  const summary = readAliasString(record, [
+    "summary",
+    "target",
+    "fixSuggestion",
+    "description",
+    "issue",
+  ]);
   const evidence = readAliasString(record, ["evidence", "reason", "text"]);
   return {
     ...record,
@@ -178,37 +197,55 @@ export const chapterAcceptanceAssessmentSchema = z.object({
     overall: z.number().min(0).max(100),
   }),
   summary: z.string().trim().min(1),
-  blockingIssues: z.array(z.object({
-    severity: z.enum(["low", "medium", "high", "critical"]),
-    category: z.preprocess(normalizeAcceptanceCategory, chapterAcceptanceIssueCategorySchema),
-    code: z.string().trim().min(1),
-    evidence: z.string().trim().min(1),
-    fixSuggestion: z.string().trim().min(1),
-  })).default([]),
-  repairDirectives: z.array(z.object({
-    mode: z.preprocess(normalizeRepairMode, z.enum(["patch", "rewrite", "manual"])),
-    target: z.preprocess(normalizeRepairTarget, z.enum(["continuity", "character", "plot", "ending", "voice"])),
-    instruction: z.string().trim().min(1),
-    issueCodes: z.array(z.string().trim().min(1)).optional(),
-  })).default([]),
-  missingObligations: z.array(z.preprocess(normalizeMissingObligation, z.object({
-    kind: z.preprocess(normalizeMissingObligationKind, z.enum([
-      "must_hit_now",
-      "must_preserve",
-      "payoff_touch",
-      "character_appearance",
-      "goal_change",
-      "forbidden_crossing",
-    ])),
-    summary: z.string().trim().min(1),
-    evidence: z.string().trim().min(1).nullable().optional(),
-  }))).default([]),
-  repairability: z.enum([
-    "none",
-    "patchable_obligation_gap",
-    "rewrite_needed",
-    "plan_misalignment",
-  ]).default("none"),
+  blockingIssues: z
+    .array(
+      z.object({
+        severity: z.enum(["low", "medium", "high", "critical"]),
+        category: z.preprocess(normalizeAcceptanceCategory, chapterAcceptanceIssueCategorySchema),
+        code: z.string().trim().min(1),
+        evidence: z.string().trim().min(1),
+        fixSuggestion: z.string().trim().min(1),
+      }),
+    )
+    .default([]),
+  repairDirectives: z
+    .array(
+      z.object({
+        mode: z.preprocess(normalizeRepairMode, z.enum(["patch", "rewrite", "manual"])),
+        target: z.preprocess(
+          normalizeRepairTarget,
+          z.enum(["continuity", "character", "plot", "ending", "voice"]),
+        ),
+        instruction: z.string().trim().min(1),
+        issueCodes: z.array(z.string().trim().min(1)).optional(),
+      }),
+    )
+    .default([]),
+  missingObligations: z
+    .array(
+      z.preprocess(
+        normalizeMissingObligation,
+        z.object({
+          kind: z.preprocess(
+            normalizeMissingObligationKind,
+            z.enum([
+              "must_hit_now",
+              "must_preserve",
+              "payoff_touch",
+              "character_appearance",
+              "goal_change",
+              "forbidden_crossing",
+            ]),
+          ),
+          summary: z.string().trim().min(1),
+          evidence: z.string().trim().min(1).nullable().optional(),
+        }),
+      ),
+    )
+    .default([]),
+  repairability: z
+    .enum(["none", "patchable_obligation_gap", "rewrite_needed", "plan_misalignment"])
+    .default("none"),
   decisionReason: z.string().trim().min(1).default("正文可继续推进。"),
   riskTags: z.array(z.string().trim().min(1)).default([]),
   assetSyncRecommendation: z.object({
@@ -216,7 +253,10 @@ export const chapterAcceptanceAssessmentSchema = z.object({
     reason: z.string().trim().min(1),
     requiresFullPayoffReconcile: z.boolean().default(false),
   }),
-  continuePolicy: z.preprocess(normalizeContinuePolicy, z.enum(["continue", "repair_once", "pause"])),
+  continuePolicy: z.preprocess(
+    normalizeContinuePolicy,
+    z.enum(["continue", "repair_once", "pause"]),
+  ),
 });
 
 export type ChapterAcceptanceAssessmentOutput = z.infer<typeof chapterAcceptanceAssessmentSchema>;
@@ -300,12 +340,7 @@ export const chapterAcceptanceAssessmentPrompt: PromptAsset<
       "style_contract",
       "open_conflicts",
     ],
-    dropOrder: [
-      "recent_chapters",
-      "participant_subset",
-      "world_rules",
-      "historical_issues",
-    ],
+    dropOrder: ["recent_chapters", "participant_subset", "world_rules", "historical_issues"],
   },
   contextRequirements: [
     { group: "chapter_mission", required: true, priority: 100 },
@@ -322,43 +357,49 @@ export const chapterAcceptanceAssessmentPrompt: PromptAsset<
   },
   outputSchema: chapterAcceptanceAssessmentSchema,
   render: (input, context) => [
-    new SystemMessage([
-      "你是中文长篇小说正文接收闸门。",
-      "你的任务是一次性判断当前章节正文是否可以保存并继续推进，是否只需要局部轻修，是否需要暂停人工确认，以及后续资产同步是否需要高优先级处理。",
-      "",
-      "只输出合法 JSON 对象，不要输出 Markdown、解释、注释或额外文本。",
-      "",
-      "判断原则：",
-      "1. 默认支持继续推进；普通可优化问题不要升级为暂停。",
-      "2. 只有严重越过章节任务、关键连续性断裂、角色行为严重失真、受保护信息提前泄露、正文无法阅读时，才使用 needs_manual_review。",
-      "3. 可通过局部补丁解决的问题使用 repairable，并给出 repairDirectives。",
-      "4. 章节可以继续但存在后续风险时使用 continue_with_risk，并用 riskTags 说明风险。",
-      "5. blockingIssues 保留最关键的 0-5 条，每条必须有明确证据和可执行修复建议。",
-      "6. obligation contract 是本章硬合同。must hit now 与 forbidden crossing 缺口必须写入 missingObligations；可后续承接的 payoff、角色露面或目标变化缺口，只有会影响下一章入口时才写入 missingObligations，否则放入 riskTags。",
-      "7. repairability 只能用 none、patchable_obligation_gap、rewrite_needed、plan_misalignment。局部漏写但不阻断下一章时优先 continue_with_risk；只有需要当前章节立刻补齐时才用 patchable_obligation_gap。",
-      "8. style_contract 或反 AI 要求属于强约束；发现明显来源实体泄露、模板腔、总结腔时归入 voice。",
-      "9. assetSyncRecommendation 只判断资产同步优先级和是否需要全量伏笔对账，不要输出落库细节。",
-      "10. blockingIssues.category 只能使用 continuity、character、plot、mode_fit、voice；节奏、重复、中段铺垫、结尾钩子都归入 plot。",
-      "11. repairDirectives.target 只能使用 continuity、character、plot、ending、voice；不要输出 middle、pacing、internal_monologue、ending_tone 等自定义目标。",
-      "12. repairDirectives.mode 只能使用 patch、rewrite、manual；continuePolicy 只能使用 continue、repair_once、pause。",
-      "13. missingObligations 必须是对象数组，每项只能使用 kind、summary、evidence；不得输出字符串数组，也不得输出 obligationType、target、fixSuggestion、type 等别名字段。",
-      "14. missingObligations.kind 只能使用 must_hit_now、must_preserve、payoff_touch、character_appearance、goal_change、forbidden_crossing。",
-      "15. status 只能使用 accepted、repairable、needs_manual_review、continue_with_risk；不得输出 acceptable、pass、passed、ok、approved 等别名。",
-      "16. reader_experience 是本章读者体验合同。检查 promisedReward 是否在正文中可见、主角是否围绕 protagonistWant 主动行动并遭遇 primaryResistance、keyTurn 与 netChange 是否成立、inheritedHookResponsibilities 是否得到回应，以及 endingHook 是否产生追读力。",
-      "17. 普通读者体验缺口应输出可执行的 blockingIssues / repairDirectives，并优先使用 repairable 或 continue_with_risk；不得仅因爽点、钩子或情绪强度不足升级为 needs_manual_review 或全局重规划。",
-      "18. 只有正文总字数低于目标下限时才使用 code=length_insufficient，高于目标上限时才使用 code=length_excessive；这两个 code 仅表示字数问题，对应 riskTags 也使用同名 code。人物动机不足、战力超过设定、剧情铺垫不足等内容问题必须使用各自的业务 code，不得归为字数问题。",
-      "19. 每条 repairDirectives 使用 issueCodes 数组关联它要解决的全部 blockingIssues.code；独立义务或没有对应问题时填 []。字数调整与人物、剧情修复尽量分成不同指令；不得把包含独立内容修复的指令只关联到字数问题。",
-    ].join("\n")),
-    new HumanMessage([
-      `小说：${input.novelTitle}`,
-      `章节：第 ${input.chapterOrder} 章 ${input.chapterTitle}`,
-      typeof input.targetWordCount === "number" ? `目标长度：约 ${input.targetWordCount} 字` : "目标长度：未指定",
-      "",
-      "分层上下文：",
-      renderSelectedContextBlocks(context),
-      "",
-      "正文：",
-      input.content,
-    ].join("\n")),
+    new SystemMessage(
+      [
+        "你是中文长篇小说正文接收闸门。",
+        "你的任务是一次性判断当前章节正文是否可以保存并继续推进，是否只需要局部轻修，是否需要暂停人工确认，以及后续资产同步是否需要高优先级处理。",
+        "",
+        "只输出合法 JSON 对象，不要输出 Markdown、解释、注释或额外文本。",
+        "",
+        "判断原则：",
+        "1. 默认支持继续推进；普通可优化问题不要升级为暂停。",
+        "2. 只有严重越过章节任务、关键连续性断裂、角色行为严重失真、受保护信息提前泄露、正文无法阅读时，才使用 needs_manual_review。",
+        "3. 可通过局部补丁解决的问题使用 repairable，并给出 repairDirectives。",
+        "4. 章节可以继续但存在后续风险时使用 continue_with_risk，并用 riskTags 说明风险。",
+        "5. blockingIssues 保留最关键的 0-5 条，每条必须有明确证据和可执行修复建议。",
+        "6. obligation contract 是本章硬合同。must hit now 与 forbidden crossing 缺口必须写入 missingObligations；可后续承接的 payoff、角色露面或目标变化缺口，只有会影响下一章入口时才写入 missingObligations，否则放入 riskTags。",
+        "7. repairability 只能用 none、patchable_obligation_gap、rewrite_needed、plan_misalignment。局部漏写但不阻断下一章时优先 continue_with_risk；只有需要当前章节立刻补齐时才用 patchable_obligation_gap。",
+        "8. style_contract 或反 AI 要求属于强约束；发现明显来源实体泄露、模板腔、总结腔时归入 voice。",
+        "9. assetSyncRecommendation 只判断资产同步优先级和是否需要全量伏笔对账，不要输出落库细节。",
+        "10. blockingIssues.category 只能使用 continuity、character、plot、mode_fit、voice；节奏、重复、中段铺垫、结尾钩子都归入 plot。",
+        "11. repairDirectives.target 只能使用 continuity、character、plot、ending、voice；不要输出 middle、pacing、internal_monologue、ending_tone 等自定义目标。",
+        "12. repairDirectives.mode 只能使用 patch、rewrite、manual；continuePolicy 只能使用 continue、repair_once、pause。",
+        "13. missingObligations 必须是对象数组，每项只能使用 kind、summary、evidence；不得输出字符串数组，也不得输出 obligationType、target、fixSuggestion、type 等别名字段。",
+        "14. missingObligations.kind 只能使用 must_hit_now、must_preserve、payoff_touch、character_appearance、goal_change、forbidden_crossing。",
+        "15. status 只能使用 accepted、repairable、needs_manual_review、continue_with_risk；不得输出 acceptable、pass、passed、ok、approved 等别名。",
+        "16. reader_experience 是本章读者体验合同。检查 promisedReward 是否在正文中可见、主角是否围绕 protagonistWant 主动行动并遭遇 primaryResistance、keyTurn 与 netChange 是否成立、inheritedHookResponsibilities 是否得到回应，以及 endingHook 是否产生追读力。",
+        "17. 普通读者体验缺口应输出可执行的 blockingIssues / repairDirectives，并优先使用 repairable 或 continue_with_risk；不得仅因爽点、钩子或情绪强度不足升级为 needs_manual_review 或全局重规划。",
+        "18. 只有正文总字数低于目标下限时才使用 code=length_insufficient，高于目标上限时才使用 code=length_excessive；这两个 code 仅表示字数问题，对应 riskTags 也使用同名 code。人物动机不足、战力超过设定、剧情铺垫不足等内容问题必须使用各自的业务 code，不得归为字数问题。",
+        "19. 每条 repairDirectives 使用 issueCodes 数组关联它要解决的全部 blockingIssues.code；独立义务或没有对应问题时填 []。字数调整与人物、剧情修复尽量分成不同指令；不得把包含独立内容修复的指令只关联到字数问题。",
+      ].join("\n"),
+    ),
+    new HumanMessage(
+      [
+        `小说：${input.novelTitle}`,
+        `章节：第 ${input.chapterOrder} 章 ${input.chapterTitle}`,
+        typeof input.targetWordCount === "number"
+          ? `目标长度：约 ${input.targetWordCount} 字`
+          : "目标长度：未指定",
+        "",
+        "分层上下文：",
+        renderSelectedContextBlocks(context),
+        "",
+        "正文：",
+        input.content,
+      ].join("\n"),
+    ),
   ],
 };

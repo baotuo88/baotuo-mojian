@@ -14,9 +14,15 @@
 
 ## 当前规则
 
-`server/src/services/drama` 是独立 bounded context。它可以依赖 Prisma、LLM、Prompt Runner、任务队列、文件导出和图片/视频等平台基础设施，但不得依赖 `services/novel` 或 `modules/novel` 的业务实现。
+`server/src/services/drama` 是独立 bounded
+context。它可以依赖 Prisma、LLM、Prompt
+Runner、任务队列、文件导出和图片/视频等平台基础设施，但不得依赖 `services/novel`
+或 `modules/novel` 的业务实现。
 
-短剧模块与小说模块的唯一内容接触点是 `NovelSourceAdapter`。该 adapter 只能通过 Prisma 只读读取小说、章节、角色和事实数据，并把它们转成 `SourceBundle`。短剧核心服务只能消费 `SourceBundle`、`DramaCharacter`、`DramaFact`、`DramaEpisode` 等自有模型。
+短剧模块与小说模块的唯一内容接触点是
+`NovelSourceAdapter`。该 adapter 只能通过 Prisma 只读读取小说、章节、角色和事实数据，并把它们转成
+`SourceBundle`。短剧核心服务只能消费
+`SourceBundle`、`DramaCharacter`、`DramaFact`、`DramaEpisode` 等自有模型。
 
 ## SourceBundle 防腐层
 
@@ -30,13 +36,16 @@
 
 ## Prompt 规则
 
-短剧产品级 prompt 必须位于 `server/src/prompting/prompts/drama/` 并注册到 `server/src/prompting/registry.ts`。服务层可以通过 PromptAsset 调用结构化输出，但不得在 service 内新增未注册 prompt 字符串。
+短剧产品级 prompt 必须位于 `server/src/prompting/prompts/drama/` 并注册到
+`server/src/prompting/registry.ts`。服务层可以通过 PromptAsset 调用结构化输出，但不得在 service 内新增未注册 prompt 字符串。
 
-结构化输出失败应修 schema、prompt、上下文装配或 JSON repair，不得用关键词匹配作为产品行为兜底。
+结构化输出失败应修 schema、prompt、上下文装配或 JSON
+repair，不得用关键词匹配作为产品行为兜底。
 
 ## 视频生成边界
 
-视频生成通过 `VideoProviderPort` 接入。短剧核心只生成和保存 `DramaVideoPrompt`，然后把任务交给 provider adapter。
+视频生成通过 `VideoProviderPort` 接入。短剧核心只生成和保存
+`DramaVideoPrompt`，然后把任务交给 provider adapter。
 
 Provider 替换不得影响：
 
@@ -46,13 +55,15 @@ Provider 替换不得影响：
 - 分镜模型。
 - 角色视觉锚点。
 
-用户必须选择已配置的视频或配音通道；`mock` 仅供显式自动化测试。接入真实 provider 时应在共享媒体模块新增 adapter，不应把供应商字段写入核心策略或分镜规则。
+用户必须选择已配置的视频或配音通道；`mock`
+仅供显式自动化测试。接入真实 provider 时应在共享媒体模块新增 adapter，不应把供应商字段写入核心策略或分镜规则。
 
 ## 失败模式
 
 - 如果 `services/drama` 直接 import novel 业务路径，低耦合守卫测试应失败。
 - 如果新增短剧 prompt 未注册，Prompt Runner 会拒绝执行。
-- 如果 `original` 或 `text_import` 绕过 AI 结构化解析，短剧模块会退回固定规则生成，违背 AI-first 规则。
+- 如果 `original` 或 `text_import`
+  绕过 AI 结构化解析，短剧模块会退回固定规则生成，违背 AI-first 规则。
 - 如果视频 provider 逻辑进入台本或分镜服务，后续更换供应商会污染核心产线。
 
 ## 相关模块
@@ -70,6 +81,9 @@ Provider 替换不得影响：
 
 ## 制作恢复边界
 
-整集制作由 `services/drama/production` 拥有，外部通过其 `index.ts` 使用。内容源适配器的共享实现位于 `services/adaptation`，短剧保留 source 兼容导出。媒体协议由 `modules/media` 拥有，不能向短剧生产编排泄漏供应商 HTTP 细节。
+整集制作由 `services/drama/production` 拥有，外部通过其 `index.ts`
+使用。内容源适配器的共享实现位于
+`services/adaptation`，短剧保留 source 兼容导出。媒体协议由 `modules/media`
+拥有，不能向短剧生产编排泄漏供应商 HTTP 细节。
 
 单实例启动恢复、未知视频提交、素材保护和前端投影规则见[短剧任务恢复与素材保护](../workflows/short-drama-production-recovery.md)。

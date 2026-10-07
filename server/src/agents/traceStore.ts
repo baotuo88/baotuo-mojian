@@ -205,19 +205,24 @@ export class AgentTraceStore {
     };
   }
 
-  async updateRun(runId: string, patch: {
-    status?: AgentRunStatus;
-    currentStep?: string | null;
-    currentAgent?: string | null;
-    error?: string | null;
-    startedAt?: Date | null;
-    finishedAt?: Date | null;
-    metadataJson?: string | null;
-  }): Promise<AgentRun> {
+  async updateRun(
+    runId: string,
+    patch: {
+      status?: AgentRunStatus;
+      currentStep?: string | null;
+      currentAgent?: string | null;
+      error?: string | null;
+      startedAt?: Date | null;
+      finishedAt?: Date | null;
+      metadataJson?: string | null;
+    },
+  ): Promise<AgentRun> {
     await this.db.agentRun.updateMany({
       where: {
         id: runId,
-        ...(patch.status && patch.status !== "cancelled" ? { status: { not: "cancelled" as const } } : {}),
+        ...(patch.status && patch.status !== "cancelled"
+          ? { status: { not: "cancelled" as const } }
+          : {}),
       },
       data: patch,
     });
@@ -235,7 +240,10 @@ export class AgentTraceStore {
     return (row?.seq ?? 0) + 1;
   }
 
-  async findToolResultByIdempotencyKey(runId: string, idempotencyKey: string): Promise<AgentStep | null> {
+  async findToolResultByIdempotencyKey(
+    runId: string,
+    idempotencyKey: string,
+  ): Promise<AgentStep | null> {
     if (!idempotencyKey.trim()) {
       return null;
     }
@@ -430,21 +438,26 @@ export class AgentTraceStore {
     const failureCount = steps.filter((item) => item.status === "failed").length;
     const approvalCount = approvals.length;
     const pendingApprovalCount = approvals.filter((item) => item.status === "pending").length;
-    const totalDurationMs = row.startedAt && row.finishedAt
-      ? Math.max(0, row.finishedAt.getTime() - row.startedAt.getTime())
-      : steps.reduce((sum, item) => sum + (item.durationMs ?? 0), 0);
-    const avgStepDurationMs = stepCount > 0
-      ? Math.round(steps.reduce((sum, item) => sum + (item.durationMs ?? 0), 0) / stepCount)
-      : 0;
+    const totalDurationMs =
+      row.startedAt && row.finishedAt
+        ? Math.max(0, row.finishedAt.getTime() - row.startedAt.getTime())
+        : steps.reduce((sum, item) => sum + (item.durationMs ?? 0), 0);
+    const avgStepDurationMs =
+      stepCount > 0
+        ? Math.round(steps.reduce((sum, item) => sum + (item.durationMs ?? 0), 0) / stepCount)
+        : 0;
     const totalCostUsd = steps.reduce((sum, item) => sum + (item.costUsd ?? 0), 0);
-    const toolFailureByCode = steps.reduce<Partial<Record<AgentToolErrorCode, number>>>((acc, item) => {
-      if (item.status !== "failed" || !item.errorCode) {
+    const toolFailureByCode = steps.reduce<Partial<Record<AgentToolErrorCode, number>>>(
+      (acc, item) => {
+        if (item.status !== "failed" || !item.errorCode) {
+          return acc;
+        }
+        const prev = acc[item.errorCode] ?? 0;
+        acc[item.errorCode] = prev + 1;
         return acc;
-      }
-      const prev = acc[item.errorCode] ?? 0;
-      acc[item.errorCode] = prev + 1;
-      return acc;
-    }, {});
+      },
+      {},
+    );
     return {
       stepCount,
       successCount,

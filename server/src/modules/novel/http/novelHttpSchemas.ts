@@ -61,45 +61,49 @@ export const storylineImpactSchema = z.object({
   content: z.string().trim().optional(),
 });
 
-const volumeChapterSchema = z.object({
-  id: z.string().trim().optional(),
-  chapterOrder: z.number().int().min(1).optional(),
-  order: z.number().int().min(1).optional(),
-  beatKey: z.string().trim().nullable().optional(),
-  title: z.string().trim().min(1),
-  summary: z.string().trim().min(1),
-  purpose: z.string().trim().nullable().optional(),
-  conflictLevel: z.number().int().min(0).max(100).nullable().optional(),
-  conflictLevelSource: z.enum(["ai", "user"]).nullable().optional(),
-  revealLevel: z.number().int().min(0).max(100).nullable().optional(),
-  targetWordCount: z.number().int().min(200).max(20000).nullable().optional(),
-  mustAvoid: z.string().trim().nullable().optional(),
-  taskSheet: z.string().trim().nullable().optional(),
-  sceneCards: z.string().trim().nullable().optional(),
-  payoffRefs: z.array(z.string().trim().min(1)).optional(),
-}).passthrough();
+const volumeChapterSchema = z
+  .object({
+    id: z.string().trim().optional(),
+    chapterOrder: z.number().int().min(1).optional(),
+    order: z.number().int().min(1).optional(),
+    beatKey: z.string().trim().nullable().optional(),
+    title: z.string().trim().min(1),
+    summary: z.string().trim().min(1),
+    purpose: z.string().trim().nullable().optional(),
+    conflictLevel: z.number().int().min(0).max(100).nullable().optional(),
+    conflictLevelSource: z.enum(["ai", "user"]).nullable().optional(),
+    revealLevel: z.number().int().min(0).max(100).nullable().optional(),
+    targetWordCount: z.number().int().min(200).max(20000).nullable().optional(),
+    mustAvoid: z.string().trim().nullable().optional(),
+    taskSheet: z.string().trim().nullable().optional(),
+    sceneCards: z.string().trim().nullable().optional(),
+    payoffRefs: z.array(z.string().trim().min(1)).optional(),
+  })
+  .passthrough();
 
-const volumeSchema = z.object({
-  id: z.string().trim().optional(),
-  sortOrder: z.number().int().min(1).optional(),
-  title: z.string().trim().min(1),
-  summary: z.string().trim().nullable().optional(),
-  openingHook: z.string().trim().nullable().optional(),
-  mainPromise: z.string().trim().nullable().optional(),
-  primaryPressureSource: z.string().trim().nullable().optional(),
-  coreSellingPoint: z.string().trim().nullable().optional(),
-  escalationMode: z.string().trim().nullable().optional(),
-  protagonistChange: z.string().trim().nullable().optional(),
-  midVolumeRisk: z.string().trim().nullable().optional(),
-  climax: z.string().trim().nullable().optional(),
-  payoffType: z.string().trim().nullable().optional(),
-  nextVolumeHook: z.string().trim().nullable().optional(),
-  resetPoint: z.string().trim().nullable().optional(),
-  openPayoffs: z.array(z.string().trim().min(1)).optional(),
-  status: z.string().trim().optional(),
-  sourceVersionId: z.string().trim().nullable().optional(),
-  chapters: z.array(volumeChapterSchema).default([]),
-}).passthrough();
+const volumeSchema = z
+  .object({
+    id: z.string().trim().optional(),
+    sortOrder: z.number().int().min(1).optional(),
+    title: z.string().trim().min(1),
+    summary: z.string().trim().nullable().optional(),
+    openingHook: z.string().trim().nullable().optional(),
+    mainPromise: z.string().trim().nullable().optional(),
+    primaryPressureSource: z.string().trim().nullable().optional(),
+    coreSellingPoint: z.string().trim().nullable().optional(),
+    escalationMode: z.string().trim().nullable().optional(),
+    protagonistChange: z.string().trim().nullable().optional(),
+    midVolumeRisk: z.string().trim().nullable().optional(),
+    climax: z.string().trim().nullable().optional(),
+    payoffType: z.string().trim().nullable().optional(),
+    nextVolumeHook: z.string().trim().nullable().optional(),
+    resetPoint: z.string().trim().nullable().optional(),
+    openPayoffs: z.array(z.string().trim().min(1)).optional(),
+    status: z.string().trim().optional(),
+    sourceVersionId: z.string().trim().nullable().optional(),
+    chapters: z.array(volumeChapterSchema).default([]),
+  })
+  .passthrough();
 
 const volumeStrategyVolumeSchema = z.object({
   sortOrder: z.number().int().min(1),
@@ -201,7 +205,16 @@ export const chapterSchema = z.object({
   order: z.number().int().nonnegative(),
   content: z.string().optional(),
   expectation: z.string().optional(),
-  chapterStatus: z.enum(["unplanned", "pending_generation", "generating", "pending_review", "needs_repair", "completed"]).optional(),
+  chapterStatus: z
+    .enum([
+      "unplanned",
+      "pending_generation",
+      "generating",
+      "pending_review",
+      "needs_repair",
+      "completed",
+    ])
+    .optional(),
   targetWordCount: z.number().int().min(200).max(20000).optional(),
   conflictLevel: z.number().int().min(0).max(100).optional(),
   revealLevel: z.number().int().min(0).max(100).optional(),
@@ -216,36 +229,62 @@ export const chapterSchema = z.object({
   riskFlags: z.string().optional(),
 });
 
-export const updateChapterSchema = z.object({
-  title: z.string().trim().min(1).optional(),
-  order: z.number().int().nonnegative().optional(),
-  content: z.string().optional(),
-  expectedContent: z.string().nullable().optional(),
-  expectation: z.string().optional(),
-  chapterStatus: z.enum(["unplanned", "pending_generation", "generating", "pending_review", "needs_repair", "completed"]).optional(),
-  targetWordCount: z.number().int().min(200).max(20000).nullable().optional(),
-  conflictLevel: z.number().int().min(0).max(100).nullable().optional(),
-  revealLevel: z.number().int().min(0).max(100).nullable().optional(),
-  mustAvoid: z.string().nullable().optional(),
-  taskSheet: z.string().nullable().optional(),
-  sceneCards: z.string().nullable().optional(),
-  repairHistory: z.string().nullable().optional(),
-  qualityScore: z.number().int().min(0).max(100).nullable().optional(),
-  continuityScore: z.number().int().min(0).max(100).nullable().optional(),
-  characterScore: z.number().int().min(0).max(100).nullable().optional(),
-  pacingScore: z.number().int().min(0).max(100).nullable().optional(),
-  riskFlags: z.string().nullable().optional(),
-}).superRefine((input, context) => {
-  if (typeof input.content === "string" && input.expectedContent === undefined) {
-    context.addIssue({ code: "custom", path: ["expectedContent"], message: "保存正文需要原稿版本，请重新加载章节后重试。" });
-  }
-});
+export const updateChapterSchema = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    order: z.number().int().nonnegative().optional(),
+    content: z.string().optional(),
+    expectedContent: z.string().nullable().optional(),
+    expectation: z.string().optional(),
+    chapterStatus: z
+      .enum([
+        "unplanned",
+        "pending_generation",
+        "generating",
+        "pending_review",
+        "needs_repair",
+        "completed",
+      ])
+      .optional(),
+    targetWordCount: z.number().int().min(200).max(20000).nullable().optional(),
+    conflictLevel: z.number().int().min(0).max(100).nullable().optional(),
+    revealLevel: z.number().int().min(0).max(100).nullable().optional(),
+    mustAvoid: z.string().nullable().optional(),
+    taskSheet: z.string().nullable().optional(),
+    sceneCards: z.string().nullable().optional(),
+    repairHistory: z.string().nullable().optional(),
+    qualityScore: z.number().int().min(0).max(100).nullable().optional(),
+    continuityScore: z.number().int().min(0).max(100).nullable().optional(),
+    characterScore: z.number().int().min(0).max(100).nullable().optional(),
+    pacingScore: z.number().int().min(0).max(100).nullable().optional(),
+    riskFlags: z.string().nullable().optional(),
+  })
+  .superRefine((input, context) => {
+    if (typeof input.content === "string" && input.expectedContent === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["expectedContent"],
+        message: "保存正文需要原稿版本，请重新加载章节后重试。",
+      });
+    }
+  });
 
 export const characterSchema = z.object({
   name: z.string().trim().min(1, "角色名称不能为空。"),
   role: z.string().trim().min(1, "角色定位不能为空。"),
   gender: z.enum(["male", "female", "other", "unknown"]).optional(),
-  castRole: z.enum(["protagonist", "antagonist", "ally", "foil", "mentor", "love_interest", "pressure_source", "catalyst"]).optional(),
+  castRole: z
+    .enum([
+      "protagonist",
+      "antagonist",
+      "ally",
+      "foil",
+      "mentor",
+      "love_interest",
+      "pressure_source",
+      "catalyst",
+    ])
+    .optional(),
   storyFunction: z.string().optional(),
   relationToProtagonist: z.string().optional(),
   personality: z.string().optional(),
@@ -286,7 +325,18 @@ export const updateCharacterSchema = z.object({
   name: z.string().trim().min(1).optional(),
   role: z.string().trim().min(1).optional(),
   gender: z.enum(["male", "female", "other", "unknown"]).optional(),
-  castRole: z.enum(["protagonist", "antagonist", "ally", "foil", "mentor", "love_interest", "pressure_source", "catalyst"]).optional(),
+  castRole: z
+    .enum([
+      "protagonist",
+      "antagonist",
+      "ally",
+      "foil",
+      "mentor",
+      "love_interest",
+      "pressure_source",
+      "catalyst",
+    ])
+    .optional(),
   storyFunction: z.string().optional(),
   relationToProtagonist: z.string().optional(),
   personality: z.string().optional(),
@@ -323,17 +373,22 @@ export const updateCharacterSchema = z.object({
   baseCharacterId: z.string().trim().optional(),
 });
 
-export const characterTimelineSyncSchema = z.object({
-  startOrder: z.number().int().min(1).optional(),
-  endOrder: z.number().int().min(1).optional(),
-}).refine((value) => {
-  if (typeof value.startOrder === "number" && typeof value.endOrder === "number") {
-    return value.startOrder <= value.endOrder;
-  }
-  return true;
-}, {
-  message: "起始章节必须小于或等于结束章节。",
-});
+export const characterTimelineSyncSchema = z
+  .object({
+    startOrder: z.number().int().min(1).optional(),
+    endOrder: z.number().int().min(1).optional(),
+  })
+  .refine(
+    (value) => {
+      if (typeof value.startOrder === "number" && typeof value.endOrder === "number") {
+        return value.startOrder <= value.endOrder;
+      }
+      return true;
+    },
+    {
+      message: "起始章节必须小于或等于结束章节。",
+    },
+  );
 
 export const llmGenerateSchema = z.object({
   provider: llmProviderSchema.optional(),
@@ -341,57 +396,81 @@ export const llmGenerateSchema = z.object({
   temperature: z.number().min(0).max(2).optional(),
 });
 
-export const volumeGenerateSchema = llmGenerateSchema.extend({
-  guidance: z.string().trim().max(4000).optional(),
-  scope: z.enum(["strategy", "strategy_critique", "skeleton", "beat_sheet", "chapter_list", "chapter_detail", "rebalance", "book", "volume"]).optional(),
-  generationMode: z.enum(["full_volume", "single_beat"]).optional(),
-  targetVolumeId: z.string().trim().min(1).optional(),
-  targetBeatKey: z.string().trim().min(1).optional(),
-  targetChapterId: z.string().trim().min(1).optional(),
-  detailMode: z.enum(["purpose", "boundary", "task_sheet"]).optional(),
-  estimatedChapterCount: z.number().int().min(1).max(2000).optional(),
-  userPreferredVolumeCount: z.number().int().min(1).max(MAX_VOLUME_COUNT).optional(),
-  respectExistingVolumeCount: z.boolean().optional(),
-  draftVolumes: z.array(z.unknown()).optional(),
-  draftWorkspace: volumeDocumentSchema.optional(),
-  slimResponse: z.boolean().optional(),
-}).superRefine((value, ctx) => {
-  if ((value.scope === "volume" || value.scope === "beat_sheet" || value.scope === "chapter_list" || value.scope === "rebalance") && !value.targetVolumeId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "按卷生成时必须提供目标卷。",
-      path: ["targetVolumeId"],
-    });
-  }
-  if (value.scope === "chapter_list" && value.generationMode === "single_beat" && !value.targetBeatKey) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "按节奏段重生章节标题时必须提供目标节奏段。",
-      path: ["targetBeatKey"],
-    });
-  }
-  if (value.scope === "chapter_detail" && !value.targetVolumeId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "生成章节细化时必须提供目标卷。",
-      path: ["targetVolumeId"],
-    });
-  }
-  if (value.scope === "chapter_detail" && !value.targetChapterId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "生成章节细化时必须提供目标章节。",
-      path: ["targetChapterId"],
-    });
-  }
-  if (value.scope === "chapter_detail" && !value.detailMode) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "生成章节细化时必须提供生成类型。",
-      path: ["detailMode"],
-    });
-  }
-});
+export const volumeGenerateSchema = llmGenerateSchema
+  .extend({
+    guidance: z.string().trim().max(4000).optional(),
+    scope: z
+      .enum([
+        "strategy",
+        "strategy_critique",
+        "skeleton",
+        "beat_sheet",
+        "chapter_list",
+        "chapter_detail",
+        "rebalance",
+        "book",
+        "volume",
+      ])
+      .optional(),
+    generationMode: z.enum(["full_volume", "single_beat"]).optional(),
+    targetVolumeId: z.string().trim().min(1).optional(),
+    targetBeatKey: z.string().trim().min(1).optional(),
+    targetChapterId: z.string().trim().min(1).optional(),
+    detailMode: z.enum(["purpose", "boundary", "task_sheet"]).optional(),
+    estimatedChapterCount: z.number().int().min(1).max(2000).optional(),
+    userPreferredVolumeCount: z.number().int().min(1).max(MAX_VOLUME_COUNT).optional(),
+    respectExistingVolumeCount: z.boolean().optional(),
+    draftVolumes: z.array(z.unknown()).optional(),
+    draftWorkspace: volumeDocumentSchema.optional(),
+    slimResponse: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      (value.scope === "volume" ||
+        value.scope === "beat_sheet" ||
+        value.scope === "chapter_list" ||
+        value.scope === "rebalance") &&
+      !value.targetVolumeId
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "按卷生成时必须提供目标卷。",
+        path: ["targetVolumeId"],
+      });
+    }
+    if (
+      value.scope === "chapter_list" &&
+      value.generationMode === "single_beat" &&
+      !value.targetBeatKey
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "按节奏段重生章节标题时必须提供目标节奏段。",
+        path: ["targetBeatKey"],
+      });
+    }
+    if (value.scope === "chapter_detail" && !value.targetVolumeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "生成章节细化时必须提供目标卷。",
+        path: ["targetVolumeId"],
+      });
+    }
+    if (value.scope === "chapter_detail" && !value.targetChapterId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "生成章节细化时必须提供目标章节。",
+        path: ["targetChapterId"],
+      });
+    }
+    if (value.scope === "chapter_detail" && !value.detailMode) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "生成章节细化时必须提供生成类型。",
+        path: ["detailMode"],
+      });
+    }
+  });
 
 export const outlineGenerateSchema = llmGenerateSchema.extend({
   initialPrompt: z.string().trim().max(2000).optional(),
@@ -405,20 +484,31 @@ export const beatGenerateSchema = llmGenerateSchema.extend({
   targetChapters: z.number().int().min(1).max(500).optional(),
 });
 
-export const pipelineRunSchema = llmGenerateSchema.extend({
-  startOrder: z.number().int().min(1),
-  endOrder: z.number().int().min(1),
-  maxRetries: z.number().int().min(0).max(5).optional(),
-  runMode: z.enum(["fast", "polish"]).optional(),
-  autoReview: z.boolean().optional(),
-  autoRepair: z.boolean().optional(),
-  skipCompleted: z.boolean().optional(),
-  qualityThreshold: z.number().int().min(0).max(100).optional(),
-  repairMode: z.enum(["detect_only", "light_repair", "heavy_repair", "continuity_only", "character_only", "ending_only"]).optional(),
-  artifactSyncMode: z.enum(["adaptive", "deferred", "strict"]).optional(),
-}).refine((value) => value.startOrder <= value.endOrder, {
-  message: "起始章节必须小于或等于结束章节。",
-});
+export const pipelineRunSchema = llmGenerateSchema
+  .extend({
+    startOrder: z.number().int().min(1),
+    endOrder: z.number().int().min(1),
+    maxRetries: z.number().int().min(0).max(5).optional(),
+    runMode: z.enum(["fast", "polish"]).optional(),
+    autoReview: z.boolean().optional(),
+    autoRepair: z.boolean().optional(),
+    skipCompleted: z.boolean().optional(),
+    qualityThreshold: z.number().int().min(0).max(100).optional(),
+    repairMode: z
+      .enum([
+        "detect_only",
+        "light_repair",
+        "heavy_repair",
+        "continuity_only",
+        "character_only",
+        "ending_only",
+      ])
+      .optional(),
+    artifactSyncMode: z.enum(["adaptive", "deferred", "strict"]).optional(),
+  })
+  .refine((value) => value.startOrder <= value.endOrder, {
+    message: "起始章节必须小于或等于结束章节。",
+  });
 
 const reviewIssueSchema = z.object({
   severity: z.enum(["low", "medium", "high", "critical"]),
@@ -464,14 +554,16 @@ export const rewritePreviewSchema = z.object({
   operation: z.enum(["polish", "expand", "compress", "emotion", "conflict", "custom"]),
   customInstruction: z.string().trim().max(400).optional(),
   contentSnapshot: z.string(),
-  targetRange: z.object({
-    from: z.number().int().min(0),
-    to: z.number().int().min(1),
-    text: z.string().trim().min(1),
-  }).refine((value) => value.to > value.from, {
-    message: "选区结束位置必须大于开始位置。",
-    path: ["to"],
-  }),
+  targetRange: z
+    .object({
+      from: z.number().int().min(0),
+      to: z.number().int().min(1),
+      text: z.string().trim().min(1),
+    })
+    .refine((value) => value.to > value.from, {
+      message: "选区结束位置必须大于开始位置。",
+      path: ["to"],
+    }),
   context: z.object({
     beforeParagraphs: z.array(z.string()).max(3),
     afterParagraphs: z.array(z.string()).max(2),
@@ -494,62 +586,71 @@ export const rewritePreviewSchema = z.object({
   temperature: z.number().min(0).max(2).optional(),
 });
 
-export const aiRevisionPreviewSchema = z.object({
-  source: z.enum(["preset", "freeform"]),
-  scope: z.enum(["selection", "chapter"]),
-  presetOperation: z.enum(["polish", "expand", "compress", "emotion", "conflict", "custom"]).optional(),
-  instruction: z.string().trim().max(800).optional(),
-  contentSnapshot: z.string(),
-  selection: z.object({
-    from: z.number().int().min(0),
-    to: z.number().int().min(1),
-    text: z.string().trim().min(1),
-  }).refine((value) => value.to > value.from, {
-    message: "选区结束位置必须大于开始位置。",
-    path: ["to"],
-  }).optional(),
-  context: z.object({
-    beforeParagraphs: z.array(z.string()).max(3),
-    afterParagraphs: z.array(z.string()).max(2),
-  }).optional(),
-  constraints: z.object({
-    keepFacts: z.boolean(),
-    keepPov: z.boolean(),
-    noUnauthorizedSetting: z.boolean(),
-    preserveCoreInfo: z.boolean(),
-  }),
-  provider: llmProviderSchema.optional(),
-  model: z.string().trim().max(120).optional(),
-  temperature: z.number().min(0).max(2).optional(),
-}).superRefine((value, ctx) => {
-  if (value.source === "preset" && !value.presetOperation) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["presetOperation"],
-      message: "预设操作模式必须提供 presetOperation。",
-    });
-  }
-  if (value.source === "freeform" && !value.instruction?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["instruction"],
-      message: "自然语言修正模式必须提供 instruction。",
-    });
-  }
-  if (value.scope === "selection" && !value.selection) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["selection"],
-      message: "片段修正必须提供 selection。",
-    });
-  }
-  if (value.scope === "selection" && !value.context) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["context"],
-      message: "片段修正必须提供上下文窗口。",
-    });
-  }
-});
+export const aiRevisionPreviewSchema = z
+  .object({
+    source: z.enum(["preset", "freeform"]),
+    scope: z.enum(["selection", "chapter"]),
+    presetOperation: z
+      .enum(["polish", "expand", "compress", "emotion", "conflict", "custom"])
+      .optional(),
+    instruction: z.string().trim().max(800).optional(),
+    contentSnapshot: z.string(),
+    selection: z
+      .object({
+        from: z.number().int().min(0),
+        to: z.number().int().min(1),
+        text: z.string().trim().min(1),
+      })
+      .refine((value) => value.to > value.from, {
+        message: "选区结束位置必须大于开始位置。",
+        path: ["to"],
+      })
+      .optional(),
+    context: z
+      .object({
+        beforeParagraphs: z.array(z.string()).max(3),
+        afterParagraphs: z.array(z.string()).max(2),
+      })
+      .optional(),
+    constraints: z.object({
+      keepFacts: z.boolean(),
+      keepPov: z.boolean(),
+      noUnauthorizedSetting: z.boolean(),
+      preserveCoreInfo: z.boolean(),
+    }),
+    provider: llmProviderSchema.optional(),
+    model: z.string().trim().max(120).optional(),
+    temperature: z.number().min(0).max(2).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.source === "preset" && !value.presetOperation) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["presetOperation"],
+        message: "预设操作模式必须提供 presetOperation。",
+      });
+    }
+    if (value.source === "freeform" && !value.instruction?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["instruction"],
+        message: "自然语言修正模式必须提供 instruction。",
+      });
+    }
+    if (value.scope === "selection" && !value.selection) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["selection"],
+        message: "片段修正必须提供 selection。",
+      });
+    }
+    if (value.scope === "selection" && !value.context) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["context"],
+        message: "片段修正必须提供上下文窗口。",
+      });
+    }
+  });
 
 export const chapterExecutionContractSchema = chapterRuntimeRequestSchema;

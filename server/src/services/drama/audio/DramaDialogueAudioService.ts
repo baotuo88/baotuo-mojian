@@ -77,8 +77,9 @@ function readCharacterVoice(character: {
   }
   const parsed = safeJsonParse<Record<string, unknown> | null>(raw, null);
   if (parsed && typeof parsed === "object") {
-    const voiceId = [parsed.voiceId, parsed.voice, parsed.id]
-      .find((value) => typeof value === "string" && value.trim());
+    const voiceId = [parsed.voiceId, parsed.voice, parsed.id].find(
+      (value) => typeof value === "string" && value.trim(),
+    );
     const emotion = typeof parsed.emotion === "string" ? parsed.emotion.trim() : undefined;
     const speed = Number(parsed.speed);
     return {
@@ -91,7 +92,9 @@ function readCharacterVoice(character: {
   return { name: character.name };
 }
 
-function buildVoiceMap(characters: Array<{ name: string; voiceProfile?: string | null }>): Map<string, CharacterVoice> {
+function buildVoiceMap(
+  characters: Array<{ name: string; voiceProfile?: string | null }>,
+): Map<string, CharacterVoice> {
   const map = new Map<string, CharacterVoice>();
   for (const character of characters) {
     const key = normalizeKey(character.name);
@@ -107,8 +110,9 @@ export class DramaDialogueAudioService {
     shotId: string,
     requestedProvider?: string,
   ): Promise<DialogueAudioData> {
-    const provider = requestedProvider?.trim()
-      || ttsProviderRegistry.listProviders().find((item) => item.provider !== "mock")?.provider;
+    const provider =
+      requestedProvider?.trim() ||
+      ttsProviderRegistry.listProviders().find((item) => item.provider !== "mock")?.provider;
     if (!provider || (provider === "mock" && process.env.NODE_ENV !== "test")) {
       throw new AppError("请先配置并选择可用的配音通道。", 400);
     }
@@ -131,12 +135,14 @@ export class DramaDialogueAudioService {
     const lines = parseDialogueLines(shot.dialogue);
     const generationId = randomUUID();
     const existing = safeJsonParse<DialogueAudioData>(shot.dialogueAudioData, { status: "idle" });
-    if (existing.status === "generating") throw new AppError("本镜头的配音正在生成，请等待结果。", 409);
+    if (existing.status === "generating")
+      throw new AppError("本镜头的配音正在生成，请等待结果。", 409);
     let expectedJson = shot.dialogueAudioData;
     const saveState = async (data: DialogueAudioData) => {
       const serialized = JSON.stringify(data);
       await withCurrentShot(shotId, async (tx, current) => {
-        if (current.dialogue !== shot.dialogue) throw new AppError("镜头对白发生变化，请重新生成配音。", 409);
+        if (current.dialogue !== shot.dialogue)
+          throw new AppError("镜头对白发生变化，请重新生成配音。", 409);
         const saved = await tx.dramaShot.updateMany({
           where: { id: shotId, dialogueAudioData: expectedJson },
           data: { dialogueAudioData: serialized },
@@ -150,7 +156,13 @@ export class DramaDialogueAudioService {
       await saveState(idleData);
       return idleData;
     }
-    await saveState({ ...existing, status: "generating", provider, generationId, error: undefined });
+    await saveState({
+      ...existing,
+      status: "generating",
+      provider,
+      generationId,
+      error: undefined,
+    });
     try {
       const voiceMap = buildVoiceMap(shot.storyboard.project.characters);
       const items: DialogueAudioItem[] = [];
@@ -179,8 +191,18 @@ export class DramaDialogueAudioService {
         status: "done",
         provider,
         generationId,
-        history: [...(existing.history ?? []), ...(existing.items?.length
-          ? [{ provider: existing.provider, items: existing.items, generatedAt: existing.generatedAt }] : [])],
+        history: [
+          ...(existing.history ?? []),
+          ...(existing.items?.length
+            ? [
+                {
+                  provider: existing.provider,
+                  items: existing.items,
+                  generatedAt: existing.generatedAt,
+                },
+              ]
+            : []),
+        ],
         items,
         generatedAt: new Date().toISOString(),
       };
@@ -195,7 +217,9 @@ export class DramaDialogueAudioService {
         error: error instanceof Error ? error.message : String(error),
       };
       // A late error must not clear a replacement task or a newer script's data.
-      try { await saveState(errorData); } catch (saveError) {
+      try {
+        await saveState(errorData);
+      } catch (saveError) {
         if (!(saveError instanceof AppError && saveError.statusCode === 409)) throw saveError;
       }
       throw error;

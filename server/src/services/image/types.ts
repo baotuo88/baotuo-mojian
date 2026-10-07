@@ -83,7 +83,10 @@ export type OptimizeImagePromptRequest =
   | OptimizeNovelCoverImagePromptRequest;
 
 export interface ImageProviderGenerateInput {
-  sceneType: Extract<ImageSceneType, "character" | "novel_cover" | "chapter_illustration" | "book_analysis_character">;
+  sceneType: Extract<
+    ImageSceneType,
+    "character" | "novel_cover" | "chapter_illustration" | "book_analysis_character"
+  >;
   provider: LLMProvider;
   model: string;
   prompt: string;

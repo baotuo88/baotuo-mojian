@@ -3,7 +3,7 @@ import { prisma } from "../../db/prisma";
 const DEFAULT_NOVEL_SNAPSHOT_RETENTION_COUNT = 10;
 const AUTOMATIC_SNAPSHOT_TRIGGERS = ["auto_milestone", "before_pipeline"] as const;
 
-type AutomaticSnapshotTrigger = typeof AUTOMATIC_SNAPSHOT_TRIGGERS[number];
+type AutomaticSnapshotTrigger = (typeof AUTOMATIC_SNAPSHOT_TRIGGERS)[number];
 
 interface SnapshotRetentionCandidate {
   id: string;
@@ -93,7 +93,10 @@ export class NovelCoreSnapshotService {
     const novel = await prisma.novel.findUnique({
       where: { id: novelId },
       include: {
-        chapters: { orderBy: { order: "asc" }, select: { id: true, title: true, order: true, content: true } },
+        chapters: {
+          orderBy: { order: "asc" },
+          select: { id: true, title: true, order: true, content: true },
+        },
       },
     });
     if (!novel) {

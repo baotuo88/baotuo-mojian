@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BookOpen, Check, FileText, Layers, Loader2, Pencil, Sparkles, X } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  Check,
+  FileText,
+  Layers,
+  Loader2,
+  Pencil,
+  Sparkles,
+  X,
+} from "lucide-react";
 import {
   generateComicOutline,
   generateComicPanelScript,
@@ -25,7 +35,11 @@ const DENSITY_OPTIONS: Array<{ value: DensityMode; label: string; desc: string }
   { value: "compact", label: "紧凑", desc: "剧情推进更密集" },
 ];
 
-const DENSITY_LABELS: Record<DensityMode, string> = { relaxed: "舒展", balanced: "均衡", compact: "紧凑" };
+const DENSITY_LABELS: Record<DensityMode, string> = {
+  relaxed: "舒展",
+  balanced: "均衡",
+  compact: "紧凑",
+};
 
 const FACT_CATEGORY_ZH: Record<string, string> = {
   completed: "已发生",
@@ -119,8 +133,14 @@ function EpisodeCard({
             第 {ep.order} 话 {ep.title ? `《${ep.title}》` : ""}
           </CardTitle>
           <div className="flex shrink-0 gap-1">
-            {ep.isPaywalled && <Badge variant="destructive" className="h-5 text-[10px]">卡点</Badge>}
-            <Badge variant="outline" className="h-5 text-[10px]">{ep._count?.panels ?? 0} 格</Badge>
+            {ep.isPaywalled && (
+              <Badge variant="destructive" className="h-5 text-[10px]">
+                卡点
+              </Badge>
+            )}
+            <Badge variant="outline" className="h-5 text-[10px]">
+              {ep._count?.panels ?? 0} 格
+            </Badge>
             {!editing && (
               <button
                 type="button"
@@ -183,7 +203,11 @@ function EpisodeCard({
                 onClick={() => saveMut.mutate()}
                 className="h-7 px-3 text-xs"
               >
-                {saveMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                {saveMut.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Check className="h-3 w-3" />
+                )}
                 保存
               </Button>
               <Button
@@ -209,9 +233,13 @@ function EpisodeCard({
             )}
             {scriptConfig.densityMode && (
               <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
-                <span className="rounded border bg-muted/40 px-2 py-0.5">{DENSITY_LABELS[scriptConfig.densityMode]}密度</span>
+                <span className="rounded border bg-muted/40 px-2 py-0.5">
+                  {DENSITY_LABELS[scriptConfig.densityMode]}密度
+                </span>
                 {scriptConfig.targetPanelCount ? (
-                  <span className="rounded border bg-muted/40 px-2 py-0.5">约 {scriptConfig.targetPanelCount} 格</span>
+                  <span className="rounded border bg-muted/40 px-2 py-0.5">
+                    约 {scriptConfig.targetPanelCount} 格
+                  </span>
                 ) : null}
               </div>
             )}
@@ -331,7 +359,9 @@ export function EpisodeListPanel({
   const generateScript = (episode: ComicEpisode) => {
     const replaceExisting = Math.max(episode._count?.panels ?? 0, episode.panels?.length ?? 0) > 0;
     if (replaceExisting) {
-      const ok = window.confirm("生成前会备份本话原稿。新的分镜将替换当前分镜，需要重新生成对应图片。确认备份并重新生成吗？");
+      const ok = window.confirm(
+        "生成前会备份本话原稿。新的分镜将替换当前分镜，需要重新生成对应图片。确认备份并重新生成吗？",
+      );
       if (!ok) return;
     }
     scriptMut.mutate({
@@ -371,7 +401,9 @@ export function EpisodeListPanel({
               onClick={() => outlineMut.mutate({ startOrder: nextEpisodeOrder, count: 12 })}
             >
               <Sparkles className="h-4 w-4" />
-              {outlineMut.isPending ? "生成中..." : `生成第 ${nextEpisodeOrder}-${nextEpisodeOrder + 11} 话大纲`}
+              {outlineMut.isPending
+                ? "生成中..."
+                : `生成第 ${nextEpisodeOrder}-${nextEpisodeOrder + 11} 话大纲`}
             </Button>
             <Button
               type="button"
@@ -393,7 +425,9 @@ export function EpisodeListPanel({
                   type="button"
                   className={[
                     "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                    densityMode === option.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                    densityMode === option.value
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted",
                   ].join(" ")}
                   onClick={() => setDensityMode(option.value)}
                   title={option.desc}

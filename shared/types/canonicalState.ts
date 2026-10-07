@@ -2,7 +2,12 @@ import { z } from "zod";
 import { canonicalCharacterResourceSummarySchema } from "./characterResource.js";
 
 export const canonicalStateRiskLevelSchema = z.enum(["low", "medium", "high"]);
-export const stateChangeProposalStatusSchema = z.enum(["validated", "pending_review", "committed", "rejected"]);
+export const stateChangeProposalStatusSchema = z.enum([
+  "validated",
+  "pending_review",
+  "committed",
+  "rejected",
+]);
 export const contentProvenanceSchema = z.enum(["confirmed", "debt"]);
 export const stateChangeProposalTypeSchema = z.enum([
   "event_record",
@@ -224,14 +229,23 @@ export const chapterStateGoalSchema = stateGoalSchema.extend({
 
 export const novelControlPolicySchema = z.object({
   kickoffMode: z.enum(["manual_start", "director_start", "takeover_start"]),
-  advanceMode: z.enum(["manual", "stage_review", "auto_to_ready", "auto_to_execution", "full_book_autopilot"]),
+  advanceMode: z.enum([
+    "manual",
+    "stage_review",
+    "auto_to_ready",
+    "auto_to_execution",
+    "full_book_autopilot",
+  ]),
   reviewCheckpoints: z.array(z.string()).default([]),
-  autoExecutionRange: z.object({
-    mode: z.enum(["book", "volume", "chapter_range"]),
-    start: z.number().int().nullable().optional(),
-    end: z.number().int().nullable().optional(),
-    volumeOrder: z.number().int().nullable().optional(),
-  }).nullable().optional(),
+  autoExecutionRange: z
+    .object({
+      mode: z.enum(["book", "volume", "chapter_range"]),
+      start: z.number().int().nullable().optional(),
+      end: z.number().int().nullable().optional(),
+      volumeOrder: z.number().int().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type CanonicalStateSnapshot = z.infer<typeof canonicalStateSnapshotSchema>;

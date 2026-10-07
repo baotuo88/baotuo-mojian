@@ -46,20 +46,26 @@ function formatSrtTime(totalSeconds: number): string {
   const minutes = Math.floor((totalMs % 3_600_000) / 60_000);
   const seconds = Math.floor((totalMs % 60_000) / 1000);
   const ms = totalMs % 1000;
-  return [
-    String(hours).padStart(2, "0"),
-    String(minutes).padStart(2, "0"),
-    String(seconds).padStart(2, "0"),
-  ].join(":") + `,${String(ms).padStart(3, "0")}`;
+  return (
+    [
+      String(hours).padStart(2, "0"),
+      String(minutes).padStart(2, "0"),
+      String(seconds).padStart(2, "0"),
+    ].join(":") + `,${String(ms).padStart(3, "0")}`
+  );
 }
 
 function buildSrt(entries: SubtitleEntry[]): string {
-  return entries.map((entry) => [
-    String(entry.index),
-    `${formatSrtTime(entry.startSec)} --> ${formatSrtTime(entry.endSec)}`,
-    entry.text,
-    "",
-  ].join("\n")).join("\n");
+  return entries
+    .map((entry) =>
+      [
+        String(entry.index),
+        `${formatSrtTime(entry.startSec)} --> ${formatSrtTime(entry.endSec)}`,
+        entry.text,
+        "",
+      ].join("\n"),
+    )
+    .join("\n");
 }
 
 function readDialogueAudioItems(raw: string | null | undefined): DialogueAudioItemLite[] {
@@ -87,12 +93,17 @@ function buildSubtitleEntriesFromShot(
   shot: { dialogue: string | null; dialogueAudioData?: string | null },
   cursor: number,
   shotDuration: number,
-): { entries: SubtitleEntry[]; audioItems: Array<DialogueAudioItemLite & { startSec: number; endSec: number }>; effectiveDurationSec: number } {
+): {
+  entries: SubtitleEntry[];
+  audioItems: Array<DialogueAudioItemLite & { startSec: number; endSec: number }>;
+  effectiveDurationSec: number;
+} {
   const audioItems = readDialogueAudioItems(shot.dialogueAudioData);
   if (audioItems.length) {
     let audioCursor = cursor;
     const entries: SubtitleEntry[] = [];
-    const timelineAudioItems: Array<DialogueAudioItemLite & { startSec: number; endSec: number }> = [];
+    const timelineAudioItems: Array<DialogueAudioItemLite & { startSec: number; endSec: number }> =
+      [];
     for (const item of audioItems) {
       const lineDuration = normalizeDurationSec(item.durationSec, 2);
       const startSec = audioCursor;
@@ -161,7 +172,9 @@ export class DramaExportService {
       `目标集数：${project.targetEpisodes}`,
       "",
       "## 角色",
-      ...project.characters.map((character) => `- ${character.name}${character.persona ? `：${character.persona}` : ""}`),
+      ...project.characters.map(
+        (character) => `- ${character.name}${character.persona ? `：${character.persona}` : ""}`,
+      ),
       "",
       "## 分集台本",
       ...project.episodes.flatMap((episode) => [
@@ -184,7 +197,12 @@ export class DramaExportService {
     };
   }
 
-  async exportEpisode(projectId: string, order: number, format: DramaEpisodeExportFormat = "srt", tx?: Prisma.TransactionClient) {
+  async exportEpisode(
+    projectId: string,
+    order: number,
+    format: DramaEpisodeExportFormat = "srt",
+    tx?: Prisma.TransactionClient,
+  ) {
     if (!["srt", "timeline-json"].includes(format)) {
       throw new Error(`暂不支持的短剧单集导出格式：${format}`);
     }
@@ -204,12 +222,17 @@ export class DramaExportService {
     }
     const storyboard = episode.storyboards[0];
     if (storyboard) await assertCurrentStoryboard(storyboard.id, tx);
-    if (!storyboard && format === "timeline-json") throw new AppError("请先生成分镜，再导出剪辑时间线。", 409);
+    if (!storyboard && format === "timeline-json")
+      throw new AppError("请先生成分镜，再导出剪辑时间线。", 409);
     const entries: SubtitleEntry[] = [];
     let cursor = 0;
-    const videoPromptsByShot = new Map<string, typeof episode.videoPrompts[number]>();
+    const videoPromptsByShot = new Map<string, (typeof episode.videoPrompts)[number]>();
     for (const prompt of episode.videoPrompts) {
-      if (prompt.status !== "superseded" && prompt.shotId && !videoPromptsByShot.has(prompt.shotId)) {
+      if (
+        prompt.status !== "superseded" &&
+        prompt.shotId &&
+        !videoPromptsByShot.has(prompt.shotId)
+      ) {
         videoPromptsByShot.set(prompt.shotId, prompt);
       }
     }
@@ -218,7 +241,13 @@ export class DramaExportService {
     const audioTrack: Array<Record<string, unknown>> = [];
 
     if (storyboard?.shots.length) {
-      const fallbackShotDuration = Math.max(1, Math.round(normalizeDurationSec(episode.durationSec, storyboard.shots.length * 5) / storyboard.shots.length));
+      const fallbackShotDuration = Math.max(
+        1,
+        Math.round(
+          normalizeDurationSec(episode.durationSec, storyboard.shots.length * 5) /
+            storyboard.shots.length,
+        ),
+      );
       for (const shot of storyboard.shots) {
         const shotDuration = normalizeDurationSec(shot.durationSec, fallbackShotDuration);
         const shotStart = cursor;

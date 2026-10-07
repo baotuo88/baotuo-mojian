@@ -35,7 +35,14 @@ function normalizeOptionalConfidence(value: unknown): unknown {
 export const payoffLedgerSyncSourceRefSchema = z.object({
   kind: z.preprocess(
     normalizePayoffSourceRefKind,
-    z.enum(["major_payoff", "volume_open_payoff", "chapter_payoff_ref", "foreshadow_state", "open_conflict", "audit_issue"]),
+    z.enum([
+      "major_payoff",
+      "volume_open_payoff",
+      "chapter_payoff_ref",
+      "foreshadow_state",
+      "open_conflict",
+      "audit_issue",
+    ]),
   ),
   refId: z.string().trim().optional().nullable(),
   refLabel: z.string().trim().min(1),
@@ -61,17 +68,24 @@ export const payoffLedgerIdentityDecisionSchema = z.object({
   action: z.enum(["reuse", "create"]),
   existingLedgerKey: z.string().trim().min(1).optional().nullable(),
   reason: z.string().trim().min(1),
-  confidence: z.preprocess(normalizeOptionalConfidence, z.number().min(0).max(1).optional().nullable()),
+  confidence: z.preprocess(
+    normalizeOptionalConfidence,
+    z.number().min(0).max(1).optional().nullable(),
+  ),
 });
 
 export const payoffLedgerSyncItemSchema = z.object({
   ledgerKey: z.string().trim().min(1),
   identityDecision: payoffLedgerIdentityDecisionSchema,
-  sourceReplacements: z.array(z.object({
-    refId: z.string().trim().min(1),
-    previousLedgerKey: z.string().trim().min(1),
-    reason: z.string().trim().min(1),
-  })).default([]),
+  sourceReplacements: z
+    .array(
+      z.object({
+        refId: z.string().trim().min(1),
+        previousLedgerKey: z.string().trim().min(1),
+        reason: z.string().trim().min(1),
+      }),
+    )
+    .default([]),
   title: z.string().trim().min(1),
   summary: z.string().trim().min(1),
   scopeType: z.enum(["book", "volume", "chapter"]),
@@ -84,11 +98,23 @@ export const payoffLedgerSyncItemSchema = z.object({
   setupChapterOrder: z.number().int().optional().nullable(),
   payoffChapterId: z.string().trim().optional().nullable(),
   payoffChapterOrder: z.number().int().optional().nullable(),
-  sourceRefs: z.array(payoffLedgerSyncSourceRefSchema).default([]).transform((items) => items.slice(0, 4)),
-  evidence: z.array(payoffLedgerSyncEvidenceSchema).default([]).transform((items) => items.slice(0, 4)),
-  riskSignals: z.array(payoffLedgerSyncRiskSignalSchema).default([]).transform((items) => items.slice(0, 2)),
+  sourceRefs: z
+    .array(payoffLedgerSyncSourceRefSchema)
+    .default([])
+    .transform((items) => items.slice(0, 4)),
+  evidence: z
+    .array(payoffLedgerSyncEvidenceSchema)
+    .default([])
+    .transform((items) => items.slice(0, 4)),
+  riskSignals: z
+    .array(payoffLedgerSyncRiskSignalSchema)
+    .default([])
+    .transform((items) => items.slice(0, 2)),
   statusReason: z.string().trim().optional().nullable(),
-  confidence: z.preprocess(normalizeOptionalConfidence, z.number().min(0).max(1).optional().nullable()),
+  confidence: z.preprocess(
+    normalizeOptionalConfidence,
+    z.number().min(0).max(1).optional().nullable(),
+  ),
 });
 
 export const payoffLedgerSyncOutputSchema = z.object({

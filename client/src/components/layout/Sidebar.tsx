@@ -130,7 +130,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const failedTaskCount = taskQuery.data?.data?.failedCount ?? 0;
   const autoDirectorFollowUpCount = autoDirectorFollowUpQuery.data?.data?.totalCount ?? 0;
   const knowledgeDocuments = knowledgeQuery.data?.data ?? [];
-  const failedIndexCount = knowledgeDocuments.filter((item) => item.latestIndexStatus === "failed").length;
+  const failedIndexCount = knowledgeDocuments.filter(
+    (item) => item.latestIndexStatus === "failed",
+  ).length;
 
   const renderBadge = (to: string) => {
     if (to === "/comic") {
@@ -153,7 +155,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         return null;
       }
       return (
-        <div className={cn("flex items-center gap-1", collapsed ? "absolute right-1 top-1" : "ml-auto")}>
+        <div
+          className={cn(
+            "flex items-center gap-1",
+            collapsed ? "absolute right-1 top-1" : "ml-auto",
+          )}
+        >
           <Badge
             variant="destructive"
             className={cn("h-5 px-1.5 text-[10px]", collapsed && "h-4 min-w-4 px-1 text-[9px]")}
@@ -243,7 +250,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     )}
                     onClick={() => setVisualAssetLibraryOpen(true)}
                   >
-                    <Icon className={cn("h-[18px] w-[18px] shrink-0", collapsed ? "mx-auto" : "mr-3")} />
+                    <Icon
+                      className={cn("h-[18px] w-[18px] shrink-0", collapsed ? "mx-auto" : "mr-3")}
+                    />
                     {!collapsed ? <span className="truncate">{item.label}</span> : null}
                   </button>
                 );
@@ -259,10 +268,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       collapsed ? "justify-center px-2 py-2.5" : "py-2 pl-4 pr-2",
                     )}
                   >
-                    <Icon className={cn("h-[18px] w-[18px] shrink-0", collapsed ? "mx-auto" : "mr-3")} />
-                    {!collapsed ? (
-                      <span className="truncate">{item.label}</span>
-                    ) : null}
+                    <Icon
+                      className={cn("h-[18px] w-[18px] shrink-0", collapsed ? "mx-auto" : "mr-3")}
+                    />
+                    {!collapsed ? <span className="truncate">{item.label}</span> : null}
                     {!collapsed ? (
                       <span className="ml-auto text-[10px] text-muted-foreground/60">即将推出</span>
                     ) : null}
@@ -280,7 +289,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         isActive
                           ? "bg-accent/90 font-semibold text-accent-foreground"
                           : "text-foreground hover:bg-accent hover:text-accent-foreground",
-                        isNovelEntry && !collapsed && (isActive ? "ring-1 ring-primary/20" : "bg-primary/5 hover:bg-primary/10"),
+                        isNovelEntry &&
+                          !collapsed &&
+                          (isActive
+                            ? "ring-1 ring-primary/20"
+                            : "bg-primary/5 hover:bg-primary/10"),
                       )}
                     >
                       <span
@@ -314,7 +327,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
         ))}
       </nav>
-      <VisualAssetLibraryDialog open={visualAssetLibraryOpen} onOpenChange={setVisualAssetLibraryOpen} />
+      <VisualAssetLibraryDialog
+        open={visualAssetLibraryOpen}
+        onOpenChange={setVisualAssetLibraryOpen}
+      />
     </aside>
   );
 }

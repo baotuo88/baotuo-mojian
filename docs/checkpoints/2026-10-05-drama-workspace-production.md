@@ -2,17 +2,20 @@
 
 ## 范围
 
-从 `beta` 的 `8f15315` 创建 `feat/drama-workspace-production`。本阶段覆盖整集首帧/视频/配音任务恢复、视频付费提交保护、当前分镜状态投影、目标集数续规划和初次素材导入保护。
+从 `beta` 的 `8f15315` 创建
+`feat/drama-workspace-production`。本阶段覆盖整集首帧/视频/配音任务恢复、视频付费提交保护、当前分镜状态投影、目标集数续规划和初次素材导入保护。
 
 可导出项目 Markdown/JSON、单集字幕和剪辑草稿。MP4 拼接、混音、配乐和最终成片输出不属于本阶段交付，不应据此标记短剧平台全面上线。
 
 ## 验证结果
 
-- `pnpm --filter @ai-novel/server build` 通过，最终构建输出晚于全部本阶段服务端源文件修改。
+- `pnpm --filter @ai-novel/server build`
+  通过，最终构建输出晚于全部本阶段服务端源文件修改。
 - `pnpm --filter @ai-novel/client typecheck` 在最终轮询和门禁修改后通过。
 - `node --experimental-strip-types --test client/tests/drama/productionProjection.test.mjs`：20/20。
 - `node --test tests/dramaBatchRecovery.test.js tests/dramaPlanningProtection.test.js tests/dramaPipelineContract.test.js`（server 目录）：10/10；前两项自建独立临时 SQLite，台本到字幕/剪辑草稿流程使用可控测试依赖。
-- `dramaVideoTaskLifecycle.test.js`：14/14，含真实临时 SQLite 的提交 CAS 竞争和提示词版本事务；最终日志 `/tmp/drama-video-lifecycle-final.log`。
+- `dramaVideoTaskLifecycle.test.js`：14/14，含真实临时 SQLite 的提交 CAS 竞争和提示词版本事务；最终日志
+  `/tmp/drama-video-lifecycle-final.log`。
 - `dramaForge.test.js`：9/9，含本机模拟 HTTP 视频和配音服务，未调用真实付费服务。
 - `dramaDecoupling.test.js`：1/1，短剧业务不依赖小说业务实现。
 - 合计 54 条定向用例通过；`git diff --check` 通过。
@@ -32,4 +35,5 @@
 
 工作通过独立功能分支进入本地 beta；若以快进方式合入，测试对应相同文件树，可复用本记录，无需重复同一构建。未推广 main、推送远端或更新现有生产容器。
 
-长期契约见 [短剧任务恢复与素材保护](../wiki/workflows/short-drama-production-recovery.md)。用户说明和日期发布记录同步维护，Wiki 不用作变更清单。
+长期契约见
+[短剧任务恢复与素材保护](../wiki/workflows/short-drama-production-recovery.md)。用户说明和日期发布记录同步维护，Wiki 不用作变更清单。

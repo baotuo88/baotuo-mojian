@@ -2,10 +2,18 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const promptRunner = require("../dist/prompting/core/promptRunner.js");
 const { prisma } = require("../dist/db/prisma.js");
-const { ChapterRuntimeCoordinator } = require("../dist/services/novel/runtime/ChapterRuntimeCoordinator.js");
-const { mergeKnowledgeBoundaryState } = require("../dist/services/novel/runtime/ChapterArtifactDeltaService.js");
-const { directorAutomationLedgerEventService } = require("../dist/services/novel/director/runtime/DirectorAutomationLedgerEventService.js");
-const { PostGenerationStyleReviewRunner } = require("../dist/services/novel/runtime/PostGenerationStyleReviewRunner.js");
+const {
+  ChapterRuntimeCoordinator,
+} = require("../dist/services/novel/runtime/ChapterRuntimeCoordinator.js");
+const {
+  mergeKnowledgeBoundaryState,
+} = require("../dist/services/novel/runtime/ChapterArtifactDeltaService.js");
+const {
+  directorAutomationLedgerEventService,
+} = require("../dist/services/novel/director/runtime/DirectorAutomationLedgerEventService.js");
+const {
+  PostGenerationStyleReviewRunner,
+} = require("../dist/services/novel/runtime/PostGenerationStyleReviewRunner.js");
 const { openConflictService } = require("../dist/services/state/OpenConflictService.js");
 const generatedChapterStore = require("../dist/services/novel/runtime/persistence/GeneratedChapterStore.js");
 
@@ -94,11 +102,13 @@ function createRepairAssembledChapter() {
       stateSnapshot: null,
       openConflicts: [],
       storyWorldSlice: null,
-      characterRoster: [{
-        id: "char-1",
-        name: "主角",
-        role: "主角",
-      }],
+      characterRoster: [
+        {
+          id: "char-1",
+          name: "主角",
+          role: "主角",
+        },
+      ],
       creativeDecisions: [],
       openAuditIssues: [],
       previousChaptersSummary: [],
@@ -202,11 +212,13 @@ function createRepairAssembledChapter() {
         chapterBoundary: null,
         lengthBudget: null,
         scenePlan: null,
-        participants: [{
-          id: "char-1",
-          name: "主角",
-          role: "主角",
-        }],
+        participants: [
+          {
+            id: "char-1",
+            name: "主角",
+            role: "主角",
+          },
+        ],
         characterBehaviorGuides: [],
         activeRelationStages: [],
         pendingCandidateGuards: [],
@@ -291,7 +303,9 @@ test("createChapterStream uses lightweight readiness without forcing execution c
 
   await coordinator.createChapterStream("novel-1", "chapter-1", { provider: "openai" });
 
-  const ensureContractIndex = calls.findIndex((item) => Array.isArray(item) && item[0] === "ensure_contract");
+  const ensureContractIndex = calls.findIndex(
+    (item) => Array.isArray(item) && item[0] === "ensure_contract",
+  );
   const assembleIndex = calls.findIndex((item) => Array.isArray(item) && item[0] === "assemble");
   const writerIndex = calls.findIndex((item) => Array.isArray(item) && item[0] === "writer");
 
@@ -607,13 +621,15 @@ test("finalizeChapterContent writes only acceptance-covered mustHitNow facts bef
     canDefer: [],
     forbiddenCrossings: [],
   };
-  contextPackage.chapterWriteContext.payoffDirectives = [{
-    title: "旧伏笔提前揭示",
-    ledgerKey: "hook-1",
-    operation: "payoff",
-    reason: "测试写前指令不应入账。",
-    forbiddenReveal: null,
-  }];
+  contextPackage.chapterWriteContext.payoffDirectives = [
+    {
+      title: "旧伏笔提前揭示",
+      ledgerKey: "hook-1",
+      operation: "payoff",
+      reason: "测试写前指令不应入账。",
+      forbiddenReveal: null,
+    },
+  ];
 
   const coordinator = new ChapterRuntimeCoordinator({
     acceptanceAssessmentService: {
@@ -630,11 +646,13 @@ test("finalizeChapterContent writes only acceptance-covered mustHitNow facts bef
           },
           blockingIssues: [],
           repairDirectives: [],
-          missingObligations: [{
-            kind: "must_hit_now",
-            summary: "拿到青铜钥匙，并发现钥匙来自失踪师父。",
-            evidence: "正文只提到钥匙，没有拿到。",
-          }],
+          missingObligations: [
+            {
+              kind: "must_hit_now",
+              summary: "拿到青铜钥匙，并发现钥匙来自失踪师父。",
+              evidence: "正文只提到钥匙，没有拿到。",
+            },
+          ],
           repairability: "patchable_obligation_gap",
           decisionReason: "一条本章义务未兑现，但不阻断后续章节。",
           riskTags: [],
@@ -675,7 +693,9 @@ test("finalizeChapterContent writes only acceptance-covered mustHitNow facts bef
 
   prisma.chapter.updateMany = async ({ where }) => {
     assert.deepEqual(where, {
-      id: "chapter-1", novelId: "novel-1", content: "正文写出了主角当众拒绝婚约，但没有拿到钥匙。",
+      id: "chapter-1",
+      novelId: "novel-1",
+      content: "正文写出了主角当众拒绝婚约，但没有拿到钥匙。",
     });
     return { count: 1 };
   };
@@ -706,15 +726,25 @@ test("finalizeChapterContent writes only acceptance-covered mustHitNow facts bef
     assert.equal(syncCalls.length, 1);
     assert.equal(syncCalls[0][3].awaitArtifactDelta, true);
     assert.equal(syncCalls[0][3].skipLegacySummaryAndFacts, true);
-    assert.deepEqual(createdFacts.map((item) => item.text), [
-      "第1章已完成：主角当众拒绝婚约，明确站到家族对立面。",
-    ]);
-    assert.deepEqual(createdFacts.map((item) => item.category), ["completed"]);
-    assert.equal(createdFacts.some((item) => item.text.includes("已完全揭示")), false);
+    assert.deepEqual(
+      createdFacts.map((item) => item.text),
+      ["第1章已完成：主角当众拒绝婚约，明确站到家族对立面。"],
+    );
+    assert.deepEqual(
+      createdFacts.map((item) => item.category),
+      ["completed"],
+    );
+    assert.equal(
+      createdFacts.some((item) => item.text.includes("已完全揭示")),
+      false,
+    );
     assert.equal(eventCalls.length, 1);
     assert.equal(eventCalls[0].type, "continue_with_risk");
     assert.equal(eventCalls[0].metadata.excludedObligations.length, 1);
-    assert.equal(eventCalls[0].metadata.excludedObligations[0].text, "拿到青铜钥匙，并发现钥匙来自失踪师父。");
+    assert.equal(
+      eventCalls[0].metadata.excludedObligations[0].text,
+      "拿到青铜钥匙，并发现钥匙来自失踪师父。",
+    );
   } finally {
     prisma.chapter.updateMany = originalChapterUpdateMany;
     prisma.novelFactEntry.findMany = originalFactFindMany;
@@ -755,7 +785,9 @@ test("createRepairStream escalates patch schema failures to a single heavy repai
     return { id: "chapter-1", ...data };
   };
   promptRunner.runStructuredPrompt = async () => {
-    throw new Error("[{\"origin\":\"string\",\"code\":\"too_small\",\"minimum\":6,\"inclusive\":true,\"path\":[\"patches\",0,\"targetExcerpt\"],\"message\":\"Too small: expected string to have >=6 characters\"}]");
+    throw new Error(
+      '[{"origin":"string","code":"too_small","minimum":6,"inclusive":true,"path":["patches",0,"targetExcerpt"],"message":"Too small: expected string to have >=6 characters"}]',
+    );
   };
   promptRunner.streamTextPrompt = async () => ({
     stream: {
@@ -802,12 +834,14 @@ test("createRepairStream escalates patch schema failures to a single heavy repai
     const streamResult = await coordinator.createRepairStream("novel-1", "chapter-1", {
       repairMode: "light_repair",
       auditIssueIds: ["issue-1"],
-      reviewIssues: [{
-        severity: "high",
-        category: "pacing",
-        evidence: "第一次反压没有真正落地。",
-        fixSuggestion: "让主角在本章拿到明确反压结果。",
-      }],
+      reviewIssues: [
+        {
+          severity: "high",
+          category: "pacing",
+          evidence: "第一次反压没有真正落地。",
+          fixSuggestion: "让主角在本章拿到明确反压结果。",
+        },
+      ],
     });
 
     let streamedContent = "";
@@ -827,7 +861,10 @@ test("createRepairStream escalates patch schema failures to a single heavy repai
     assert.equal(syncCalls[0][3].awaitArtifactDelta, true);
     assert.equal(syncCalls[0][3].skipLegacySummaryAndFacts, true);
     assert.deepEqual(resolvedIssues, [["issue-1"]]);
-    assert.deepEqual(chapterUpdates.map((item) => item.generationState), ["repaired", "approved"]);
+    assert.deepEqual(
+      chapterUpdates.map((item) => item.generationState),
+      ["repaired", "approved"],
+    );
     assert.equal(frames.at(-1)?.status, "succeeded");
     assert.equal(frames.at(-1)?.phase, "completed");
   } finally {
@@ -888,9 +925,11 @@ test("createChapterStream blocks when state-driven decision requires review firs
   const assembled = createAssembledChapter();
   assembled.contextPackage.nextAction = "hold_for_review";
   assembled.contextPackage.pendingReviewProposalCount = 2;
-  assembled.contextPackage.openAuditIssues = [{
-    description: "pending review issue",
-  }];
+  assembled.contextPackage.openAuditIssues = [
+    {
+      description: "pending review issue",
+    },
+  ];
   const statusCalls = [];
 
   const coordinator = new ChapterRuntimeCoordinator({
@@ -958,7 +997,9 @@ test("createChapterStream lets full_book_autopilot continue past pending state p
   });
 
   assert.equal(writerCalls.length, 1);
-  assert.deepEqual(statusCalls, [["chapter-1", "generating", { novelId: "novel-1", content: assembled.chapter.content }]]);
+  assert.deepEqual(statusCalls, [
+    ["chapter-1", "generating", { novelId: "novel-1", content: assembled.chapter.content }],
+  ]);
 });
 
 test("createChapterStream retries once before failing empty generated content", async () => {
@@ -1006,7 +1047,9 @@ test("createChapterStream retries once before failing empty generated content", 
   const done = await result.onDone("", { writeFrame: () => undefined });
 
   assert.equal(writerCalls.length, 2);
-  assert.deepEqual(statusCalls, [["chapter-1", "generating", { novelId: "novel-1", content: assembled.chapter.content }]]);
+  assert.deepEqual(statusCalls, [
+    ["chapter-1", "generating", { novelId: "novel-1", content: assembled.chapter.content }],
+  ]);
   assert.deepEqual(finalized, ["重试后的正文"]);
   assert.equal(done.fullContent, "重试后的正文");
 });
@@ -1015,9 +1058,11 @@ test("runPipelineChapter does not leave a blocked chapter in generating status",
   const assembled = createAssembledChapter();
   assembled.contextPackage.nextAction = "hold_for_review";
   assembled.contextPackage.pendingReviewProposalCount = 1;
-  assembled.contextPackage.openAuditIssues = [{
-    description: "chapter needs review",
-  }];
+  assembled.contextPackage.openAuditIssues = [
+    {
+      description: "chapter needs review",
+    },
+  ];
   const statusCalls = [];
 
   const coordinator = new ChapterRuntimeCoordinator({
@@ -1104,15 +1149,17 @@ test("post-generation style review policy keeps existing detection and rewrite w
           riskScore: 45,
           canAutoRewrite: true,
           appliedRuleIds: ["rule-1"],
-          violations: [{
-            ruleName: "降低模板表达",
-            ruleType: "forbidden",
-            severity: "medium",
-            excerpt: "仿佛",
-            reason: "模板词集中",
-            suggestion: "降低模板词密度",
-            canAutoRewrite: true,
-          }],
+          violations: [
+            {
+              ruleName: "降低模板表达",
+              ruleType: "forbidden",
+              severity: "medium",
+              excerpt: "仿佛",
+              reason: "模板词集中",
+              suggestion: "降低模板词密度",
+              canAutoRewrite: true,
+            },
+          ],
         };
       },
     },

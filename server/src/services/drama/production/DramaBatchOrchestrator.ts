@@ -108,14 +108,18 @@ function readCostCurrency(): string {
 }
 
 function providerEnvKey(provider: string): string {
-  return provider.trim().replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").toUpperCase();
+  return provider
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
 }
 
 function readImageCostPerImage(provider: string): number {
   const providerKey = providerEnvKey(provider);
   return normalizeCostNumber(
-    process.env[`DRAMA_IMAGE_COST_PER_IMAGE_${providerKey}`]
-    ?? process.env.DRAMA_IMAGE_COST_PER_IMAGE,
+    process.env[`DRAMA_IMAGE_COST_PER_IMAGE_${providerKey}`] ??
+      process.env.DRAMA_IMAGE_COST_PER_IMAGE,
   );
 }
 
@@ -144,12 +148,14 @@ function addCostUnits(left: DramaBatchCostUnits, right: DramaBatchCostUnits): Dr
 
 function calculateCost(unit: DramaBatchCostBreakdown["unit"], units: DramaBatchCostUnits): number {
   return roundCost(
-    (unit.costPerImage ?? 0) * (units.images ?? 0)
-    + (unit.costPerSecond ?? 0) * (units.seconds ?? 0),
+    (unit.costPerImage ?? 0) * (units.images ?? 0) +
+      (unit.costPerSecond ?? 0) * (units.seconds ?? 0),
   );
 }
 
-function normalizeCostBreakdown(input: DramaBatchCostBreakdown | undefined): DramaBatchCostBreakdown | undefined {
+function normalizeCostBreakdown(
+  input: DramaBatchCostBreakdown | undefined,
+): DramaBatchCostBreakdown | undefined {
   if (!input) {
     return undefined;
   }
@@ -194,7 +200,8 @@ function readProgress(raw: string | null | undefined): DramaBatchProgress {
   // Older workers checkpointed a strictly ordered prefix but had no completed IDs.
   if (!parsed.completedShotIds && parsed.targetShotIds) {
     const processed = (parsed.done ?? 0) + (parsed.failed ?? 0);
-    parsed.completedShotIds = parsed.targetShotIds.slice(0, processed)
+    parsed.completedShotIds = parsed.targetShotIds
+      .slice(0, processed)
       .filter((id) => !parsed.failedShotIds?.includes(id));
   }
   return normalizeProgress(parsed);
@@ -216,7 +223,12 @@ export class DramaBatchOrchestrator {
     // This runs only at single-API startup, before requests are accepted. A
     // restarted process cannot still own these synchronous media invocations.
     const shots = await prisma.dramaShot.findMany({
-      where: { OR: [{ keyframeData: { contains: '"generating"' } }, { dialogueAudioData: { contains: '"generating"' } }] },
+      where: {
+        OR: [
+          { keyframeData: { contains: '"generating"' } },
+          { dialogueAudioData: { contains: '"generating"' } },
+        ],
+      },
       select: { id: true, keyframeData: true, dialogueAudioData: true },
     });
     for (const shot of shots) {
@@ -225,15 +237,24 @@ export class DramaBatchOrchestrator {
         if (state?.status !== "generating") continue;
         await prisma.dramaShot.updateMany({
           where: { id: shot.id, [field]: shot[field] },
-          data: { [field]: JSON.stringify({ ...state, status: "error", error: "制作因服务中断而停止，请核对通道费用后重新生成。" }) },
+          data: {
+            [field]: JSON.stringify({
+              ...state,
+              status: "error",
+              error: "制作因服务中断而停止，请核对通道费用后重新生成。",
+            }),
+          },
         });
       }
     }
-    const jobs = await prisma.dramaBatchJob.findMany({ where: { status: { in: ["pending", "running"] } } });
+    const jobs = await prisma.dramaBatchJob.findMany({
+      where: { status: { in: ["pending", "running"] } },
+    });
     for (const job of jobs) {
       const progress = readProgress(job.progress);
       progress.pauseRequested = false;
-      progress.interruptionReason = "服务中断，已保留完成进度。请先核对媒体通道中的任务，再确认继续；中断的镜头可能产生额外费用。";
+      progress.interruptionReason =
+        "服务中断，已保留完成进度。请先核对媒体通道中的任务，再确认继续；中断的镜头可能产生额外费用。";
       await prisma.dramaBatchJob.updateMany({
         where: { id: job.id, status: job.status, progress: job.progress },
         data: { status: "paused", progress: JSON.stringify(progress) },
@@ -264,13 +285,21 @@ export class DramaBatchOrchestrator {
     // CAS avoids replacing a worker checkpoint that advanced while this request read it.
     const updated = await prisma.dramaBatchJob.updateMany({
       where: { id: jobId, status: job.status, progress: job.progress },
-      data: { status: job.status === "pending" ? "paused" : "running", progress: JSON.stringify(progress) },
+      data: {
+        status: job.status === "pending" ? "paused" : "running",
+        progress: JSON.stringify(progress),
+      },
     });
     if (!updated.count) return this.pauseBatchJob(projectId, jobId);
     return this.ownedJob(projectId, jobId);
   }
 
-  async resumeBatchJob(projectId: string, jobId: string, confirmAdditionalCost: boolean, options: CreateEpisodeBatchJobOptions = {}) {
+  async resumeBatchJob(
+    projectId: string,
+    jobId: string,
+    confirmAdditionalCost: boolean,
+    options: CreateEpisodeBatchJobOptions = {},
+  ) {
     if (!confirmAdditionalCost) throw new AppError("请确认继续制作可能产生额外费用。", 400);
     if (this.stopping) throw new AppError("服务正在停止，请稍后继续制作。", 503);
     const job = await this.ownedJob(projectId, jobId);
@@ -284,13 +313,23 @@ export class DramaBatchOrchestrator {
     progress.interruptionReason = undefined;
     const updated = await withCurrentShot(progress.targetShotIds![0], async (tx) => {
       const candidates = await tx.dramaBatchJob.findMany({
-        where: { projectId, episodeId: job.episodeId, type: job.type, id: { not: jobId }, status: { in: ["pending", "running", "paused"] } },
+        where: {
+          projectId,
+          episodeId: job.episodeId,
+          type: job.type,
+          id: { not: jobId },
+          status: { in: ["pending", "running", "paused"] },
+        },
       });
       const active = candidates.find((candidate) => {
         if (candidate.status !== "paused") return true;
         const other = readProgress(candidate.progress);
-        return other.storyboardId ? other.storyboardId === progress.storyboardId
-          : Boolean(other.targetShotIds?.length && other.targetShotIds.every((id) => progress.targetShotIds?.includes(id)));
+        return other.storyboardId
+          ? other.storyboardId === progress.storyboardId
+          : Boolean(
+              other.targetShotIds?.length &&
+              other.targetShotIds.every((id) => progress.targetShotIds?.includes(id)),
+            );
       });
       if (active) throw new AppError("该集已有同类制作任务，请先处理该任务。", 409);
       return tx.dramaBatchJob.updateMany({
@@ -333,18 +372,34 @@ export class DramaBatchOrchestrator {
     // acquire a project lock here: planning takes project then episode locks.
     const job = await withCurrentShot(prepared.targetShotIds[0], async (tx) => {
       const existing = await tx.dramaBatchJob.findFirst({
-        where: { projectId, episodeId: prepared.episode.id, type: input.type, status: { in: ["pending", "running", "paused"] } },
+        where: {
+          projectId,
+          episodeId: prepared.episode.id,
+          type: input.type,
+          status: { in: ["pending", "running", "paused"] },
+        },
         orderBy: { createdAt: "desc" },
       });
       if (existing) {
         const previous = readProgress(existing.progress);
         // Old paused work must not prevent starting production for a new storyboard.
-        if (previous.storyboardId === progress.storyboardId
-          || (!previous.storyboardId && previous.targetShotIds?.every((id) => progress.targetShotIds?.includes(id)))) return existing;
-        if (existing.status !== "paused") throw new AppError("上一版分镜仍有制作任务，请先暂停。", 409);
+        if (
+          previous.storyboardId === progress.storyboardId ||
+          (!previous.storyboardId &&
+            previous.targetShotIds?.every((id) => progress.targetShotIds?.includes(id)))
+        )
+          return existing;
+        if (existing.status !== "paused")
+          throw new AppError("上一版分镜仍有制作任务，请先暂停。", 409);
       }
       return tx.dramaBatchJob.create({
-        data: { projectId, episodeId: prepared.episode.id, type: input.type, status: "pending", progress: JSON.stringify(progress) },
+        data: {
+          projectId,
+          episodeId: prepared.episode.id,
+          type: input.type,
+          status: "pending",
+          progress: JSON.stringify(progress),
+        },
       });
     });
     if ((options.autoStart ?? true) && job.status === "pending") this.startJob(job.id);
@@ -370,13 +425,22 @@ export class DramaBatchOrchestrator {
     if (!episodeId) throw new AppError("制作任务关联的集数不存在。", 409);
     const episode = await prisma.dramaEpisode.findUnique({
       where: { id: episodeId },
-      include: { storyboards: { orderBy: [{ version: "desc" }, { createdAt: "desc" }, { id: "desc" }], take: 1, include: { shots: { orderBy: { order: "asc" } } } } },
+      include: {
+        storyboards: {
+          orderBy: [{ version: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+          take: 1,
+          include: { shots: { orderBy: { order: "asc" } } },
+        },
+      },
     });
     const storyboard = episode?.storyboards[0];
     const targetIds = progress.targetShotIds;
-    if (!storyboard || !targetIds?.length
-      || (progress.storyboardId && progress.storyboardId !== storyboard.id)
-      || targetIds.some((id) => !storyboard.shots.some((shot) => shot.id === id))) {
+    if (
+      !storyboard ||
+      !targetIds?.length ||
+      (progress.storyboardId && progress.storyboardId !== storyboard.id) ||
+      targetIds.some((id) => !storyboard.shots.some((shot) => shot.id === id))
+    ) {
       throw new AppError("分镜已变化或镜头缺失，请为当前分镜新建制作任务。", 409);
     }
     await assertCurrentStoryboard(storyboard.id);
@@ -384,7 +448,8 @@ export class DramaBatchOrchestrator {
   }
 
   async runBatchJob(jobId: string) {
-    if (this.stopping || this.runningJobs.has(jobId)) return prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
+    if (this.stopping || this.runningJobs.has(jobId))
+      return prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
     this.runningJobs.add(jobId);
     let progress: DramaBatchProgress | undefined;
     let claimed = false;
@@ -393,12 +458,14 @@ export class DramaBatchOrchestrator {
       if (!job) throw new AppError("未找到制作任务。", 404);
       if (job.status !== "pending") return job;
       const claim = await prisma.dramaBatchJob.updateMany({
-        where: { id: jobId, status: "pending", progress: job.progress }, data: { status: "running" },
+        where: { id: jobId, status: "pending", progress: job.progress },
+        data: { status: "running" },
       });
       if (!claim.count) return prisma.dramaBatchJob.findUnique({ where: { id: jobId } });
       claimed = true;
       progress = readProgress(job.progress);
-      if (!["keyframes", "videos", "tts"].includes(job.type)) throw new AppError("该制作任务类型暂不支持继续。", 400);
+      if (!["keyframes", "videos", "tts"].includes(job.type))
+        throw new AppError("该制作任务类型暂不支持继续。", 400);
       if (!progress.provider || (progress.provider === "mock" && process.env.NODE_ENV !== "test")) {
         throw new AppError("任务缺少可用生成通道，请选择已配置通道创建新任务。", 400);
       }
@@ -419,7 +486,14 @@ export class DramaBatchOrchestrator {
         progress.currentShotId = shot.id;
         await this.updateJob(jobId, "running", progress);
         try {
-          const result = await this.processShot(job.type as DramaBatchJobType, job.projectId, target.episodeId, shot, progress.provider, progress.useCharacterRefImages ?? false);
+          const result = await this.processShot(
+            job.type as DramaBatchJobType,
+            job.projectId,
+            target.episodeId,
+            shot,
+            progress.provider,
+            progress.useCharacterRefImages ?? false,
+          );
           if (result.status === "skipped") progress.skipped += 1;
           if (result.status === "processed" && result.costUnits && progress.cost) {
             progress.cost = this.addActualCost(progress.cost, result.costUnits);
@@ -430,7 +504,10 @@ export class DramaBatchOrchestrator {
         } catch (error) {
           progress.failed += 1;
           progress.failedShotIds.push(shot.id);
-          progress.errors = (progress.errors ?? []).concat({ shotId: shot.id, message: error instanceof Error ? error.message : String(error) });
+          progress.errors = (progress.errors ?? []).concat({
+            shotId: shot.id,
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
         progress.currentShotId = undefined;
         await this.updateJob(jobId, "running", progress);
@@ -441,7 +518,13 @@ export class DramaBatchOrchestrator {
       progress.pauseRequested = false;
       const finishedProgress = progress;
       return await withCurrentShot(target.shots[0].id, async (tx) =>
-        this.updateJob(jobId, finishedProgress.failed > 0 ? "failed" : "done", finishedProgress, tx));
+        this.updateJob(
+          jobId,
+          finishedProgress.failed > 0 ? "failed" : "done",
+          finishedProgress,
+          tx,
+        ),
+      );
     } catch (error) {
       if (!claimed || !progress) throw error;
       progress.interruptionReason = error instanceof Error ? error.message : String(error);
@@ -451,11 +534,19 @@ export class DramaBatchOrchestrator {
     }
   }
 
-  private async processKeyframeShot(shot: BatchShot, provider?: string, useCharacterRefImages = false): Promise<"processed" | "skipped"> {
+  private async processKeyframeShot(
+    shot: BatchShot,
+    provider?: string,
+    useCharacterRefImages = false,
+  ): Promise<"processed" | "skipped"> {
     if (hasDoneKeyframe(shot.keyframeData)) {
       return "skipped";
     }
-    await this.keyframeService.generateKeyframe(shot.id, (provider || DEFAULT_IMAGE_PROVIDER) as LLMProvider, useCharacterRefImages);
+    await this.keyframeService.generateKeyframe(
+      shot.id,
+      (provider || DEFAULT_IMAGE_PROVIDER) as LLMProvider,
+      useCharacterRefImages,
+    );
     return "processed";
   }
 
@@ -465,7 +556,9 @@ export class DramaBatchOrchestrator {
     }
     const data = await this.dialogueAudioService.synthesizeShotDialogue(shot.id, provider);
     const seconds = (data.items ?? []).reduce((sum, item) => {
-      return sum + normalizeDurationSec(item.durationSec, Math.max(1, Math.ceil(item.text.length / 5)));
+      return (
+        sum + normalizeDurationSec(item.durationSec, Math.max(1, Math.ceil(item.text.length / 5)))
+      );
     }, 0);
     return {
       status: "processed",
@@ -507,9 +600,7 @@ export class DramaBatchOrchestrator {
   ): Promise<BatchProcessResult> {
     if (type === "keyframes") {
       const status = await this.processKeyframeShot(shot, provider, useCharacterRefImages);
-      return status === "processed"
-        ? { status, costUnits: { images: 1, shots: 1 } }
-        : { status };
+      return status === "processed" ? { status, costUnits: { images: 1, shots: 1 } } : { status };
     }
     if (type === "tts") {
       return this.processTtsShot(shot, provider);
@@ -524,7 +615,8 @@ export class DramaBatchOrchestrator {
     if (type === "keyframes") {
       return DEFAULT_IMAGE_PROVIDER;
     }
-    const providers = type === "tts" ? ttsProviderRegistry.listProviders() : videoProviderRegistry.listProviders();
+    const providers =
+      type === "tts" ? ttsProviderRegistry.listProviders() : videoProviderRegistry.listProviders();
     const provider = providers.find((item) => item.provider !== "mock");
     if (!provider) throw new AppError("请先在设置的媒体通道中配置配音或视频服务。", 400);
     return provider.provider;
@@ -559,10 +651,11 @@ export class DramaBatchOrchestrator {
     }
     await assertCurrentStoryboard(episode.storyboards[0].id);
     const allowedShotIds = new Set(shots.map((shot) => shot.id));
-    const targetShots = (input.failedShotIds?.length
-      ? shots.filter((shot) => input.failedShotIds?.includes(shot.id))
-      : shots)
-      .filter((shot) => allowedShotIds.has(shot.id));
+    const targetShots = (
+      input.failedShotIds?.length
+        ? shots.filter((shot) => input.failedShotIds?.includes(shot.id))
+        : shots
+    ).filter((shot) => allowedShotIds.has(shot.id));
     if (!targetShots.length) {
       throw new AppError("没有可处理的镜头。", 400);
     }
@@ -603,13 +696,19 @@ export class DramaBatchOrchestrator {
         return !(prompt?.providerTaskId && prompt.status !== "failed");
       });
       estimatedUnits = {
-        seconds: billableShots.reduce((sum, shot) => sum + normalizeDurationSec(shot.durationSec), 0),
+        seconds: billableShots.reduce(
+          (sum, shot) => sum + normalizeDurationSec(shot.durationSec),
+          0,
+        ),
         shots: billableShots.length,
       };
     } else {
       const billableShots = shots.filter((shot) => !hasDoneDialogueAudio(shot.dialogueAudioData));
       estimatedUnits = {
-        seconds: billableShots.reduce((sum, shot) => sum + normalizeDurationSec(shot.durationSec), 0),
+        seconds: billableShots.reduce(
+          (sum, shot) => sum + normalizeDurationSec(shot.durationSec),
+          0,
+        ),
         shots: billableShots.length,
       };
     }
@@ -624,7 +723,10 @@ export class DramaBatchOrchestrator {
     })!;
   }
 
-  private resolveCostUnit(type: DramaBatchJobType, provider: string): {
+  private resolveCostUnit(
+    type: DramaBatchJobType,
+    provider: string,
+  ): {
     currency: string;
     unit: DramaBatchCostBreakdown["unit"];
   } {
@@ -648,7 +750,10 @@ export class DramaBatchOrchestrator {
     };
   }
 
-  private addActualCost(cost: DramaBatchCostBreakdown, units: DramaBatchCostUnits): DramaBatchCostBreakdown {
+  private addActualCost(
+    cost: DramaBatchCostBreakdown,
+    units: DramaBatchCostUnits,
+  ): DramaBatchCostBreakdown {
     return normalizeCostBreakdown({
       ...cost,
       actualUnits: addCostUnits(cost.actualUnits, units),
@@ -664,7 +769,10 @@ export class DramaBatchOrchestrator {
     const current = await db.dramaBatchJob.findUnique({ where: { id: jobId } });
     if (!current || current.status !== "running") return current;
     const saved = readProgress(current.progress);
-    const next = { ...progress, pauseRequested: status === "running" && (saved.pauseRequested || progress.pauseRequested) };
+    const next = {
+      ...progress,
+      pauseRequested: status === "running" && (saved.pauseRequested || progress.pauseRequested),
+    };
     const updated = await db.dramaBatchJob.updateMany({
       where: { id: jobId, status: "running", progress: current.progress },
       data: { status, progress: JSON.stringify(next) },

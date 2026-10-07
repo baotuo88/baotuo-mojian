@@ -78,7 +78,10 @@ export class DramaProjectService {
       orderBy: { createdAt: "desc" },
     });
     const jobs = new Map([...project.batchJobs, ...recoverable].map((job) => [job.id, job]));
-    return { ...project, batchJobs: [...jobs.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()) };
+    return {
+      ...project,
+      batchJobs: [...jobs.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    };
   }
 
   /**
@@ -88,20 +91,26 @@ export class DramaProjectService {
    * 3) DramaFact（初始事实账本，episodeOrder=0 表示源初始事实）
    */
   async assembleSourceBundle(projectId: string): Promise<SourceBundle> {
-    const project = await prisma.dramaProject.findUnique({ where: { id: projectId }, include: { sourceBundle: true } });
+    const project = await prisma.dramaProject.findUnique({
+      where: { id: projectId },
+      include: { sourceBundle: true },
+    });
     if (!project) {
       throw new Error(`未找到短剧项目：${projectId}`);
     }
     if (project.sourceBundle) {
-      throw new AppError("素材已整理。可在素材页查看补充建议、在角色页编辑角色；改编其他素材请创建新项目。", 409);
+      throw new AppError(
+        "素材已整理。可在素材页查看补充建议、在角色页编辑角色；改编其他素材请创建新项目。",
+        409,
+      );
     }
 
     const adapter = sourceContentRegistry.resolve(project.source as DramaSourceType);
     const ref: SourceRef = {
       type: project.source as DramaSourceType,
       ref: project.sourceRef ?? undefined,
-      inspiration: project.source === "original" ? project.sourceInput ?? undefined : undefined,
-      rawText: project.source === "text_import" ? project.sourceInput ?? undefined : undefined,
+      inspiration: project.source === "original" ? (project.sourceInput ?? undefined) : undefined,
+      rawText: project.source === "text_import" ? (project.sourceInput ?? undefined) : undefined,
     };
     const bundle = await adapter.loadBundle(ref);
 
@@ -130,20 +139,25 @@ export class DramaProjectService {
       });
 
       // Source assembly is an initial import. Never replace manually created assets.
-      const existingCharacters = await tx.dramaCharacter.findMany({ where: { projectId }, select: { name: true } });
+      const existingCharacters = await tx.dramaCharacter.findMany({
+        where: { projectId },
+        select: { name: true },
+      });
       const existingNames = new Set(existingCharacters.map((character) => character.name));
       if (bundle.characters.length > 0) {
         await tx.dramaCharacter.createMany({
-          data: bundle.characters.filter((character) => !existingNames.has(character.name)).map((character) => ({
-            projectId,
-            name: character.name,
-            persona: character.persona ?? null,
-            relations: character.relations ?? null,
-            visualAnchor: character.visualHint
-              ? JSON.stringify({ hint: character.visualHint })
-              : null,
-            sourceCharacterRef: character.sourceCharacterRef ?? null,
-          })),
+          data: bundle.characters
+            .filter((character) => !existingNames.has(character.name))
+            .map((character) => ({
+              projectId,
+              name: character.name,
+              persona: character.persona ?? null,
+              relations: character.relations ?? null,
+              visualAnchor: character.visualHint
+                ? JSON.stringify({ hint: character.visualHint })
+                : null,
+              sourceCharacterRef: character.sourceCharacterRef ?? null,
+            })),
         });
       }
 

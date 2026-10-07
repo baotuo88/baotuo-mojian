@@ -11,7 +11,12 @@ import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import { resolveLetteredImageFile, resolvePanelImageFile } from "./assets";
-import { ExportJobLease, recoverInterruptedExports, renderEpisodeArtifacts, resolveExportSpec } from "./export";
+import {
+  ExportJobLease,
+  recoverInterruptedExports,
+  renderEpisodeArtifacts,
+  resolveExportSpec,
+} from "./export";
 import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import { resolveGeneratedImagesRoot } from "../../runtime/appPaths";
@@ -83,11 +88,35 @@ export class ComicExportService {
         projectId: episode.projectId,
         episodeId,
         format,
-        spec: JSON.stringify({ ...resolvedSpec, inputSnapshot: {
-          episodeId, episodeOrder: episode.order, capturedAt: new Date().toISOString(),
-          panels: episode.panels.map(({ id, order, visualPrompt, dialogues, characterRefs, sceneRef, imageData, letteredData }) =>
-            ({ id, order, visualPrompt, dialogues, characterRefs, sceneRef, imageData, letteredData })),
-        } }),
+        spec: JSON.stringify({
+          ...resolvedSpec,
+          inputSnapshot: {
+            episodeId,
+            episodeOrder: episode.order,
+            capturedAt: new Date().toISOString(),
+            panels: episode.panels.map(
+              ({
+                id,
+                order,
+                visualPrompt,
+                dialogues,
+                characterRefs,
+                sceneRef,
+                imageData,
+                letteredData,
+              }) => ({
+                id,
+                order,
+                visualPrompt,
+                dialogues,
+                characterRefs,
+                sceneRef,
+                imageData,
+                letteredData,
+              }),
+            ),
+          },
+        }),
         status: "processing",
       },
     });
@@ -102,24 +131,37 @@ export class ComicExportService {
       const missing: number[] = [];
       for (const panel of episode.panels) {
         const rawFile = await resolvePanelImageFile(panel);
-        const file = rawFile ? await resolveLetteredImageFile(panel) ?? rawFile : null;
-        if (!file) { missing.push(panel.order); continue; }
+        const file = rawFile ? ((await resolveLetteredImageFile(panel)) ?? rawFile) : null;
+        if (!file) {
+          missing.push(panel.order);
+          continue;
+        }
         try {
           const buffer = await fs.readFile(file.filePath);
           const metadata = await sharp(buffer).metadata();
-          if (!metadata.width || !metadata.height) { missing.push(panel.order); continue; }
+          if (!metadata.width || !metadata.height) {
+            missing.push(panel.order);
+            continue;
+          }
           const frozen = path.join(inputDir, `panel-${panel.order}.${file.ext}`);
           await fs.writeFile(frozen, buffer, { flag: "wx" });
           files.push(frozen);
         } catch (error) {
           // Missing/corrupt image is an incomplete episode, never a silently omitted panel.
-          if (error && typeof error === "object" && "code" in error && error.code !== "ENOENT") throw error;
+          if (error && typeof error === "object" && "code" in error && error.code !== "ENOENT")
+            throw error;
           missing.push(panel.order);
         }
       }
-      if (missing.length > 0) throw new AppError(`第 ${missing.join("、")} 格缺少有效图片，请补齐后导出整话。`, 400);
-      const artifacts = await renderEpisodeArtifacts({ files, jobDir, jobId: job.id,
-        episodeOrder: episode.order, spec: resolvedSpec });
+      if (missing.length > 0)
+        throw new AppError(`第 ${missing.join("、")} 格缺少有效图片，请补齐后导出整话。`, 400);
+      const artifacts = await renderEpisodeArtifacts({
+        files,
+        jobDir,
+        jobId: job.id,
+        episodeOrder: episode.order,
+        spec: resolvedSpec,
+      });
 
       await lease.complete(artifacts);
 
@@ -145,14 +187,30 @@ export class ComicExportService {
   }
 
   /** 读取导出产物文件供 HTTP 流式响应 */
-  async getArtifactFile(jobId: string, filename: string): Promise<{ buffer: Buffer; ext: string } | null> {
+  async getArtifactFile(
+    jobId: string,
+    filename: string,
+  ): Promise<{ buffer: Buffer; ext: string } | null> {
     const safeFilename = path.basename(filename);
     if (safeFilename !== filename) return null;
     const job = await prisma.comicExportJob.findUnique({ where: { id: jobId } });
     if (!job || job.status !== "done") return null;
     let artifacts: ExportArtifact[];
-    try { artifacts = JSON.parse(job.artifacts ?? "[]") as ExportArtifact[]; } catch { return null; }
-    if (!Array.isArray(artifacts) || !artifacts.some((item) => item && typeof item.filePath === "string" && path.basename(item.filePath) === safeFilename)) return null;
+    try {
+      artifacts = JSON.parse(job.artifacts ?? "[]") as ExportArtifact[];
+    } catch {
+      return null;
+    }
+    if (
+      !Array.isArray(artifacts) ||
+      !artifacts.some(
+        (item) =>
+          item &&
+          typeof item.filePath === "string" &&
+          path.basename(item.filePath) === safeFilename,
+      )
+    )
+      return null;
     const filePath = path.join(exportJobDir(jobId), safeFilename);
     try {
       const buffer = await fs.readFile(filePath);

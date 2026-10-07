@@ -122,10 +122,10 @@ async function resolveAttemptTarget(input: {
   structuredStrategy?: StructuredOutputStrategy;
 }): Promise<StructuredAttemptTarget> {
   const shouldResolveRoutePreference = Boolean(
-    input.taskType
-      && input.provider == null
-      && input.model == null
-      && input.structuredStrategy == null,
+    input.taskType &&
+    input.provider == null &&
+    input.model == null &&
+    input.structuredStrategy == null,
   );
   const route = shouldResolveRoutePreference ? await resolveModel(input.taskType!) : null;
   const resolved = await resolveLLMClientOptions(input.provider, {
@@ -140,11 +140,11 @@ async function resolveAttemptTarget(input: {
     structuredStrategy: input.structuredStrategy,
     executionMode: "plain",
   });
-  const preferredStrategy = input.structuredStrategy ?? (route
-    && resolved.provider === route.provider
-    && resolved.model === route.model
-    ? toStructuredOutputStrategy(route.structuredResponseFormat)
-    : null);
+  const preferredStrategy =
+    input.structuredStrategy ??
+    (route && resolved.provider === route.provider && resolved.model === route.model
+      ? toStructuredOutputStrategy(route.structuredResponseFormat)
+      : null);
   return {
     provider: resolved.provider,
     model: resolved.model,
@@ -172,7 +172,10 @@ async function invokeStructuredAttempt<T>(input: {
   fallbackAvailable: boolean;
   fallbackUsed: boolean;
 }): Promise<StructuredInvokeResult<T>> {
-  const attemptTemperature = computeAttemptTemperature(input.target.temperature, input.strategyIndex);
+  const attemptTemperature = computeAttemptTemperature(
+    input.target.temperature,
+    input.strategyIndex,
+  );
   const resolved = await resolveLLMClientOptions(input.target.provider, {
     fallbackProvider: "deepseek",
     apiKey: input.target.apiKey,
@@ -226,41 +229,42 @@ async function invokeStructuredAttempt<T>(input: {
       label: input.baseInput.label,
       timeoutMs: input.baseInput.timeoutMs,
       signal: input.baseInput.signal,
-      run: async (signal) => runWithTransientRetry(
-        async () => {
-          const stream = await llm.stream(
-            messages,
-            signal ? { ...invokeOptions, signal } : invokeOptions,
-          );
-          let rawContent = "";
-          let tokenUsage = null;
-          for await (const chunk of stream) {
-            const content = toText(chunk.content);
-            rawContent += content;
-            liveSession.delta(content);
-            tokenUsage = mergeStreamTokenUsage(tokenUsage, extractLlmTokenUsage(chunk));
-          }
-          return { rawContent, tokenUsage };
-        },
-        {
-          signal,
-          // 通道限流/网络抖动属于可恢复故障。重试会重新累积正文，
-          // 已经推给实时视图的片段可能与最终结果重复，但不会影响结构化解析。
-          onRetry: ({ nextAttempt, delayMs }) => {
-            logStructuredInvokeEvent({
-              event: "invoke_retry_transient",
-              label: input.baseInput.label,
-              provider: resolved.provider,
-              model: resolved.model,
-              taskType: input.baseInput.taskType,
-              strategy: input.strategy,
-              errorCategory: "transport_error",
-              retryAttempt: nextAttempt,
-              delayMs,
-            });
+      run: async (signal) =>
+        runWithTransientRetry(
+          async () => {
+            const stream = await llm.stream(
+              messages,
+              signal ? { ...invokeOptions, signal } : invokeOptions,
+            );
+            let rawContent = "";
+            let tokenUsage = null;
+            for await (const chunk of stream) {
+              const content = toText(chunk.content);
+              rawContent += content;
+              liveSession.delta(content);
+              tokenUsage = mergeStreamTokenUsage(tokenUsage, extractLlmTokenUsage(chunk));
+            }
+            return { rawContent, tokenUsage };
           },
-        },
-      ),
+          {
+            signal,
+            // 通道限流/网络抖动属于可恢复故障。重试会重新累积正文，
+            // 已经推给实时视图的片段可能与最终结果重复，但不会影响结构化解析。
+            onRetry: ({ nextAttempt, delayMs }) => {
+              logStructuredInvokeEvent({
+                event: "invoke_retry_transient",
+                label: input.baseInput.label,
+                provider: resolved.provider,
+                model: resolved.model,
+                taskType: input.baseInput.taskType,
+                strategy: input.strategy,
+                errorCategory: "transport_error",
+                retryAttempt: nextAttempt,
+                delayMs,
+              });
+            },
+          },
+        ),
     });
     const rawContent = collected.rawContent;
     logStructuredInvokeEvent({
@@ -311,9 +315,10 @@ async function invokeStructuredAttempt<T>(input: {
     return parsed;
   } catch (error) {
     liveSession.fail(error);
-    const category = error instanceof StructuredOutputError
-      ? error.category
-      : classifyStructuredOutputFailure({ error });
+    const category =
+      error instanceof StructuredOutputError
+        ? error.category
+        : classifyStructuredOutputFailure({ error });
     logStructuredInvokeEvent({
       event: "invoke_error",
       label: input.baseInput.label,
@@ -368,9 +373,9 @@ async function tryStructuredStrategies<T>(input: {
   const sequence = buildStrategySequence(input.target.profile, input.baseInput.schema);
   const preferredSequence = input.target.preferredStrategy
     ? [
-      input.target.preferredStrategy,
-      ...sequence.filter((strategy) => strategy !== input.target.preferredStrategy),
-    ]
+        input.target.preferredStrategy,
+        ...sequence.filter((strategy) => strategy !== input.target.preferredStrategy),
+      ]
     : sequence;
   let lastError: StructuredOutputError | null = null;
   let attemptTarget = input.target;
@@ -419,17 +424,22 @@ async function tryStructuredStrategies<T>(input: {
       }
     }
   }
-  throw lastError ?? buildStructuredError({
-    message: `[${input.baseInput.label}] Structured output failed.`,
-    category: "transport_error",
-    strategy: selectStructuredOutputStrategy(input.target.profile, input.baseInput.schema),
-    profile: input.target.profile,
-    fallbackAvailable: input.fallbackAvailable,
-    fallbackUsed: input.fallbackUsed,
-  });
+  throw (
+    lastError ??
+    buildStructuredError({
+      message: `[${input.baseInput.label}] Structured output failed.`,
+      category: "transport_error",
+      strategy: selectStructuredOutputStrategy(input.target.profile, input.baseInput.schema),
+      profile: input.target.profile,
+      fallbackAvailable: input.fallbackAvailable,
+      fallbackUsed: input.fallbackUsed,
+    })
+  );
 }
 
-export async function invokeStructuredLlmDetailed<T>(input: StructuredInvokeInput<T>): Promise<StructuredInvokeResult<T>> {
+export async function invokeStructuredLlmDetailed<T>(
+  input: StructuredInvokeInput<T>,
+): Promise<StructuredInvokeResult<T>> {
   throwIfInvocationAborted(input.signal);
   const primaryTarget = await resolveAttemptTarget({
     provider: input.provider,
@@ -442,13 +452,15 @@ export async function invokeStructuredLlmDetailed<T>(input: StructuredInvokeInpu
     requestProtocol: input.requestProtocol,
     structuredStrategy: input.structuredStrategy,
   });
-  const fallbackSettings = input.disableFallbackModel ? null : await getStructuredFallbackSettings();
+  const fallbackSettings = input.disableFallbackModel
+    ? null
+    : await getStructuredFallbackSettings();
   const fallbackEnabled = Boolean(
-    fallbackSettings?.enabled
-    && fallbackSettings.model.trim().length > 0
-    && !(
-      fallbackSettings.provider === primaryTarget.provider
-      && fallbackSettings.model === primaryTarget.model
+    fallbackSettings?.enabled &&
+    fallbackSettings.model.trim().length > 0 &&
+    !(
+      fallbackSettings.provider === primaryTarget.provider &&
+      fallbackSettings.model === primaryTarget.model
     ),
   );
 
@@ -488,9 +500,7 @@ export async function invokeStructuredLlmDetailed<T>(input: StructuredInvokeInpu
       });
     } catch (fallbackError) {
       throwIfInvocationAborted(input.signal);
-      throw fallbackError instanceof StructuredOutputError
-        ? fallbackError
-        : primaryError;
+      throw fallbackError instanceof StructuredOutputError ? fallbackError : primaryError;
     }
   }
 }
@@ -509,9 +519,11 @@ export function summarizeStructuredOutputFailure(input: {
   summary: string;
 } {
   const message = input.error instanceof Error ? input.error.message : String(input.error ?? "");
-  const category = input.error instanceof StructuredOutputError
-    ? input.error.category
-    : extractStructuredOutputErrorCategory(message) ?? classifyStructuredOutputFailure({ error: input.error });
+  const category =
+    input.error instanceof StructuredOutputError
+      ? input.error.category
+      : (extractStructuredOutputErrorCategory(message) ??
+        classifyStructuredOutputFailure({ error: input.error }));
   const suffix = input.fallbackAvailable ? "，可考虑启用结构化备用模型。" : "。";
   const incompleteJsonSummary = input.fallbackAvailable
     ? "模型输出的 JSON 被截断或不完整，可能是输出被截断或 token 上限不足；建议先重试，必要时切换更强模型或启用结构化备用模型。"

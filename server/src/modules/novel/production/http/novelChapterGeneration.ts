@@ -18,12 +18,10 @@ interface RegisterNovelChapterGenerationRoutesInput {
   forwardBusinessError: (error: unknown, next: (err?: unknown) => void) => boolean;
 }
 
-export function registerNovelChapterGenerationRoutes(input: RegisterNovelChapterGenerationRoutesInput): void {
-  const {
-    router,
-    chapterParamsSchema,
-    forwardBusinessError,
-  } = input;
+export function registerNovelChapterGenerationRoutes(
+  input: RegisterNovelChapterGenerationRoutesInput,
+): void {
+  const { router, chapterParamsSchema, forwardBusinessError } = input;
 
   router.post(
     "/:id/chapters/:chapterId/runtime/run",
@@ -31,19 +29,21 @@ export function registerNovelChapterGenerationRoutes(input: RegisterNovelChapter
     async (req, res, next) => {
       try {
         const { id, chapterId } = req.params as z.infer<typeof chapterParamsSchema>;
-        await runClientSSE(req, res, () => stepModuleRunner.runStep<ChapterStreamResult>(
-          DIRECTOR_EXECUTION_STEP_IDS.chapter_execution,
-          {
-            novelId: id,
-            mode: "manual",
-            targetType: "chapter",
-            targetChapterId: chapterId,
-            stepInput: {
-              options: req.body as z.infer<typeof chapterRuntimeRequestSchema>,
-              runtimeStream: true,
+        await runClientSSE(req, res, () =>
+          stepModuleRunner.runStep<ChapterStreamResult>(
+            DIRECTOR_EXECUTION_STEP_IDS.chapter_execution,
+            {
+              novelId: id,
+              mode: "manual",
+              targetType: "chapter",
+              targetChapterId: chapterId,
+              stepInput: {
+                options: req.body as z.infer<typeof chapterRuntimeRequestSchema>,
+                runtimeStream: true,
+              },
             },
-          },
-        ));
+          ),
+        );
       } catch (error) {
         if (forwardBusinessError(error, next)) {
           return;
@@ -59,16 +59,18 @@ export function registerNovelChapterGenerationRoutes(input: RegisterNovelChapter
     async (req, res, next) => {
       try {
         const { id, chapterId } = req.params as z.infer<typeof chapterParamsSchema>;
-        await runClientSSE(req, res, () => stepModuleRunner.runStep<ChapterStreamResult>(
-          DIRECTOR_EXECUTION_STEP_IDS.chapter_execution,
-          {
-            novelId: id,
-            mode: "manual",
-            targetType: "chapter",
-            targetChapterId: chapterId,
-            stepInput: req.body as z.infer<typeof chapterRuntimeRequestSchema>,
-          },
-        ));
+        await runClientSSE(req, res, () =>
+          stepModuleRunner.runStep<ChapterStreamResult>(
+            DIRECTOR_EXECUTION_STEP_IDS.chapter_execution,
+            {
+              novelId: id,
+              mode: "manual",
+              targetType: "chapter",
+              targetChapterId: chapterId,
+              stepInput: req.body as z.infer<typeof chapterRuntimeRequestSchema>,
+            },
+          ),
+        );
       } catch (error) {
         if (forwardBusinessError(error, next)) {
           return;

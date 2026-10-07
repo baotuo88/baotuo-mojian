@@ -23,13 +23,20 @@ test("drama prompt assets are registered", () => {
     ["drama.video.prompt", "v1"],
   ];
   for (const [id, version] of prompts) {
-    assert.equal(hasRegisteredPromptAsset(id, version), true, `${id}@${version} should be registered`);
+    assert.equal(
+      hasRegisteredPromptAsset(id, version),
+      true,
+      `${id}@${version} should be registered`,
+    );
   }
 });
 
 test("drama paywall plan schema is machine readable", () => {
   const { dramaStrategyOutputSchema } = require("../dist/prompting/prompts/drama/drama.prompts.js");
-  const { describeDramaPaywallPlan, resolveDramaPaywallPlan } = require("../dist/services/drama/engine/paywallPlanPolicy.js");
+  const {
+    describeDramaPaywallPlan,
+    resolveDramaPaywallPlan,
+  } = require("../dist/services/drama/engine/paywallPlanPolicy.js");
   const strategy = dramaStrategyOutputSchema.parse({
     positioning: "面向喜欢隐藏身份逆袭的竖屏短剧用户。",
     mainPleasureLine: "林澈持续受辱后逐步掉马甲打脸。",
@@ -40,12 +47,14 @@ test("drama paywall plan schema is machine readable", () => {
       paywallCadence: 1,
       cliffhangerStrengthThreshold: 86,
       buildupBeforePaywall: "第 11 集让主角被误解到低谷，第 12 集用董事长跪迎反转。",
-      intensityCurve: [{
-        fromEpisode: 1,
-        toEpisode: 12,
-        goal: "免费段完成身份羞辱蓄势并推到首付费反转。",
-        targetEmotionNet: -4,
-      }],
+      intensityCurve: [
+        {
+          fromEpisode: 1,
+          toEpisode: 12,
+          goal: "免费段完成身份羞辱蓄势并推到首付费反转。",
+          targetEmotionNet: -4,
+        },
+      ],
     },
     emotionCurveNote: "憋屈蓄势后用身份反转释放。",
     deviationDeclaration: "保留隐藏身份主线，压缩支线。",
@@ -73,7 +82,15 @@ test("drama quality gate escalates weak paywall beats from paywall plan", () => 
   });
   const baseQuality = {
     status: "approved",
-    score: { hook: 90, density: 88, paywall: 70, emotion: 82, duration: 86, consistency: 90, overall: 86 },
+    score: {
+      hook: 90,
+      density: 88,
+      paywall: 70,
+      emotion: 82,
+      duration: 86,
+      consistency: 90,
+      overall: 86,
+    },
     flags: [],
   };
   const paywallResult = applyPaywallQualityRules(baseQuality, {
@@ -83,23 +100,32 @@ test("drama quality gate escalates weak paywall beats from paywall plan", () => 
     targetEpisodes: 80,
   });
   assert.equal(paywallResult.status, "repairable");
-  assert.equal(paywallResult.flags.some((flag) => flag.code === "paywall_cliffhanger_below_plan"), true);
+  assert.equal(
+    paywallResult.flags.some((flag) => flag.code === "paywall_cliffhanger_below_plan"),
+    true,
+  );
   assert.match(paywallResult.repairPlan.instruction, /强化/);
 
-  const prePaywallResult = applyPaywallQualityRules({
-    ...baseQuality,
-    score: { ...baseQuality.score, paywall: 90 },
-  }, {
-    episode: { order: 11, title: "误会升级", emotionNet: -1, isPaywall: false },
-    episodes: [
-      { order: 10, title: "受辱", emotionNet: -4, isPaywall: false },
-      { order: 11, title: "误会升级", emotionNet: -1, isPaywall: false },
-    ],
-    strategyJson,
-    targetEpisodes: 80,
-  });
+  const prePaywallResult = applyPaywallQualityRules(
+    {
+      ...baseQuality,
+      score: { ...baseQuality.score, paywall: 90 },
+    },
+    {
+      episode: { order: 11, title: "误会升级", emotionNet: -1, isPaywall: false },
+      episodes: [
+        { order: 10, title: "受辱", emotionNet: -4, isPaywall: false },
+        { order: 11, title: "误会升级", emotionNet: -1, isPaywall: false },
+      ],
+      strategyJson,
+      targetEpisodes: 80,
+    },
+  );
   assert.equal(prePaywallResult.status, "repairable");
-  assert.equal(prePaywallResult.flags.some((flag) => flag.code === "pre_paywall_buildup_not_lowest"), true);
+  assert.equal(
+    prePaywallResult.flags.some((flag) => flag.code === "pre_paywall_buildup_not_lowest"),
+    true,
+  );
 });
 
 test("drama compliance report merges into quality state", () => {
@@ -109,16 +135,26 @@ test("drama compliance report merges into quality state", () => {
   } = require("../dist/services/drama/DramaComplianceService.js");
   const quality = {
     status: "approved",
-    score: { hook: 90, density: 88, paywall: 90, emotion: 82, duration: 86, consistency: 90, overall: 88 },
+    score: {
+      hook: 90,
+      density: 88,
+      paywall: 90,
+      emotion: 82,
+      duration: 86,
+      consistency: 90,
+      overall: 88,
+    },
     flags: [],
   };
   const compliance = {
     level: "block",
-    items: [{
-      rule: "医疗误导",
-      excerpt: "包治百病",
-      suggestion: "改成角色夸张吹嘘，并让台词避免承诺疗效。",
-    }],
+    items: [
+      {
+        rule: "医疗误导",
+        excerpt: "包治百病",
+        suggestion: "改成角色夸张吹嘘，并让台词避免承诺疗效。",
+      },
+    ],
   };
   const merged = mergeComplianceIntoQuality(quality, compliance);
   assert.equal(merged.status, "blocked");
@@ -126,13 +162,16 @@ test("drama compliance report merges into quality state", () => {
   assert.equal(merged.flags[0].code, "compliance_block");
   assert.match(merged.repairPlan.instruction, /避免承诺疗效/);
 
-  const stored = mergeComplianceIntoStoredQuality(JSON.stringify({
-    status: "approved",
-    flags: [{ code: "compliance_warn", evidence: "旧合规提示", suggestion: "旧建议" }],
-  }), {
-    level: "warn",
-    items: [{ rule: "低俗擦边", excerpt: "不合适桥段", suggestion: "改为剧情冲突。" }],
-  });
+  const stored = mergeComplianceIntoStoredQuality(
+    JSON.stringify({
+      status: "approved",
+      flags: [{ code: "compliance_warn", evidence: "旧合规提示", suggestion: "旧建议" }],
+    }),
+    {
+      level: "warn",
+      items: [{ rule: "低俗擦边", excerpt: "不合适桥段", suggestion: "改为剧情冲突。" }],
+    },
+  );
   assert.equal(stored.compliance.level, "warn");
   assert.equal(stored.flags.length, 1);
   assert.equal(stored.flags[0].code, "compliance_warn");
@@ -143,7 +182,10 @@ test("drama video provider registry exposes mock provider", async () => {
   const { videoProviderRegistry } = require("../dist/services/drama/video/VideoProviderPort.js");
   const provider = videoProviderRegistry.resolve("mock");
   const providers = videoProviderRegistry.listProviders();
-  assert.equal(providers.some((item) => item.provider === "mock"), true);
+  assert.equal(
+    providers.some((item) => item.provider === "mock"),
+    true,
+  );
   assert.equal(providers.find((item) => item.provider === "mock")?.supportsRefImages, true);
   assert.equal(providers.find((item) => item.provider === "mock")?.costPerSecond, 0);
   const result = await provider.createTask({
@@ -161,7 +203,10 @@ test("drama tts provider registry exposes mock provider", async () => {
   const { ttsProviderRegistry } = require("../dist/services/drama/audio/TTSProviderPort.js");
   const provider = ttsProviderRegistry.resolve("mock");
   const providers = ttsProviderRegistry.listProviders();
-  assert.equal(providers.some((item) => item.provider === "mock"), true);
+  assert.equal(
+    providers.some((item) => item.provider === "mock"),
+    true,
+  );
   assert.equal(providers.find((item) => item.provider === "mock")?.costPerSecond, 0);
   const result = await provider.synthesize({
     text: "你也配进去？",
@@ -190,7 +235,13 @@ test("http drama video provider maps create and status responses", async () => {
       return;
     }
     if (req.method === "GET" && req.url === "/status/task_1") {
-      res.end(JSON.stringify({ taskId: "task_1", status: "completed", resultUrl: "https://example.test/video.mp4" }));
+      res.end(
+        JSON.stringify({
+          taskId: "task_1",
+          status: "completed",
+          resultUrl: "https://example.test/video.mp4",
+        }),
+      );
       return;
     }
     if (req.method === "GET" && req.url === "/status/task_fail") {
@@ -320,7 +371,12 @@ test("drama migrations include pipeline tables for sqlite and postgres", () => {
     assert.match(sql, /DramaVideoPrompt/);
   }
   const sqliteProjectionSql = fs.readFileSync(
-    path.join(root, "migrations.sqlite", "20260609170000_drama_video_task_projection", "migration.sql"),
+    path.join(
+      root,
+      "migrations.sqlite",
+      "20260609170000_drama_video_task_projection",
+      "migration.sql",
+    ),
     "utf8",
   );
   const postgresProjectionSql = fs.readFileSync(
@@ -366,7 +422,12 @@ test("drama migrations include pipeline tables for sqlite and postgres", () => {
     assert.match(sql, /dialogueAudioData/);
   }
   const sqliteGenerationVersionSql = fs.readFileSync(
-    path.join(root, "migrations.sqlite", "20260610143000_drama_generation_versions", "migration.sql"),
+    path.join(
+      root,
+      "migrations.sqlite",
+      "20260610143000_drama_generation_versions",
+      "migration.sql",
+    ),
     "utf8",
   );
   const postgresGenerationVersionSql = fs.readFileSync(

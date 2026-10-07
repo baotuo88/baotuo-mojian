@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { chapterPayoffDirectiveSchema, type ChapterPayoffDirective } from "@ai-novel/shared/types/canonicalState";
+import {
+  chapterPayoffDirectiveSchema,
+  type ChapterPayoffDirective,
+} from "@ai-novel/shared/types/canonicalState";
 import { prisma } from "../../../../../db/prisma";
 import { withSqliteRetry } from "../../../../../db/sqliteRetry";
 
@@ -25,7 +28,10 @@ function parsePlanMetadata(rawPlanJson: string | null): Record<string, unknown> 
   return parsed as Record<string, unknown>;
 }
 
-function readDecision(metadata: Record<string, unknown>, fingerprint: string): ChapterPayoffDirective[] | null {
+function readDecision(
+  metadata: Record<string, unknown>,
+  fingerprint: string,
+): ChapterPayoffDirective[] | null {
   const parsed = decisionSchema.safeParse(metadata.chapterPayoffDecision);
   if (!parsed.success || parsed.data.fingerprint !== fingerprint) return null;
   const keys = parsed.data.directives.map((item) => item.ledgerKey?.trim());
@@ -58,32 +64,43 @@ export class ChapterPayoffDecisionStore {
       throw new Error("伏笔动作必须包含唯一且非空的账本身份。");
     }
     for (let attempt = 0; attempt < 4; attempt++) {
-      const result = await withSqliteRetry(() => prisma.$transaction(async (tx) => {
-        const plan = await tx.storyPlan.findUnique({
-          where: { id: planId },
-          select: { rawPlanJson: true, updatedAt: true },
-        });
-        if (!plan) throw new Error("章节计划不存在，不能保存伏笔动作。");
-        const metadata = parsePlanMetadata(plan.rawPlanJson);
-        const currentContractHash = typeof metadata.executionContractHash === "string"
-          ? metadata.executionContractHash.trim() || null
-          : null;
-        if (options.expectedExecutionContractHash !== undefined
-          && currentContractHash !== options.expectedExecutionContractHash) {
-          throw new Error("章节执行合同已变更，请重新读取计划后规划伏笔动作。");
-        }
-        const winner = readDecision(metadata, fingerprint);
-        if (winner) return { directives: winner };
-        if (options.expectedPlanUpdatedAt !== undefined
-          && plan.updatedAt.getTime() !== new Date(options.expectedPlanUpdatedAt).getTime()) {
-          throw new Error("章节计划已变更，请重新读取计划后规划伏笔动作。");
-        }
-        const updated = await tx.storyPlan.updateMany({
-          where: { id: planId, rawPlanJson: plan.rawPlanJson, updatedAt: plan.updatedAt },
-          data: { rawPlanJson: JSON.stringify({ ...metadata, chapterPayoffDecision: decision }) },
-        });
-        return updated.count === 1 ? { directives: decision.directives } : null;
-      }), { label: "chapterPayoffDecision.save" });
+      const result = await withSqliteRetry(
+        () =>
+          prisma.$transaction(async (tx) => {
+            const plan = await tx.storyPlan.findUnique({
+              where: { id: planId },
+              select: { rawPlanJson: true, updatedAt: true },
+            });
+            if (!plan) throw new Error("章节计划不存在，不能保存伏笔动作。");
+            const metadata = parsePlanMetadata(plan.rawPlanJson);
+            const currentContractHash =
+              typeof metadata.executionContractHash === "string"
+                ? metadata.executionContractHash.trim() || null
+                : null;
+            if (
+              options.expectedExecutionContractHash !== undefined &&
+              currentContractHash !== options.expectedExecutionContractHash
+            ) {
+              throw new Error("章节执行合同已变更，请重新读取计划后规划伏笔动作。");
+            }
+            const winner = readDecision(metadata, fingerprint);
+            if (winner) return { directives: winner };
+            if (
+              options.expectedPlanUpdatedAt !== undefined &&
+              plan.updatedAt.getTime() !== new Date(options.expectedPlanUpdatedAt).getTime()
+            ) {
+              throw new Error("章节计划已变更，请重新读取计划后规划伏笔动作。");
+            }
+            const updated = await tx.storyPlan.updateMany({
+              where: { id: planId, rawPlanJson: plan.rawPlanJson, updatedAt: plan.updatedAt },
+              data: {
+                rawPlanJson: JSON.stringify({ ...metadata, chapterPayoffDecision: decision }),
+              },
+            });
+            return updated.count === 1 ? { directives: decision.directives } : null;
+          }),
+        { label: "chapterPayoffDecision.save" },
+      );
       if (result) return result.directives;
     }
     throw new Error("章节计划正在被更新，伏笔动作尚未保存，请重新读取后重试。");

@@ -29,14 +29,25 @@ export function referenceSourceFingerprint(source: unknown): string {
   return createHash("sha256").update(JSON.stringify(source)).digest("hex");
 }
 
-export function confirmedReferenceImage(raw: string | ReferenceImageState | null | undefined): ReferenceImageState | null {
+export function confirmedReferenceImage(
+  raw: string | ReferenceImageState | null | undefined,
+): ReferenceImageState | null {
   let state: ReferenceImageState | null;
-  try { state = typeof raw === "string" ? JSON.parse(raw) : raw ?? null; } catch { return null; }
+  try {
+    state = typeof raw === "string" ? JSON.parse(raw) : (raw ?? null);
+  } catch {
+    return null;
+  }
   const image = state?.status === "done" ? state : state?.previousImage;
   return image?.status === "done" ? image : null;
 }
 
-export function referenceImagePath(kind: ReferenceImageKind, id: string, revision: string, ext: string): string {
+export function referenceImagePath(
+  kind: ReferenceImageKind,
+  id: string,
+  revision: string,
+  ext: string,
+): string {
   if (!safeSegment.test(id) || !safeSegment.test(revision) || !Object.hasOwn(mimeTypes, ext)) {
     throw new AppError("图片版本信息无效，请重新生成。", 400);
   }
@@ -44,33 +55,70 @@ export function referenceImagePath(kind: ReferenceImageKind, id: string, revisio
   return path.join(resolveGeneratedImagesRoot(), directory, id, revision, `${basename}.${ext}`);
 }
 
-export async function resolveReferenceImageFile(kind: ReferenceImageKind, id: string,
-  raw: string | ReferenceImageState | null | undefined, sourceFingerprint?: string, requestedRevision?: string,
+export async function resolveReferenceImageFile(
+  kind: ReferenceImageKind,
+  id: string,
+  raw: string | ReferenceImageState | null | undefined,
+  sourceFingerprint?: string,
+  requestedRevision?: string,
 ): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
   let image = confirmedReferenceImage(raw);
   if (requestedRevision) {
     if (!safeSegment.test(requestedRevision)) return null;
     let state: ReferenceImageState | null;
-    try { state = typeof raw === "string" ? JSON.parse(raw) : raw ?? null; } catch { return null; }
+    try {
+      state = typeof raw === "string" ? JSON.parse(raw) : (raw ?? null);
+    } catch {
+      return null;
+    }
     if (image?.revision !== requestedRevision) {
-      const history = [...(Array.isArray(state?.history) ? state.history : []), ...(Array.isArray(image?.history) ? image.history : [])];
-      const archived = history.find(item => (item as ReferenceImageState).revision === requestedRevision);
+      const history = [
+        ...(Array.isArray(state?.history) ? state.history : []),
+        ...(Array.isArray(image?.history) ? image.history : []),
+      ];
+      const archived = history.find(
+        (item) => (item as ReferenceImageState).revision === requestedRevision,
+      );
       image = archived ? { ...archived, status: "done" } : null;
     }
   }
   if (!image || !safeSegment.test(id)) return null;
-  if (!requestedRevision && sourceFingerprint && image.sourceFingerprint && image.sourceFingerprint !== sourceFingerprint) return null;
+  if (
+    !requestedRevision &&
+    sourceFingerprint &&
+    image.sourceFingerprint &&
+    image.sourceFingerprint !== sourceFingerprint
+  )
+    return null;
   if (image.revision) {
-    if (typeof image.revision !== "string" || !safeSegment.test(image.revision) || !Object.hasOwn(mimeTypes, image.ext ?? "")) return null;
+    if (
+      typeof image.revision !== "string" ||
+      !safeSegment.test(image.revision) ||
+      !Object.hasOwn(mimeTypes, image.ext ?? "")
+    )
+      return null;
     const filePath = referenceImagePath(kind, id, image.revision, image.ext!);
-    try { await fs.access(filePath); return { filePath, mimeType: mimeTypes[image.ext as keyof typeof mimeTypes], revision: image.revision }; }
-    catch { return null; }
+    try {
+      await fs.access(filePath);
+      return {
+        filePath,
+        mimeType: mimeTypes[image.ext as keyof typeof mimeTypes],
+        revision: image.revision,
+      };
+    } catch {
+      return null;
+    }
   }
   // Only confirmed legacy metadata can authorize the old fixed filename.
   const [directory, basename] = locations[kind];
   for (const [ext, mimeType] of Object.entries(mimeTypes)) {
     const filePath = path.join(resolveGeneratedImagesRoot(), directory, id, `${basename}.${ext}`);
-    try { await fs.access(filePath); return { filePath, mimeType }; } catch { /* next legacy encoding */ }
+    try {
+      await fs.access(filePath);
+      return { filePath, mimeType };
+    } catch {
+      /* next legacy encoding */
+    }
   }
   return null;
 }
@@ -91,14 +139,31 @@ export function createReferenceImageAdapter<T extends GeneratedImageState>(input
   const previousImage = confirmedReferenceImage(input.state);
   const existing = previousImage ?? input.state;
   let extension = "png";
-  const doneExtra = () => ({ revision, ext: extension, sourceFingerprint,
-    previousImage: undefined, generationRevision: undefined, error: undefined, ...input.extraDone });
+  const doneExtra = () => ({
+    revision,
+    ext: extension,
+    sourceFingerprint,
+    previousImage: undefined,
+    generationRevision: undefined,
+    error: undefined,
+    ...input.extraDone,
+  });
   return {
     kind: `comic.reference.${input.kind}:${input.id}`,
     loadState: async () => existing as T,
-    versioning: input.versioning ?? { enabled: true, maxHistory: 5,
-      archiveCurrent: async current => current.status === "done"
-        ? { ...current, version: current.version ?? 1, history: undefined, previousImage: undefined } : null },
+    versioning: input.versioning ?? {
+      enabled: true,
+      maxHistory: 5,
+      archiveCurrent: async (current) =>
+        current.status === "done"
+          ? {
+              ...current,
+              version: current.version ?? 1,
+              history: undefined,
+              previousImage: undefined,
+            }
+          : null,
+    },
     async saveState(next) {
       throwIfExecutionAborted();
       if (next.status === "done") {
@@ -109,9 +174,11 @@ export function createReferenceImageAdapter<T extends GeneratedImageState>(input
         }
         await sharp(filename).resize(1, 1).raw().toBuffer();
       }
-      const state = next.status === "done" ? { ...next, ...doneExtra() }
-        : { ...next, generationRevision: revision, previousImage: previousImage ?? undefined };
-      if (!await input.commit(state as T)) {
+      const state =
+        next.status === "done"
+          ? { ...next, ...doneExtra() }
+          : { ...next, generationRevision: revision, previousImage: previousImage ?? undefined };
+      if (!(await input.commit(state as T))) {
         if (next.status === "error") return;
         throw new AppError("素材或图片已更新，请刷新后重新生成。", 409);
       }
@@ -128,11 +195,15 @@ export function createReferenceImageAdapter<T extends GeneratedImageState>(input
 
 /** Uploads use the same validated immutable publication protocol as model results. */
 export async function publishReferenceUpload<T extends GeneratedImageState>(
-  adapter: ImageTargetAdapter<T>, buffer: Buffer, mimeType: string,
+  adapter: ImageTargetAdapter<T>,
+  buffer: Buffer,
+  mimeType: string,
 ): Promise<{ url: string }> {
   const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }[mimeType];
   if (!ext) throw new AppError("请上传 PNG、JPG 或 WebP 图片。", 400);
-  const meta = await sharp(buffer).metadata().catch(() => null);
+  const meta = await sharp(buffer)
+    .metadata()
+    .catch(() => null);
   if (!meta || meta.format !== (ext === "jpg" ? "jpeg" : ext)) {
     throw new AppError("图片内容与文件类型不符，请重新选择有效图片。", 400);
   }
@@ -140,12 +211,22 @@ export async function publishReferenceUpload<T extends GeneratedImageState>(
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, buffer, { flag: "wx" });
   const existing = await adapter.loadState();
-  const archived = adapter.versioning?.enabled && adapter.versioning.archiveCurrent
-    ? await adapter.versioning.archiveCurrent(existing) : null;
-  const history = [...(Array.isArray(existing.history) ? existing.history : []), ...(archived ? [archived] : [])]
-    .slice(-(adapter.versioning?.maxHistory ?? 5));
+  const archived =
+    adapter.versioning?.enabled && adapter.versioning.archiveCurrent
+      ? await adapter.versioning.archiveCurrent(existing)
+      : null;
+  const history = [
+    ...(Array.isArray(existing.history) ? existing.history : []),
+    ...(archived ? [archived] : []),
+  ].slice(-(adapter.versioning?.maxHistory ?? 5));
   const url = adapter.publicUrl();
-  await adapter.saveState({ status: "done", url, version: (existing.version ?? 0) + 1, history,
-    origin: "uploaded", generatedAt: new Date().toISOString() } as T);
+  await adapter.saveState({
+    status: "done",
+    url,
+    version: (existing.version ?? 0) + 1,
+    history,
+    origin: "uploaded",
+    generatedAt: new Date().toISOString(),
+  } as T);
   return { url };
 }

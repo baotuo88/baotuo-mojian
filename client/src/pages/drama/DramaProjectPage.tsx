@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Download,
-  RefreshCw,
-  Save,
-  Wand2,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, RefreshCw, Save, Wand2 } from "lucide-react";
 import {
   assembleDramaSourceBundle,
   checkDramaProjectCompliance,
@@ -53,7 +46,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, AppDialogContent } from "@/components/ui/dialog";
-import { DramaBatchJobCard, isActiveBatch, isBatchStoryboardCurrent, isRecoverableBatch, latestBatchJobs, parseBatchProgress, pollingVideoPrompts, shouldPollProduction, summarizeDramaStages } from "./production";
+import {
+  DramaBatchJobCard,
+  isActiveBatch,
+  isBatchStoryboardCurrent,
+  isRecoverableBatch,
+  latestBatchJobs,
+  parseBatchProgress,
+  pollingVideoPrompts,
+  shouldPollProduction,
+  summarizeDramaStages,
+} from "./production";
 import { toast } from "@/components/ui/toast";
 import { DramaDraftProtection, isDraftDirty, useEpisodeDrafts } from "./script";
 import { DramaRenderPanel } from "./render";
@@ -179,8 +182,13 @@ function ProjectProgress(props: { project: DramaProjectDetail }) {
   return (
     <div className="grid gap-2 sm:grid-cols-5">
       {steps.map((step) => (
-        <div key={step.label} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-          <CheckCircle2 className={step.done ? "h-4 w-4 text-emerald-600" : "h-4 w-4 text-muted-foreground"} />
+        <div
+          key={step.label}
+          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+        >
+          <CheckCircle2
+            className={step.done ? "h-4 w-4 text-emerald-600" : "h-4 w-4 text-muted-foreground"}
+          />
           <span>{step.label}</span>
         </div>
       ))}
@@ -192,23 +200,33 @@ function StrategyPanel({ project }: { project: DramaProjectDetail }) {
   const strategy = safeJson<Record<string, unknown>>(project.strategy, {});
   const entries = Object.entries(strategy);
   if (!project.strategy) {
-    return <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">还没有生成短剧策略。</div>;
+    return (
+      <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+        还没有生成短剧策略。
+      </div>
+    );
   }
   return (
     <div className="grid gap-3 lg:grid-cols-2">
-      {entries.length > 0 ? entries.map(([key, value]) => (
-        <Card key={key} className="rounded-lg">
-          <CardHeader>
-            <CardTitle className="text-base">{STRATEGY_LABELS[key] ?? key}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{compactText(value)}</pre>
-          </CardContent>
-        </Card>
-      )) : (
+      {entries.length > 0 ? (
+        entries.map(([key, value]) => (
+          <Card key={key} className="rounded-lg">
+            <CardHeader>
+              <CardTitle className="text-base">{STRATEGY_LABELS[key] ?? key}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
+                {compactText(value)}
+              </pre>
+            </CardContent>
+          </Card>
+        ))
+      ) : (
         <Card className="rounded-lg">
           <CardContent className="pt-6">
-            <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{project.strategy}</pre>
+            <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
+              {project.strategy}
+            </pre>
           </CardContent>
         </Card>
       )}
@@ -216,11 +234,7 @@ function StrategyPanel({ project }: { project: DramaProjectDetail }) {
   );
 }
 
-function EpisodeCard(props: {
-  episode: DramaEpisode;
-  selected: boolean;
-  onSelect: () => void;
-}) {
+function EpisodeCard(props: { episode: DramaEpisode; selected: boolean; onSelect: () => void }) {
   return (
     <button
       type="button"
@@ -229,11 +243,15 @@ function EpisodeCard(props: {
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">第 {props.episode.order} 集</span>
-        <Badge variant={props.episode.isPaywall ? "default" : "secondary"}>{props.episode.isPaywall ? "付费卡点" : "普通集"}</Badge>
+        <Badge variant={props.episode.isPaywall ? "default" : "secondary"}>
+          {props.episode.isPaywall ? "付费卡点" : "普通集"}
+        </Badge>
         <Badge variant="outline">{statusLabel(props.episode.status)}</Badge>
       </div>
       <div className="mt-2 font-medium">{props.episode.title}</div>
-      <div className="mt-1 line-clamp-2 text-muted-foreground">{props.episode.hookOpening || props.episode.cliffhanger || "暂无钩子信息"}</div>
+      <div className="mt-1 line-clamp-2 text-muted-foreground">
+        {props.episode.hookOpening || props.episode.cliffhanger || "暂无钩子信息"}
+      </div>
     </button>
   );
 }
@@ -246,13 +264,21 @@ function QualityFlags({ episode }: { episode: DramaEpisode }) {
     repairPlan?: { mode?: string; instruction?: string };
   }>(episode.qualityFlags, {});
   if (!episode.qualityFlags) {
-    return <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">还没有质量检查结果。</div>;
+    return (
+      <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+        还没有质量检查结果。
+      </div>
+    );
   }
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={quality.status === "approved" ? "default" : "secondary"}>{quality.status || "已检查"}</Badge>
-        {quality.score?.overall != null ? <span className="text-sm text-muted-foreground">综合 {quality.score.overall}</span> : null}
+        <Badge variant={quality.status === "approved" ? "default" : "secondary"}>
+          {quality.status || "已检查"}
+        </Badge>
+        {quality.score?.overall != null ? (
+          <span className="text-sm text-muted-foreground">综合 {quality.score.overall}</span>
+        ) : null}
       </div>
       {quality.score ? (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -293,7 +319,10 @@ function EpisodesPanel(props: {
   selectedOrder: number | null;
   onSelectOrder: (order: number) => void;
   ttsProviders: Array<{ provider: string; label: string; description?: string }>;
-  onBatchJob: (order: number, input: { type: "tts"; provider?: string; failedShotIds?: string[] }) => void;
+  onBatchJob: (
+    order: number,
+    input: { type: "tts"; provider?: string; failedShotIds?: string[] },
+  ) => void;
   onPause: (job: DramaBatchJob) => void;
   onResume: (job: DramaBatchJob) => void;
   onGenerateScript: (order: number) => void;
@@ -303,7 +332,8 @@ function EpisodesPanel(props: {
   busy: boolean;
 }) {
   const episodes = props.project.episodes ?? [];
-  const selectedEpisode = episodes.find((episode) => episode.order === props.selectedOrder) ?? episodes[0];
+  const selectedEpisode =
+    episodes.find((episode) => episode.order === props.selectedOrder) ?? episodes[0];
   const state = selectedEpisode ? props.drafts.get(selectedEpisode) : undefined;
   const draft = state?.draft;
   const dirty = state ? isDraftDirty(state) : false;
@@ -314,7 +344,11 @@ function EpisodesPanel(props: {
   };
 
   if (episodes.length === 0) {
-    return <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">还没有分集大纲。先生成前 12 集分集。</div>;
+    return (
+      <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+        还没有分集大纲。先生成前 12 集分集。
+      </div>
+    );
   }
 
   return (
@@ -333,54 +367,109 @@ function EpisodesPanel(props: {
         <Card className="rounded-lg">
           <CardHeader className="gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
-              <CardTitle className="text-lg">第 {selectedEpisode.order} 集：{selectedEpisode.title}</CardTitle>
-              <CardDescription>{selectedEpisode.hookOpening || "本集尚未写入开场钩子。"}</CardDescription>
+              <CardTitle className="text-lg">
+                第 {selectedEpisode.order} 集：{selectedEpisode.title}
+              </CardTitle>
+              <CardDescription>
+                {selectedEpisode.hookOpening || "本集尚未写入开场钩子。"}
+              </CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" type="button" disabled={busy || dirty || state.conflict} onClick={() => props.onGenerateScript(selectedEpisode.order)}>
+              <Button
+                size="sm"
+                type="button"
+                disabled={busy || dirty || state.conflict}
+                onClick={() => props.onGenerateScript(selectedEpisode.order)}
+              >
                 <Wand2 className="h-4 w-4" />
                 生成台本
               </Button>
-              <Button size="sm" type="button" variant="outline" disabled={busy || dirty || state.conflict || !selectedEpisode.content?.trim()} onClick={() => props.onReview(selectedEpisode.order)}>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                disabled={busy || dirty || state.conflict || !selectedEpisode.content?.trim()}
+                onClick={() => props.onReview(selectedEpisode.order)}
+              >
                 <CheckCircle2 className="h-4 w-4" />
                 质量检查
               </Button>
-              <Button size="sm" type="button" variant="outline" disabled={busy || dirty || state.conflict || !selectedEpisode.content?.trim()} onClick={() => props.onRepair(selectedEpisode.order)}>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                disabled={busy || dirty || state.conflict || !selectedEpisode.content?.trim()}
+                onClick={() => props.onRepair(selectedEpisode.order)}
+              >
                 <RefreshCw className="h-4 w-4" />
                 修复
               </Button>
-              <Button size="sm" type="button" variant="outline" disabled={busy || !dirty || state.conflict} onClick={() => void props.drafts.save(selectedEpisode)}>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                disabled={busy || !dirty || state.conflict}
+                onClick={() => void props.drafts.save(selectedEpisode)}
+              >
                 <Save className="h-4 w-4" />
                 {saving ? "保存中..." : "保存编辑"}
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <DramaDraftProtection key={selectedEpisode.id} projectId={props.project.id} episode={selectedEpisode} state={state}
-              busy={busy} onReload={props.drafts.reload} />
+            <DramaDraftProtection
+              key={selectedEpisode.id}
+              projectId={props.project.id}
+              episode={selectedEpisode}
+              state={state}
+              busy={busy}
+              onReload={props.drafts.reload}
+            />
             <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-md border p-3 text-sm">时长：{selectedEpisode.durationSec ?? "待生成"} 秒</div>
-              <div className="rounded-md border p-3 text-sm">情绪净值：{selectedEpisode.emotionNet ?? "待生成"}</div>
-              <div className="rounded-md border p-3 text-sm">状态：{statusLabel(selectedEpisode.status)}</div>
+              <div className="rounded-md border p-3 text-sm">
+                时长：{selectedEpisode.durationSec ?? "待生成"} 秒
+              </div>
+              <div className="rounded-md border p-3 text-sm">
+                情绪净值：{selectedEpisode.emotionNet ?? "待生成"}
+              </div>
+              <div className="rounded-md border p-3 text-sm">
+                状态：{statusLabel(selectedEpisode.status)}
+              </div>
             </div>
             <section className="space-y-2">
               <h3 className="text-sm font-medium">本集信息</h3>
               <div className="grid gap-3 lg:grid-cols-2">
                 <label className="block space-y-1.5 text-sm">
                   <span className="font-medium">标题</span>
-                  <input className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={draft.title} onChange={(event) => edit({ title: event.target.value })} />
+                  <input
+                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    value={draft.title}
+                    onChange={(event) => edit({ title: event.target.value })}
+                  />
                 </label>
                 <label className="block space-y-1.5 text-sm">
                   <span className="font-medium">预计时长（秒）</span>
-                  <input className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={draft.durationSec} onChange={(event) => edit({ durationSec: event.target.value })} />
+                  <input
+                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    value={draft.durationSec}
+                    onChange={(event) => edit({ durationSec: event.target.value })}
+                  />
                 </label>
                 <label className="block space-y-1.5 text-sm lg:col-span-2">
                   <span className="font-medium">开场钩子</span>
-                  <textarea className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" value={draft.hookOpening} onChange={(event) => edit({ hookOpening: event.target.value })} />
+                  <textarea
+                    className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    value={draft.hookOpening}
+                    onChange={(event) => edit({ hookOpening: event.target.value })}
+                  />
                 </label>
                 <label className="block space-y-1.5 text-sm lg:col-span-2">
                   <span className="font-medium">结尾卡点</span>
-                  <textarea className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" value={draft.cliffhanger} onChange={(event) => edit({ cliffhanger: event.target.value })} />
+                  <textarea
+                    className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    value={draft.cliffhanger}
+                    onChange={(event) => edit({ cliffhanger: event.target.value })}
+                  />
                 </label>
               </div>
             </section>
@@ -420,7 +509,11 @@ export default function DramaProjectPage() {
   const [activeTab, setActiveTab] = useState<DramaTab>("source");
   const [selectedOrder, setSelectedOrder] = useState<number | null>(null);
   const [selectedVideoProvider, setSelectedVideoProvider] = useState("");
-  const [confirmation, setConfirmation] = useState<{ kind: "batch"; job: DramaBatchJob } | { kind: "video"; prompt: DramaVideoPrompt; provider: string } | null>(null);
+  const [confirmation, setConfirmation] = useState<
+    | { kind: "batch"; job: DramaBatchJob }
+    | { kind: "video"; prompt: DramaVideoPrompt; provider: string }
+    | null
+  >(null);
   const [videoRefreshError, setVideoRefreshError] = useState(false);
   const latestProject = useRef<DramaProjectDetail | undefined>(undefined);
   const refreshingVideos = useRef(false);
@@ -430,7 +523,7 @@ export default function DramaProjectPage() {
     queryKey: queryKeys.drama.project(id ?? "none"),
     queryFn: () => getDramaProject(id!),
     enabled: Boolean(id),
-    refetchInterval: (query) => shouldPollProduction(query.state.data?.data) ? 3_000 : false,
+    refetchInterval: (query) => (shouldPollProduction(query.state.data?.data) ? 3_000 : false),
   });
   const characterLibraryQuery = useQuery({
     queryKey: queryKeys.drama.characterLibrary(id),
@@ -448,11 +541,17 @@ export default function DramaProjectPage() {
 
   const project = projectQuery.data?.data;
   const drafts = useEpisodeDrafts(id ?? "none", project?.episodes);
-  const videoProviders = (videoProvidersQuery.data?.data ?? []).filter((provider) => provider.provider !== "mock");
-  const ttsProviders = (ttsProvidersQuery.data?.data ?? []).filter((provider) => provider.provider !== "mock");
-  const activeVideoProvider = videoProviders.some((provider) => provider.provider === selectedVideoProvider)
+  const videoProviders = (videoProvidersQuery.data?.data ?? []).filter(
+    (provider) => provider.provider !== "mock",
+  );
+  const ttsProviders = (ttsProvidersQuery.data?.data ?? []).filter(
+    (provider) => provider.provider !== "mock",
+  );
+  const activeVideoProvider = videoProviders.some(
+    (provider) => provider.provider === selectedVideoProvider,
+  )
     ? selectedVideoProvider
-    : videoProviders[0]?.provider ?? "";
+    : (videoProviders[0]?.provider ?? "");
   const selectedOrderValue = useMemo(() => {
     if (selectedOrder) {
       return selectedOrder;
@@ -461,7 +560,9 @@ export default function DramaProjectPage() {
   }, [project?.episodes, selectedOrder]);
   const batchCostSummary = project ? summarizeBatchCosts(project) : null;
   latestProject.current = project;
-  const outstandingJobs = latestBatchJobs(project?.batchJobs).filter((job) => isActiveBatch(job) || isRecoverableBatch(job));
+  const outstandingJobs = latestBatchJobs(project?.batchJobs).filter(
+    (job) => isActiveBatch(job) || isRecoverableBatch(job),
+  );
 
   useEffect(() => {
     videoPollingPaused.current = false;
@@ -479,12 +580,19 @@ export default function DramaProjectPage() {
         try {
           for (const prompt of prompts) {
             if (stopped) break;
-            try { await refreshDramaVideoProviderTask(prompt.id); } catch { failed = true; break; }
+            try {
+              await refreshDramaVideoProviderTask(prompt.id);
+            } catch {
+              failed = true;
+              break;
+            }
           }
           if (!stopped) {
             setVideoRefreshError(failed);
             videoPollingPaused.current = failed;
-            await queryClient.invalidateQueries({ queryKey: queryKeys.drama.project(id ?? "none") });
+            await queryClient.invalidateQueries({
+              queryKey: queryKeys.drama.project(id ?? "none"),
+            });
           }
         } finally {
           refreshingVideos.current = false;
@@ -493,7 +601,10 @@ export default function DramaProjectPage() {
       if (!stopped) timer = setTimeout(() => void refreshVideos(), 5_000);
     };
     timer = setTimeout(() => void refreshVideos(), 5_000);
-    return () => { stopped = true; clearTimeout(timer); };
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
   }, [id, queryClient]);
 
   const invalidateProject = async () => {
@@ -521,8 +632,10 @@ export default function DramaProjectPage() {
   };
 
   const handlePause = (job: DramaBatchJob) => {
-    void runAction(() => pauseDramaBatchJob(job.projectId, job.id), "暂停请求已提交，正在处理的镜头结束后会停止。")
-      .catch(() => undefined);
+    void runAction(
+      () => pauseDramaBatchJob(job.projectId, job.id),
+      "暂停请求已提交，正在处理的镜头结束后会停止。",
+    ).catch(() => undefined);
   };
   const handleResume = (job: DramaBatchJob) => setConfirmation({ kind: "batch", job });
   const handleProviderTask = (prompt: DramaVideoPrompt, provider: string) => {
@@ -530,16 +643,24 @@ export default function DramaProjectPage() {
       setConfirmation({ kind: "video", prompt, provider: prompt.provider });
       return;
     }
-    void runAction(() => createDramaVideoProviderTask(prompt.id, provider), "视频任务已提交。")
-      .catch(() => undefined);
+    void runAction(
+      () => createDramaVideoProviderTask(prompt.id, provider),
+      "视频任务已提交。",
+    ).catch(() => undefined);
   };
   const confirmRecovery = async () => {
     if (!confirmation) return;
     try {
       if (confirmation.kind === "batch") {
-        await runAction(() => resumeDramaBatchJob(confirmation.job.projectId, confirmation.job.id, true), "制作任务已继续。完成的镜头会保留。");
+        await runAction(
+          () => resumeDramaBatchJob(confirmation.job.projectId, confirmation.job.id, true),
+          "制作任务已继续。完成的镜头会保留。",
+        );
       } else {
-        await runAction(() => createDramaVideoProviderTask(confirmation.prompt.id, confirmation.provider, true), "视频重试任务已提交。");
+        await runAction(
+          () => createDramaVideoProviderTask(confirmation.prompt.id, confirmation.provider, true),
+          "视频重试任务已提交。",
+        );
       }
       setConfirmation(null);
     } catch {
@@ -564,18 +685,24 @@ export default function DramaProjectPage() {
     downloadBlob(blob, `${project.title}-E${order}.${suffix}`);
   };
 
-
   if (projectQuery.isLoading) {
-    return <div className="rounded-md border p-4 text-sm text-muted-foreground">正在加载短剧项目...</div>;
+    return (
+      <div className="rounded-md border p-4 text-sm text-muted-foreground">正在加载短剧项目...</div>
+    );
   }
 
   if (!project) {
     return (
       <div className="space-y-4">
         <Button asChild variant="outline" size="sm">
-          <Link to="/drama"><ArrowLeft className="h-4 w-4" />返回短剧工作台</Link>
+          <Link to="/drama">
+            <ArrowLeft className="h-4 w-4" />
+            返回短剧工作台
+          </Link>
         </Button>
-        <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">没有找到这个短剧项目。</div>
+        <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+          没有找到这个短剧项目。
+        </div>
       </div>
     );
   }
@@ -585,7 +712,10 @@ export default function DramaProjectPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <Button asChild variant="ghost" size="sm" className="px-0">
-            <Link to="/drama"><ArrowLeft className="h-4 w-4" />短剧工作台</Link>
+            <Link to="/drama">
+              <ArrowLeft className="h-4 w-4" />
+              短剧工作台
+            </Link>
           </Button>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-normal">{project.title}</h1>
@@ -594,7 +724,8 @@ export default function DramaProjectPage() {
             <Badge variant="outline">{project.targetEpisodes} 集</Badge>
             {batchCostSummary ? (
               <Badge variant="outline">
-                所列任务费用估算：已用 {formatBatchCost(batchCostSummary, batchCostSummary.actual)} / 预计 {formatBatchCost(batchCostSummary, batchCostSummary.estimated)}
+                所列任务费用估算：已用 {formatBatchCost(batchCostSummary, batchCostSummary.actual)}{" "}
+                / 预计 {formatBatchCost(batchCostSummary, batchCostSummary.estimated)}
               </Badge>
             ) : null}
           </div>
@@ -602,45 +733,150 @@ export default function DramaProjectPage() {
             按“素材 → 策略 → 分集 → 台本 → 质量 → 分镜视频”的顺序推进这部短剧。
           </p>
         </div>
-        <Button type="button" variant="outline" disabled={projectQuery.isFetching} onClick={() => void projectQuery.refetch()}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={projectQuery.isFetching}
+          onClick={() => void projectQuery.refetch()}
+        >
           <RefreshCw className="h-4 w-4" />
           刷新
         </Button>
       </div>
 
-      <Dialog open={Boolean(confirmation)} onOpenChange={(open) => { if (!open && !actionMutation.isPending) setConfirmation(null); }}>
-        <AppDialogContent title={confirmation?.kind === "batch" ? "确认继续制作" : "确认重新提交视频"}
+      <Dialog
+        open={Boolean(confirmation)}
+        onOpenChange={(open) => {
+          if (!open && !actionMutation.isPending) setConfirmation(null);
+        }}
+      >
+        <AppDialogContent
+          title={confirmation?.kind === "batch" ? "确认继续制作" : "确认重新提交视频"}
           description="继续操作可能产生额外费用，请先核对生成通道中的任务和账单。"
-          footer={<><Button variant="outline" disabled={actionMutation.isPending} onClick={() => setConfirmation(null)}>暂不继续</Button><Button disabled={actionMutation.isPending} onClick={() => void confirmRecovery()}>{actionMutation.isPending ? "正在提交..." : "确认费用并继续"}</Button></>}>
-          {confirmation?.kind === "batch" ? <div className="space-y-2 text-sm"><p>继续未完成的镜头，保留已有结果和费用记录。生成通道、角色参考图选项沿用此任务的设置。</p><p className="text-muted-foreground">生成通道：{parseBatchProgress(confirmation.job.progress).provider || "原任务通道"}。中断前的部分请求可能已被生成通道计费，重新处理可能再次收费。</p></div> : <p className="text-sm">提交结果待确认或生成失败时，请先查看生成通道是否已有视频。重新提交可能重复生成并再次收费。</p>}
+          footer={
+            <>
+              <Button
+                variant="outline"
+                disabled={actionMutation.isPending}
+                onClick={() => setConfirmation(null)}
+              >
+                暂不继续
+              </Button>
+              <Button disabled={actionMutation.isPending} onClick={() => void confirmRecovery()}>
+                {actionMutation.isPending ? "正在提交..." : "确认费用并继续"}
+              </Button>
+            </>
+          }
+        >
+          {confirmation?.kind === "batch" ? (
+            <div className="space-y-2 text-sm">
+              <p>
+                继续未完成的镜头，保留已有结果和费用记录。生成通道、角色参考图选项沿用此任务的设置。
+              </p>
+              <p className="text-muted-foreground">
+                生成通道：{parseBatchProgress(confirmation.job.progress).provider || "原任务通道"}
+                。中断前的部分请求可能已被生成通道计费，重新处理可能再次收费。
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm">
+              提交结果待确认或生成失败时，请先查看生成通道是否已有视频。重新提交可能重复生成并再次收费。
+            </p>
+          )}
         </AppDialogContent>
       </Dialog>
 
       <ProjectProgress project={project} />
-      {outstandingJobs.length ? <section className="space-y-3" aria-label="制作任务"><h2 className="font-medium">制作任务</h2><div className="grid gap-3 lg:grid-cols-2">{outstandingJobs.map((job) => {
-        const episode = project.episodes?.find((item) => item.id === job.episodeId);
-        const label = job.type === "keyframes" ? "首帧" : job.type === "videos" ? "视频" : "配音";
-        return <DramaBatchJobCard key={job.id} job={job} title={`第 ${episode?.order ?? "—"} 集 · ${label}`} busy={actionMutation.isPending}
-          storyboardCurrent={isBatchStoryboardCurrent(job, episode)} onPause={handlePause} onResume={handleResume}
-          onOpen={() => { if (episode) setSelectedOrder(episode.order); setActiveTab(job.type === "tts" ? "episodes" : "visual"); }} />;
-      })}</div></section> : null}
-      {videoRefreshError ? <div role="status" className="rounded-md border p-3 text-sm text-muted-foreground">部分视频进度暂时无法刷新。可进入“分镜视频”手动刷新任务，已有结果会保留。<Button size="sm" variant="ghost" onClick={() => { videoPollingPaused.current = false; setVideoRefreshError(false); }}>重试自动刷新</Button></div> : null}
+      {outstandingJobs.length ? (
+        <section className="space-y-3" aria-label="制作任务">
+          <h2 className="font-medium">制作任务</h2>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {outstandingJobs.map((job) => {
+              const episode = project.episodes?.find((item) => item.id === job.episodeId);
+              const label =
+                job.type === "keyframes" ? "首帧" : job.type === "videos" ? "视频" : "配音";
+              return (
+                <DramaBatchJobCard
+                  key={job.id}
+                  job={job}
+                  title={`第 ${episode?.order ?? "—"} 集 · ${label}`}
+                  busy={actionMutation.isPending}
+                  storyboardCurrent={isBatchStoryboardCurrent(job, episode)}
+                  onPause={handlePause}
+                  onResume={handleResume}
+                  onOpen={() => {
+                    if (episode) setSelectedOrder(episode.order);
+                    setActiveTab(job.type === "tts" ? "episodes" : "visual");
+                  }}
+                />
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+      {videoRefreshError ? (
+        <div role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
+          部分视频进度暂时无法刷新。可进入“分镜视频”手动刷新任务，已有结果会保留。
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              videoPollingPaused.current = false;
+              setVideoRefreshError(false);
+            }}
+          >
+            重试自动刷新
+          </Button>
+        </div>
+      ) : null}
 
-      {drafts.hasUnsaved ? <div role="status" className="rounded-md border p-3 text-sm text-muted-foreground">分集台本有未保存的编辑。请先保存或下载本地稿，再继续制作。<Button variant="ghost" size="sm" onClick={() => setActiveTab("episodes")}>查看台本编辑</Button></div> : null}
+      {drafts.hasUnsaved ? (
+        <div role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
+          分集台本有未保存的编辑。请先保存或下载本地稿，再继续制作。
+          <Button variant="ghost" size="sm" onClick={() => setActiveTab("episodes")}>
+            查看台本编辑
+          </Button>
+        </div>
+      ) : null}
       <DramaNextStepPanel
         project={project}
         busy={actionMutation.isPending || drafts.hasUnsaved}
         videoProviderConfigured={Boolean(activeVideoProvider)}
         onSetTab={setActiveTab}
         onSelectEpisode={setSelectedOrder}
-        onAssembleSource={() => runAction(() => assembleDramaSourceBundle(project.id), "短剧素材已整理。")}
-        onGenerateStrategy={() => runAction(() => generateDramaStrategy(project.id), "短剧策略已生成。")}
-        onGenerateOutline={(range) => runAction(() => generateDramaOutline(project.id, range), `第 ${range.startOrder}–${range.startOrder + range.count - 1} 集分集已生成。`)}
-        onGenerateScript={(order) => runAction(() => generateDramaEpisodeScript(project.id, order), `第 ${order} 集台本已生成。`)}
-        onReviewEpisode={(order) => runAction(() => reviewDramaEpisode(project.id, order), `第 ${order} 集质量检查完成。`)}
-        onRepairEpisode={(order) => runAction(() => repairDramaEpisode(project.id, order), `第 ${order} 集已按质量建议修复。`)}
-        onGenerateStoryboard={(order) => runAction(() => generateDramaStoryboard(project.id, order), `第 ${order} 集分镜已生成。`)}
-        onGenerateVideoPrompt={(shot) => runAction(() => generateDramaVideoPrompt(project.id, shot.id), `镜头 ${shot.order} 的视频提示词已生成。`)}
+        onAssembleSource={() =>
+          runAction(() => assembleDramaSourceBundle(project.id), "短剧素材已整理。")
+        }
+        onGenerateStrategy={() =>
+          runAction(() => generateDramaStrategy(project.id), "短剧策略已生成。")
+        }
+        onGenerateOutline={(range) =>
+          runAction(
+            () => generateDramaOutline(project.id, range),
+            `第 ${range.startOrder}–${range.startOrder + range.count - 1} 集分集已生成。`,
+          )
+        }
+        onGenerateScript={(order) =>
+          runAction(
+            () => generateDramaEpisodeScript(project.id, order),
+            `第 ${order} 集台本已生成。`,
+          )
+        }
+        onReviewEpisode={(order) =>
+          runAction(() => reviewDramaEpisode(project.id, order), `第 ${order} 集质量检查完成。`)
+        }
+        onRepairEpisode={(order) =>
+          runAction(() => repairDramaEpisode(project.id, order), `第 ${order} 集已按质量建议修复。`)
+        }
+        onGenerateStoryboard={(order) =>
+          runAction(() => generateDramaStoryboard(project.id, order), `第 ${order} 集分镜已生成。`)
+        }
+        onGenerateVideoPrompt={(shot) =>
+          runAction(
+            () => generateDramaVideoPrompt(project.id, shot.id),
+            `镜头 ${shot.order} 的视频提示词已生成。`,
+          )
+        }
         onCreateProviderTask={(prompt) => handleProviderTask(prompt, activeVideoProvider)}
       />
 
@@ -668,11 +904,28 @@ export default function DramaProjectPage() {
           ttsProviders={ttsProviders}
           onPause={handlePause}
           onResume={handleResume}
-          onBatchJob={(order, input) => runAction(() => createDramaEpisodeBatchJob(project.id, order, input), "配音任务已创建。")}
+          onBatchJob={(order, input) =>
+            runAction(
+              () => createDramaEpisodeBatchJob(project.id, order, input),
+              "配音任务已创建。",
+            )
+          }
           busy={actionMutation.isPending}
-          onGenerateScript={(order) => runAction(() => generateDramaEpisodeScript(project.id, order), `第 ${order} 集台本已生成。`)}
-          onReview={(order) => runAction(() => reviewDramaEpisode(project.id, order), `第 ${order} 集质量检查完成。`)}
-          onRepair={(order) => runAction(() => repairDramaEpisode(project.id, order), `第 ${order} 集已按质量建议修复。`)}
+          onGenerateScript={(order) =>
+            runAction(
+              () => generateDramaEpisodeScript(project.id, order),
+              `第 ${order} 集台本已生成。`,
+            )
+          }
+          onReview={(order) =>
+            runAction(() => reviewDramaEpisode(project.id, order), `第 ${order} 集质量检查完成。`)
+          }
+          onRepair={(order) =>
+            runAction(
+              () => repairDramaEpisode(project.id, order),
+              `第 ${order} 集已按质量建议修复。`,
+            )
+          }
           drafts={drafts}
         />
       ) : null}
@@ -682,9 +935,18 @@ export default function DramaProjectPage() {
           busy={actionMutation.isPending}
           onSelectEpisode={setSelectedOrder}
           onOpenEpisodes={() => setActiveTab("episodes")}
-          onReview={(order) => runAction(() => reviewDramaEpisode(project.id, order), `第 ${order} 集质量检查完成。`)}
-          onComplianceAll={() => runAction(() => checkDramaProjectCompliance(project.id), "合规预检完成。")}
-          onRepair={(order) => runAction(() => repairDramaEpisode(project.id, order), `第 ${order} 集已按质量建议修复。`)}
+          onReview={(order) =>
+            runAction(() => reviewDramaEpisode(project.id, order), `第 ${order} 集质量检查完成。`)
+          }
+          onComplianceAll={() =>
+            runAction(() => checkDramaProjectCompliance(project.id), "合规预检完成。")
+          }
+          onRepair={(order) =>
+            runAction(
+              () => repairDramaEpisode(project.id, order),
+              `第 ${order} 集已按质量建议修复。`,
+            )
+          }
         />
       ) : null}
       {activeTab === "characters" ? (
@@ -698,26 +960,31 @@ export default function DramaProjectPage() {
               return;
             }
             runAction(
-              () => updateDramaCharacter(project.id, character.id, {
-                name: input.name.trim(),
-                archetype: input.screenRole.trim() || undefined,
-                persona: input.audienceRead.trim() || undefined,
-                speechStyle: input.lineRule.trim() || undefined,
-                visualAnchor: input.visualAnchor.trim() || undefined,
-                voiceProfile: input.voiceAnchor.trim() || undefined,
-                relations: input.relationMap.trim() || undefined,
-              }),
+              () =>
+                updateDramaCharacter(project.id, character.id, {
+                  name: input.name.trim(),
+                  archetype: input.screenRole.trim() || undefined,
+                  persona: input.audienceRead.trim() || undefined,
+                  speechStyle: input.lineRule.trim() || undefined,
+                  visualAnchor: input.visualAnchor.trim() || undefined,
+                  voiceProfile: input.voiceAnchor.trim() || undefined,
+                  relations: input.relationMap.trim() || undefined,
+                }),
               `${input.name || character.name} 已保存。`,
             );
           }}
-          onSaveToLibrary={(character) => runAction(
-            () => saveDramaCharacterToLibrary(project.id, character.id),
-            `${character.name} 已保存到角色库。`,
-          )}
-          onImportFromLibrary={(libraryId) => runAction(
-            () => importDramaCharacterFromLibrary(project.id, libraryId),
-            "角色已导入当前项目。",
-          )}
+          onSaveToLibrary={(character) =>
+            runAction(
+              () => saveDramaCharacterToLibrary(project.id, character.id),
+              `${character.name} 已保存到角色库。`,
+            )
+          }
+          onImportFromLibrary={(libraryId) =>
+            runAction(
+              () => importDramaCharacterFromLibrary(project.id, libraryId),
+              "角色已导入当前项目。",
+            )
+          }
           onRefreshProject={() => void projectQuery.refetch()}
         />
       ) : null}
@@ -727,50 +994,92 @@ export default function DramaProjectPage() {
           selectedOrder={selectedOrderValue}
           onSelectOrder={setSelectedOrder}
           busy={actionMutation.isPending}
-          onStoryboard={(order) => runAction(() => generateDramaStoryboard(project.id, order), `第 ${order} 集分镜已生成。`)}
-          onBatchJob={(order, input) => runAction(() => createDramaEpisodeBatchJob(project.id, order, input), "批量任务已创建。")}
-          onKeyframe={(shot, provider, useCharacterRefImages, overrides) => runAction(() => generateDramaShotKeyframe(project.id, shot.id, provider, useCharacterRefImages, overrides), `镜头 ${shot.order} 的首帧图已生成。`)}
-          onVideoPrompt={(shot) => runAction(() => generateDramaVideoPrompt(project.id, shot.id), `镜头 ${shot.order} 的视频提示词已生成。`)}
+          onStoryboard={(order) =>
+            runAction(
+              () => generateDramaStoryboard(project.id, order),
+              `第 ${order} 集分镜已生成。`,
+            )
+          }
+          onBatchJob={(order, input) =>
+            runAction(
+              () => createDramaEpisodeBatchJob(project.id, order, input),
+              "批量任务已创建。",
+            )
+          }
+          onKeyframe={(shot, provider, useCharacterRefImages, overrides) =>
+            runAction(
+              () =>
+                generateDramaShotKeyframe(
+                  project.id,
+                  shot.id,
+                  provider,
+                  useCharacterRefImages,
+                  overrides,
+                ),
+              `镜头 ${shot.order} 的首帧图已生成。`,
+            )
+          }
+          onVideoPrompt={(shot) =>
+            runAction(
+              () => generateDramaVideoPrompt(project.id, shot.id),
+              `镜头 ${shot.order} 的视频提示词已生成。`,
+            )
+          }
           videoProviders={videoProviders}
           selectedProvider={activeVideoProvider}
           onSelectProvider={setSelectedVideoProvider}
           onPause={handlePause}
           onResume={handleResume}
           onProviderTask={handleProviderTask}
-          onRefreshProviderTask={(prompt) => runAction(() => refreshDramaVideoProviderTask(prompt.id), "视频任务状态已刷新。")}
+          onRefreshProviderTask={(prompt) =>
+            runAction(() => refreshDramaVideoProviderTask(prompt.id), "视频任务状态已刷新。")
+          }
         />
       ) : null}
       {activeTab === "export" ? (
         <div className="space-y-4">
-        <DramaRenderPanel project={project} selectedOrder={selectedOrderValue} onSelectOrder={setSelectedOrder} busy={actionMutation.isPending || drafts.hasUnsaved} />
-        <Card className="rounded-lg">
-          <CardHeader>
-            <CardTitle className="text-lg">导出短剧资料</CardTitle>
-            <CardDescription>导出当前项目的角色、分集和已生成台本。</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => void handleExport("markdown")}>
-              <Download className="h-4 w-4" />
-              导出 Markdown
-            </Button>
-            <Button type="button" variant="outline" onClick={() => void handleExport("json")}>
-              <Download className="h-4 w-4" />
-              导出 JSON
-            </Button>
-            {selectedOrderValue ? (
-              <>
-                <Button type="button" variant="outline" onClick={() => void handleEpisodeExport(selectedOrderValue, "srt")}>
-                  <Download className="h-4 w-4" />
-                  导出本集 SRT
-                </Button>
-                <Button type="button" variant="outline" onClick={() => void handleEpisodeExport(selectedOrderValue, "timeline-json")}>
-                  <Download className="h-4 w-4" />
-                  导出剪辑草稿
-                </Button>
-              </>
-            ) : null}
-          </CardContent>
-        </Card>
+          <DramaRenderPanel
+            project={project}
+            selectedOrder={selectedOrderValue}
+            onSelectOrder={setSelectedOrder}
+            busy={actionMutation.isPending || drafts.hasUnsaved}
+          />
+          <Card className="rounded-lg">
+            <CardHeader>
+              <CardTitle className="text-lg">导出短剧资料</CardTitle>
+              <CardDescription>导出当前项目的角色、分集和已生成台本。</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button type="button" onClick={() => void handleExport("markdown")}>
+                <Download className="h-4 w-4" />
+                导出 Markdown
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void handleExport("json")}>
+                <Download className="h-4 w-4" />
+                导出 JSON
+              </Button>
+              {selectedOrderValue ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleEpisodeExport(selectedOrderValue, "srt")}
+                  >
+                    <Download className="h-4 w-4" />
+                    导出本集 SRT
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleEpisodeExport(selectedOrderValue, "timeline-json")}
+                  >
+                    <Download className="h-4 w-4" />
+                    导出剪辑草稿
+                  </Button>
+                </>
+              ) : null}
+            </CardContent>
+          </Card>
         </div>
       ) : null}
     </div>

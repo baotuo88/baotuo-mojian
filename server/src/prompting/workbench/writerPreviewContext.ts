@@ -39,7 +39,9 @@ function buildPreviewStyleContract(input: {
 }): NonNullable<ChapterWriteContext["styleContract"]> {
   const { chapter, novel } = input;
   const narrative = buildPreviewStyleSection("narrative", "叙事约束", [
-    novel.narrativePov ? `叙事视角：${novel.narrativePov}` : "使用清晰稳定的叙事视角，不随意跳出本章场景。",
+    novel.narrativePov
+      ? `叙事视角：${novel.narrativePov}`
+      : "使用清晰稳定的叙事视角，不随意跳出本章场景。",
     novel.description ? `故事底盘：${novel.description}` : "",
   ]);
   const character = buildPreviewStyleSection("character", "角色表达", [
@@ -73,7 +75,14 @@ function buildPreviewStyleContract(input: {
       taskStyleProfileId: null,
       activeSourceTargets: ["novel", "chapter"],
       activeSourceLabels: ["Prompt Workbench 预览"],
-      writerIncludedSections: ["narrative", "character", "language", "rhythm", "antiAi", "selfCheck"],
+      writerIncludedSections: [
+        "narrative",
+        "character",
+        "language",
+        "rhythm",
+        "antiAi",
+        "selfCheck",
+      ],
       plannerIncludedSections: ["narrative", "character", "language", "antiAi"],
       droppedSections: [],
       maturity: "summary_only",
@@ -84,7 +93,9 @@ function buildPreviewStyleContract(input: {
   };
 }
 
-function buildRuntimeCharacters(characters: NonNullable<PreviewNovelRow["characters"]>): GenerationContextPackage["characterRoster"] {
+function buildRuntimeCharacters(
+  characters: NonNullable<PreviewNovelRow["characters"]>,
+): GenerationContextPackage["characterRoster"] {
   return characters.map((character) => ({
     id: character.id,
     name: compactPreviewText(character.name, "未命名角色"),
@@ -144,11 +155,17 @@ function buildPreviewPlan(input: {
     ...scenes.flatMap((scene) => readStringList(scene.mustAdvance)),
     chapter.expectation,
     chapter.taskSheet,
-  ].map((item) => compactPreviewText(item)).filter(Boolean).slice(0, 8);
+  ]
+    .map((item) => compactPreviewText(item))
+    .filter(Boolean)
+    .slice(0, 8);
   const mustPreserve = [
     ...scenes.flatMap((scene) => readStringList(scene.mustPreserve)),
     chapter.mustAvoid ? `不得越界：${chapter.mustAvoid}` : "",
-  ].map((item) => compactPreviewText(item)).filter(Boolean).slice(0, 8);
+  ]
+    .map((item) => compactPreviewText(item))
+    .filter(Boolean)
+    .slice(0, 8);
   const objective = compactPreviewText(
     chapter.expectation || chapter.taskSheet,
     `推进第 ${chapter.order} 章《${chapter.title || "未命名章节"}》的章节任务。`,
@@ -199,7 +216,9 @@ function buildPreviewStateSnapshot(input: {
       `章节：第 ${chapter.order} 章《${chapter.title || "未命名章节"}》`,
       chapter.expectation ? `章节目标：${chapter.expectation}` : "",
       chapter.hook ? `章末钩子：${chapter.hook}` : "",
-    ].filter(Boolean).join("\n"),
+    ]
+      .filter(Boolean)
+      .join("\n"),
     rawStateJson: null,
     characterStates: characters.slice(0, 6).map((character) => ({
       characterId: character.id,
@@ -220,7 +239,9 @@ function buildPreviewGenerationContextPackage(input: {
   chapter: PreviewChapterRow;
 }): GenerationContextPackage {
   const { chapter, novel } = input;
-  const characters = buildRuntimeCharacters(Array.isArray(novel.characters) ? novel.characters : []);
+  const characters = buildRuntimeCharacters(
+    Array.isArray(novel.characters) ? novel.characters : [],
+  );
   const characterHardFacts = buildCharacterHardFacts(characters);
   const styleContract = buildPreviewStyleContract({ novel, chapter });
   const plan = buildPreviewPlan({ chapter, characters });

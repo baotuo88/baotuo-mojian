@@ -10,10 +10,7 @@ import { AppError } from "../../middleware/errorHandler";
 import { runStructuredPrompt } from "../../prompting/core/promptRunner";
 import { dramaEpisodeOutlinePrompt } from "../../prompting/prompts/drama/drama.prompts";
 import { rhythmEngine, type TrackId } from "./engine/rhythmEngine";
-import {
-  describeDramaPaywallPlan,
-  resolveDramaPaywallPlan,
-} from "./engine/paywallPlanPolicy";
+import { describeDramaPaywallPlan, resolveDramaPaywallPlan } from "./engine/paywallPlanPolicy";
 import type { DramaLLMOptions } from "./DramaStrategyService";
 
 interface SourceBeatLite {
@@ -61,10 +58,11 @@ export class DramaEpisodeOutlineService {
     } catch {
       beats = [];
     }
-    const beatsDigest = beats
-      .slice(0, 60)
-      .map((beat) => `${beat.order}：${beat.summary}`)
-      .join("\n") || "（无结构化节拍，按梗概自由分集）";
+    const beatsDigest =
+      beats
+        .slice(0, 60)
+        .map((beat) => `${beat.order}：${beat.summary}`)
+        .join("\n") || "（无结构化节拍，按梗概自由分集）";
 
     const hookLibrary = rhythmEngine
       .listHooks()
@@ -115,10 +113,15 @@ export class DramaEpisodeOutlineService {
     await prisma.$transaction(async (tx) => {
       await tx.dramaProject.update({ where: { id: projectId }, data: { updatedAt: new Date() } });
       for (const episode of episodes) {
-        const isPaywall = rhythmEngine.isPaywallEpisode(episode.order, project.targetEpisodes, paywallPlan);
-        const sourceMap = episode.sourceBeatRefs && episode.sourceBeatRefs.length > 0
-          ? JSON.stringify({ beatRefs: episode.sourceBeatRefs })
-          : null;
+        const isPaywall = rhythmEngine.isPaywallEpisode(
+          episode.order,
+          project.targetEpisodes,
+          paywallPlan,
+        );
+        const sourceMap =
+          episode.sourceBeatRefs && episode.sourceBeatRefs.length > 0
+            ? JSON.stringify({ beatRefs: episode.sourceBeatRefs })
+            : null;
         const beatSheet = JSON.stringify({
           conflict: episode.conflict,
         });

@@ -70,11 +70,7 @@ function compactRepairSource(rawContent: string): string {
   }
   const head = rawContent.slice(0, 9_000);
   const tail = rawContent.slice(-2_000);
-  return [
-    head,
-    "\n...[中间的异常重复或退化内容已省略，不能复述或延续]...\n",
-    tail,
-  ].join("");
+  return [head, "\n...[中间的异常重复或退化内容已省略，不能复述或延续]...\n", tail].join("");
 }
 
 function extractValidationPaths(validationError: string): string[] {
@@ -175,11 +171,13 @@ export async function repairWithLlm<T>(
     timeoutMs: input.timeoutMs,
     taskType: input.taskType ?? "planner",
     requestProtocol: input.requestProtocol,
-    promptMeta: input.promptMeta ? {
-      ...input.promptMeta,
-      repairUsed: true,
-      repairAttempts: repairAttempt,
-    } : undefined,
+    promptMeta: input.promptMeta
+      ? {
+          ...input.promptMeta,
+          repairUsed: true,
+          repairAttempts: repairAttempt,
+        }
+      : undefined,
     executionMode: "structured",
     structuredStrategy: "prompt_json",
   });
@@ -195,7 +193,7 @@ export async function repairWithLlm<T>(
     "如果数组元素应为对象，就必须输出对象数组，例如 [{...}]；不能写成逗号拼接字符串。",
     "如果原始 JSON 多包了一层无关包装键，例如 data、result、output、xxxProjection、xxxList 等，必须去掉包装层，把真正目标结构提升到顶层。",
     "如果缺失必填字符串字段，必须补出非空字符串；可根据原始 JSON 中已有内容做最小、保守、语义一致的补全，不能输出空字符串、null 或 undefined。",
-    "如果校验错误是 expected string, received number/boolean，必须保留原值语义并改成 JSON 字符串，例如 19 改为 \"19\"、true 改为 \"true\"，不要删除字段。",
+    '如果校验错误是 expected string, received number/boolean，必须保留原值语义并改成 JSON 字符串，例如 19 改为 "19"、true 改为 "true"，不要删除字段。',
     "如果校验错误指出某个数组数量过多或过少，必须把该路径的数组长度修正到错误里要求的精确数量，不能停留在接近正确的数量。",
     "目标 JSON Schema 是最终字段合同；即使原始输出已截断、退化或缺少大量字段，也必须依据 Schema 重建完整对象。",
     "遇到无意义复读、乱码、失控长文本时，丢弃异常段落并用最短的语义一致内容重建，禁止继续复述损坏内容。",
@@ -210,17 +208,20 @@ export async function repairWithLlm<T>(
   const repairHuman = [
     `校验失败：${input.label}`,
     validationError,
-    ...(validationPaths.length > 0 ? [
-      "",
-      `至少需要修复这些路径：${validationPaths.join(", ")}`,
-    ] : []),
-    ...(arrayLengthHints.length > 0 ? [
-      "",
-      "数组长度硬约束：",
-      ...arrayLengthHints.map((hint) => hint.direction === "trim"
-        ? `- ${formatIssuePath(hint.path)} 必须最终恰好保留 ${hint.exactLength} 项；如果当前超过该数量，按原顺序裁掉多余项。`
-        : `- ${formatIssuePath(hint.path)} 必须最终补足到恰好 ${hint.exactLength} 项；如果当前不足，按原顺序保留已有项并补齐缺失项。`),
-    ] : []),
+    ...(validationPaths.length > 0
+      ? ["", `至少需要修复这些路径：${validationPaths.join(", ")}`]
+      : []),
+    ...(arrayLengthHints.length > 0
+      ? [
+          "",
+          "数组长度硬约束：",
+          ...arrayLengthHints.map((hint) =>
+            hint.direction === "trim"
+              ? `- ${formatIssuePath(hint.path)} 必须最终恰好保留 ${hint.exactLength} 项；如果当前超过该数量，按原顺序裁掉多余项。`
+              : `- ${formatIssuePath(hint.path)} 必须最终补足到恰好 ${hint.exactLength} 项；如果当前不足，按原顺序保留已有项并补齐缺失项。`,
+          ),
+        ]
+      : []),
     "",
     "目标 JSON Schema（字段名、类型、必填项与长度约束以此为准）：",
     repairSchemaContract,
@@ -317,7 +318,11 @@ export async function repairWithLlm<T>(
         return unwrapped.data;
       }
 
-      const normalized = helpers.normalizeOversizedArrays(repairParse.parsed, final.error, input.schema);
+      const normalized = helpers.normalizeOversizedArrays(
+        repairParse.parsed,
+        final.error,
+        input.schema,
+      );
       if (normalized) {
         helpers.logStructuredInvokeEvent({
           event: "repair_normalized",
@@ -330,7 +335,9 @@ export async function repairWithLlm<T>(
         });
         return normalized.data;
       }
-      throw new Error(`[${input.label}] JSON repair 后仍未通过 Schema 校验。错误：${helpers.formatZodErrors(final.error)}`);
+      throw new Error(
+        `[${input.label}] JSON repair 后仍未通过 Schema 校验。错误：${helpers.formatZodErrors(final.error)}`,
+      );
     }
     return final.data;
   } catch (error) {

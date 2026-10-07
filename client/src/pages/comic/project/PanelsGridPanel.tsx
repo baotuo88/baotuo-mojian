@@ -41,11 +41,16 @@ const REF_KIND_LABEL: Record<string, string> = {
 };
 
 const REF_KIND_COLOR: Record<string, string> = {
-  character_sheet: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300",
-  character_expression: "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-700 dark:bg-pink-900/20 dark:text-pink-300",
-  character_face: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300",
-  asset: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
-  scene: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
+  character_sheet:
+    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300",
+  character_expression:
+    "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-700 dark:bg-pink-900/20 dark:text-pink-300",
+  character_face:
+    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300",
+  asset:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+  scene:
+    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
 };
 
 const DENSITY_BADGE: Record<string, { label: string; className: string }> = {
@@ -55,7 +60,12 @@ const DENSITY_BADGE: Record<string, { label: string; className: string }> = {
 };
 
 function densityBadge(value: string | null | undefined): { label: string; className: string } {
-  return DENSITY_BADGE[value ?? ""] ?? { label: "未标注", className: "border-border bg-muted text-muted-foreground" };
+  return (
+    DENSITY_BADGE[value ?? ""] ?? {
+      label: "未标注",
+      className: "border-border bg-muted text-muted-foreground",
+    }
+  );
 }
 
 function parseLayoutData(raw: string | null | undefined): {
@@ -70,8 +80,17 @@ function parseLayoutData(raw: string | null | undefined): {
   }
 }
 
-function isPanelImageStale(panel: ComicPanel, imageData: { status?: string; generatedAt?: string; retained?: boolean }): boolean {
-  if (imageData.retained || imageData.status !== "done" || !imageData.generatedAt || !panel.updatedAt) return false;
+function isPanelImageStale(
+  panel: ComicPanel,
+  imageData: { status?: string; generatedAt?: string; retained?: boolean },
+): boolean {
+  if (
+    imageData.retained ||
+    imageData.status !== "done" ||
+    !imageData.generatedAt ||
+    !panel.updatedAt
+  )
+    return false;
   const imageGeneratedAt = Date.parse(imageData.generatedAt);
   const panelUpdatedAt = Date.parse(panel.updatedAt);
   if (Number.isNaN(imageGeneratedAt) || Number.isNaN(panelUpdatedAt)) return false;
@@ -114,7 +133,10 @@ function StripView({
               {imageData.status === "done" ? (
                 <>
                   <img
-                    src={panelImageUrl(panel.id, imageData.revision ?? imageData.version ?? imageData.generatedAt)}
+                    src={panelImageUrl(
+                      panel.id,
+                      imageData.revision ?? imageData.version ?? imageData.generatedAt,
+                    )}
                     alt={`第 ${panel.order} 格`}
                     className="w-full object-cover"
                     loading={idx < 3 ? "eager" : "lazy"}
@@ -128,7 +150,9 @@ function StripView({
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
                       {dialogues.map((d, i) => (
                         <div key={i} className="text-xs leading-relaxed text-white">
-                          {d.speaker && <span className="mr-1 font-bold text-yellow-200">{d.speaker}：</span>}
+                          {d.speaker && (
+                            <span className="mr-1 font-bold text-yellow-200">{d.speaker}：</span>
+                          )}
                           「{d.text}」
                         </div>
                       ))}
@@ -241,7 +265,12 @@ function PanelDetailDialog({
   const canSave = draftVisualPrompt.trim().length > 0 && draftVisualPrompt.trim().length <= 400;
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <AppDialogContent
         title={`第 ${panel.order} 格 · ${panel.panelType}`}
         description="检查并调整这一格的画面描述；重新生图会使用保存后的内容。"
@@ -253,7 +282,10 @@ function PanelDetailDialog({
             {imageData.status === "done" ? (
               <div className="relative">
                 <img
-                  src={panelImageUrl(panel.id, imageData.revision ?? imageData.version ?? imageData.generatedAt)}
+                  src={panelImageUrl(
+                    panel.id,
+                    imageData.revision ?? imageData.version ?? imageData.generatedAt,
+                  )}
                   alt={`第 ${panel.order} 格`}
                   className="mx-auto max-h-72 w-full rounded-md object-contain lg:max-h-none"
                 />
@@ -301,7 +333,9 @@ function PanelDetailDialog({
             <div>
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-muted-foreground">动作描述</span>
-                <span className={`rounded border px-2 py-0.5 text-[11px] ${density.className}`}>{density.label}</span>
+                <span className={`rounded border px-2 py-0.5 text-[11px] ${density.className}`}>
+                  {density.label}
+                </span>
               </div>
               <div className="rounded bg-muted px-2 py-1.5 text-sm">{panel.action}</div>
             </div>
@@ -317,7 +351,9 @@ function PanelDetailDialog({
               <div>
                 <div className="mb-1 text-xs font-semibold text-muted-foreground">版式结构</div>
                 <div className="rounded border bg-muted/40 px-2 py-2 text-xs leading-relaxed text-muted-foreground">
-                  <div className="font-medium text-foreground">{layoutData.layout === "four_koma" ? "四格起承转合" : layoutData.layout}</div>
+                  <div className="font-medium text-foreground">
+                    {layoutData.layout === "four_koma" ? "四格起承转合" : layoutData.layout}
+                  </div>
                   {layoutData.subPanels?.length ? (
                     <div className="mt-1 space-y-1">
                       {layoutData.subPanels.map((subPanel) => (
@@ -372,7 +408,11 @@ function PanelDetailDialog({
                     disabled={!canSave || savePromptMut.isPending}
                     onClick={() => savePromptMut.mutate()}
                   >
-                    {savePromptMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    {savePromptMut.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
                     保存
                   </Button>
                   <Button
@@ -417,14 +457,20 @@ function PanelDetailDialog({
                             alt={ref.label}
                             className="h-full w-full object-cover"
                             loading="lazy"
-                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
                           />
                         </div>
                         <div className="border-t px-1.5 py-1">
-                          <span className={`inline-block rounded border px-1 py-px text-[9px] leading-none ${kindStyle}`}>
+                          <span
+                            className={`inline-block rounded border px-1 py-px text-[9px] leading-none ${kindStyle}`}
+                          >
                             {kindLabel}
                           </span>
-                          <p className="mt-1 line-clamp-2 text-[10px] leading-tight text-muted-foreground">{ref.label}</p>
+                          <p className="mt-1 line-clamp-2 text-[10px] leading-tight text-muted-foreground">
+                            {ref.label}
+                          </p>
                         </div>
                       </a>
                     );
@@ -451,7 +497,10 @@ function PanelDetailDialog({
                   />
                   {imageData.provider && (
                     <div className="mt-1 text-[11px] text-muted-foreground">
-                      模型：{imageData.provider}{imageData.generatedAt ? ` · 生成于 ${new Date(imageData.generatedAt).toLocaleString("zh-CN")}` : ""}
+                      模型：{imageData.provider}
+                      {imageData.generatedAt
+                        ? ` · 生成于 ${new Date(imageData.generatedAt).toLocaleString("zh-CN")}`
+                        : ""}
                     </div>
                   )}
                 </>
@@ -468,9 +517,21 @@ function PanelDetailDialog({
   );
 }
 
-export function PanelsGridPanel({ projectId, provider, initialEpisodeId, onEpisodeChange }: { projectId: string; provider: string; initialEpisodeId?: string; onEpisodeChange?: (episodeId: string) => void }) {
+export function PanelsGridPanel({
+  projectId,
+  provider,
+  initialEpisodeId,
+  onEpisodeChange,
+}: {
+  projectId: string;
+  provider: string;
+  initialEpisodeId?: string;
+  onEpisodeChange?: (episodeId: string) => void;
+}) {
   const queryClient = useQueryClient();
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(initialEpisodeId ?? null);
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(
+    initialEpisodeId ?? null,
+  );
   const [busyPanelId, setBusyPanelId] = useState("");
   const [selectedPanel, setSelectedPanel] = useState<ComicPanel | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "strip">("grid");
@@ -525,8 +586,12 @@ export function PanelsGridPanel({ projectId, provider, initialEpisodeId, onEpiso
               <button
                 key={episode.id}
                 type="button"
-                onClick={() => { setSelectedEpisodeId(episode.id); setSelectedPanel(null); onEpisodeChange?.(episode.id); }}
-                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${(activeEpisode?.id === episode.id) ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent"}`}
+                onClick={() => {
+                  setSelectedEpisodeId(episode.id);
+                  setSelectedPanel(null);
+                  onEpisodeChange?.(episode.id);
+                }}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${activeEpisode?.id === episode.id ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent"}`}
               >
                 第 {episode.order} 话
               </button>
@@ -562,7 +627,9 @@ export function PanelsGridPanel({ projectId, provider, initialEpisodeId, onEpiso
         />
       )}
 
-      {panelsLoading && <div className="py-8 text-center text-sm text-muted-foreground">加载中...</div>}
+      {panelsLoading && (
+        <div className="py-8 text-center text-sm text-muted-foreground">加载中...</div>
+      )}
       {!panelsLoading && panels.length === 0 && activeEpisode && (
         <div className="py-8 text-center text-sm text-muted-foreground">
           该话尚无格子脚本，请先在「分话大纲」中生成分格脚本。
@@ -610,7 +677,10 @@ export function PanelsGridPanel({ projectId, provider, initialEpisodeId, onEpiso
                 {imageData.status === "done" ? (
                   <div className="relative">
                     <img
-                      src={panelImageUrl(panel.id, imageData.revision ?? imageData.version ?? imageData.generatedAt)}
+                      src={panelImageUrl(
+                        panel.id,
+                        imageData.revision ?? imageData.version ?? imageData.generatedAt,
+                      )}
                       alt={`第 ${panel.order} 格`}
                       className="aspect-[2/3] w-full object-cover"
                       loading="lazy"
@@ -633,7 +703,11 @@ export function PanelsGridPanel({ projectId, provider, initialEpisodeId, onEpiso
                 <div className="p-1.5 text-xs text-muted-foreground">
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-medium">第 {panel.order} 格</span>
-                    <span className={`rounded border px-1.5 py-0.5 text-[10px] ${density.className}`}>{density.label}</span>
+                    <span
+                      className={`rounded border px-1.5 py-0.5 text-[10px] ${density.className}`}
+                    >
+                      {density.label}
+                    </span>
                   </div>
                   <div className="mt-1 truncate">
                     <span className="opacity-60">{panel.panelType}</span>

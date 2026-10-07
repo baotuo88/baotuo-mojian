@@ -205,7 +205,10 @@ export interface PromptPostValidateFailureRecoveryInput<I, R> {
   semanticRetryAttempts: number;
 }
 
-export type PromptStructuredOutputExampleBuilder<I, R> = (input: I, context: PromptRenderContext) => unknown;
+export type PromptStructuredOutputExampleBuilder<I, R> = (
+  input: I,
+  context: PromptRenderContext,
+) => unknown;
 
 export interface PromptStructuredOutputHint<I, R> {
   mode?: "auto" | "off";
@@ -245,6 +248,8 @@ export interface PromptAsset<I, O, R = O> {
   postValidateFailureRecovery?: (input: PromptPostValidateFailureRecoveryInput<I, R>) => O;
 }
 
-export function buildPromptAssetKey(asset: Pick<PromptAsset<unknown, unknown, unknown>, "id" | "version">): string {
+export function buildPromptAssetKey(
+  asset: Pick<PromptAsset<unknown, unknown, unknown>, "id" | "version">,
+): string {
   return `${asset.id}@${asset.version}`;
 }

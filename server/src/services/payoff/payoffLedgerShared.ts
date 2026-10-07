@@ -126,10 +126,12 @@ function isUnfinishedPayoffStatus(status: PayoffLedgerStatus): boolean {
 }
 
 function hasExplicitPayoffWindow(item: PayoffLedgerSyncCandidate): boolean {
-  return typeof item.targetStartChapterOrder === "number"
-    || typeof item.targetEndChapterOrder === "number"
-    || typeof item.payoffChapterOrder === "number"
-    || Boolean(item.payoffChapterId?.trim());
+  return (
+    typeof item.targetStartChapterOrder === "number" ||
+    typeof item.targetEndChapterOrder === "number" ||
+    typeof item.payoffChapterOrder === "number" ||
+    Boolean(item.payoffChapterId?.trim())
+  );
 }
 
 function compareExistingLedgerIdentityRows(
@@ -171,7 +173,10 @@ export function resolvePayoffLedgerSyncLedgerKey(
     if (!existing) {
       throw new Error(`伏笔 ${item.ledgerKey} 引用了不存在的既有账本项。`);
     }
-    if (!isUnfinishedPayoffStatus(existing.currentStatus) && item.currentStatus !== existing.currentStatus) {
+    if (
+      !isUnfinishedPayoffStatus(existing.currentStatus) &&
+      item.currentStatus !== existing.currentStatus
+    ) {
       throw new Error(`伏笔 ${item.ledgerKey} 不能重新打开已终态账本项 ${claimedKey}。`);
     }
     return existing.ledgerKey;
@@ -211,8 +216,9 @@ export function sanitizePayoffLedgerSyncItem<T extends PayoffLedgerSyncCandidate
       {
         code: "payoff_missing_progress",
         severity: "medium",
-        summary: item.statusReason?.trim()
-          || "AI 对账认为该伏笔已逾期，但缺少明确目标窗口，已按待推进风险继续跟踪。",
+        summary:
+          item.statusReason?.trim() ||
+          "AI 对账认为该伏笔已逾期，但缺少明确目标窗口，已按待推进风险继续跟踪。",
       },
     ]),
   };
@@ -253,10 +259,16 @@ function isUrgent(item: PayoffLedgerItem, chapterOrder?: number | null): boolean
   if (!chapterOrder || !isPendingLike(item.currentStatus)) {
     return false;
   }
-  if (typeof item.targetEndChapterOrder === "number" && item.targetEndChapterOrder <= chapterOrder + 1) {
+  if (
+    typeof item.targetEndChapterOrder === "number" &&
+    item.targetEndChapterOrder <= chapterOrder + 1
+  ) {
     return true;
   }
-  if (typeof item.targetStartChapterOrder === "number" && item.targetStartChapterOrder <= chapterOrder) {
+  if (
+    typeof item.targetStartChapterOrder === "number" &&
+    item.targetStartChapterOrder <= chapterOrder
+  ) {
     return true;
   }
   return false;
@@ -276,10 +288,11 @@ export function classifyPayoffLedgerItems(
   // in the pending set so it can guide the current chapter without forcing a
   // replan before the promised chapter has actually completed.
   const overdueItems = items.filter((item) => isPayoffOverdueAtChapter(item, chapterOrder));
-  const pendingItems = items.filter((item) => (
-    isPendingLike(item.currentStatus)
-    || (item.currentStatus === "overdue" && !isPayoffOverdueAtChapter(item, chapterOrder))
-  ));
+  const pendingItems = items.filter(
+    (item) =>
+      isPendingLike(item.currentStatus) ||
+      (item.currentStatus === "overdue" && !isPayoffOverdueAtChapter(item, chapterOrder)),
+  );
   const urgentItems = pendingItems.filter((item) => isUrgent(item, chapterOrder));
   const paidOffItems = items.filter((item) => item.currentStatus === "paid_off");
   return {
@@ -294,12 +307,12 @@ export function isPayoffOverdueAtChapter(
   item: Pick<PayoffLedgerItem, "currentStatus" | "targetEndChapterOrder">,
   chapterOrder?: number | null,
 ): boolean {
-  return item.currentStatus === "overdue"
-    && (
-      chapterOrder == null
-      || item.targetEndChapterOrder == null
-      || item.targetEndChapterOrder < chapterOrder
-    );
+  return (
+    item.currentStatus === "overdue" &&
+    (chapterOrder == null ||
+      item.targetEndChapterOrder == null ||
+      item.targetEndChapterOrder < chapterOrder)
+  );
 }
 
 export function buildPayoffLedgerSummary(
@@ -323,13 +336,37 @@ export function buildPayoffLedgerResponse(
   chapterOrder?: number | null,
 ): PayoffLedgerResponse {
   const orderedItems = items.slice().sort((left, right) => {
-    const leftPriority = left.currentStatus === "overdue" ? 0 : left.currentStatus === "pending_payoff" ? 1 : left.currentStatus === "hinted" ? 2 : left.currentStatus === "setup" ? 3 : left.currentStatus === "paid_off" ? 4 : 5;
-    const rightPriority = right.currentStatus === "overdue" ? 0 : right.currentStatus === "pending_payoff" ? 1 : right.currentStatus === "hinted" ? 2 : right.currentStatus === "setup" ? 3 : right.currentStatus === "paid_off" ? 4 : 5;
+    const leftPriority =
+      left.currentStatus === "overdue"
+        ? 0
+        : left.currentStatus === "pending_payoff"
+          ? 1
+          : left.currentStatus === "hinted"
+            ? 2
+            : left.currentStatus === "setup"
+              ? 3
+              : left.currentStatus === "paid_off"
+                ? 4
+                : 5;
+    const rightPriority =
+      right.currentStatus === "overdue"
+        ? 0
+        : right.currentStatus === "pending_payoff"
+          ? 1
+          : right.currentStatus === "hinted"
+            ? 2
+            : right.currentStatus === "setup"
+              ? 3
+              : right.currentStatus === "paid_off"
+                ? 4
+                : 5;
     if (leftPriority !== rightPriority) {
       return leftPriority - rightPriority;
     }
-    const leftOrder = left.targetEndChapterOrder ?? left.lastTouchedChapterOrder ?? Number.MAX_SAFE_INTEGER;
-    const rightOrder = right.targetEndChapterOrder ?? right.lastTouchedChapterOrder ?? Number.MAX_SAFE_INTEGER;
+    const leftOrder =
+      left.targetEndChapterOrder ?? left.lastTouchedChapterOrder ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder =
+      right.targetEndChapterOrder ?? right.lastTouchedChapterOrder ?? Number.MAX_SAFE_INTEGER;
     if (leftOrder !== rightOrder) {
       return leftOrder - rightOrder;
     }
@@ -355,9 +392,10 @@ export function buildSyntheticPayoffIssues(
       code: "payoff_overdue",
       severity: "high",
       description: `伏笔“${item.title}”已经超过目标窗口仍未兑现。`,
-      evidence: item.statusReason?.trim()
-        || item.evidence[0]?.summary
-        || `目标窗口截止第${item.targetEndChapterOrder ?? "?"}章，当前仍处于未兑现状态。`,
+      evidence:
+        item.statusReason?.trim() ||
+        item.evidence[0]?.summary ||
+        `目标窗口截止第${item.targetEndChapterOrder ?? "?"}章，当前仍处于未兑现状态。`,
       fixSuggestion: "在当前章节或接下来的重规划中明确安排兑现，或解释为什么必须延后。",
     });
   }
@@ -369,9 +407,10 @@ export function buildSyntheticPayoffIssues(
         code: "payoff_missing_progress",
         severity: "medium",
         description: `伏笔“${item.title}”已经进入应触碰窗口，但当前仍缺少明确推进。`,
-        evidence: item.statusReason?.trim()
-          || item.evidence[0]?.summary
-          || `目标窗口 ${item.targetStartChapterOrder ?? "?"}-${item.targetEndChapterOrder ?? "?"}。`,
+        evidence:
+          item.statusReason?.trim() ||
+          item.evidence[0]?.summary ||
+          `目标窗口 ${item.targetStartChapterOrder ?? "?"}-${item.targetEndChapterOrder ?? "?"}。`,
         fixSuggestion: "在本章计划、正文或修复中补上推进动作，避免继续拖延。",
       });
     }
@@ -380,9 +419,9 @@ export function buildSyntheticPayoffIssues(
   for (const item of items) {
     for (const signal of item.riskSignals) {
       if (
-        signal.code !== "payoff_paid_without_setup"
-        && signal.code !== "payoff_regressed"
-        && signal.code !== "payoff_missing_progress"
+        signal.code !== "payoff_paid_without_setup" &&
+        signal.code !== "payoff_regressed" &&
+        signal.code !== "payoff_missing_progress"
       ) {
         continue;
       }
@@ -392,11 +431,12 @@ export function buildSyntheticPayoffIssues(
         severity: signal.severity,
         description: `伏笔“${item.title}”存在专项风险：${signal.summary}`,
         evidence: item.evidence[0]?.summary || item.summary,
-        fixSuggestion: signal.code === "payoff_paid_without_setup"
-          ? "补足前置铺垫，或将当前章节的兑现强度降回铺垫/推进态。"
-          : signal.code === "payoff_regressed"
-            ? "检查是否误把已兑现伏笔重新打开；如属新线索，请改成新的账本项。"
-            : "为该伏笔补上明确推进动作，避免账本继续停滞。",
+        fixSuggestion:
+          signal.code === "payoff_paid_without_setup"
+            ? "补足前置铺垫，或将当前章节的兑现强度降回铺垫/推进态。"
+            : signal.code === "payoff_regressed"
+              ? "检查是否误把已兑现伏笔重新打开；如属新线索，请改成新的账本项。"
+              : "为该伏笔补上明确推进动作，避免账本继续停滞。",
       });
     }
   }

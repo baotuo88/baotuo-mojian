@@ -1,10 +1,7 @@
 import { buildStyleIntentSummary } from "@ai-novel/shared/types/styleEngine";
 import { AppError } from "../../../middleware/errorHandler";
 import { withoutExecutionScope } from "../../../platform/execution";
-import {
-  runWithLlmUsageTracking,
-  type LlmUsageTrackingContext,
-} from "../../../llm/usageTracking";
+import { runWithLlmUsageTracking, type LlmUsageTrackingContext } from "../../../llm/usageTracking";
 import { isTransientStructuredFailure } from "../../../llm/transientRetry";
 import type {
   DirectorPolicyMode,
@@ -54,9 +51,7 @@ import {
   isTakeoverStructuredOutlineReadyForValidation,
 } from "./runtime/novelDirectorTakeover";
 import { NovelDirectorAutoExecutionRuntime } from "./automation/novelDirectorAutoExecutionRuntime";
-import {
-  loadDirectorTakeoverState,
-} from "./runtime/novelDirectorTakeoverRuntime";
+import { loadDirectorTakeoverState } from "./runtime/novelDirectorTakeoverRuntime";
 import { startDirectorTakeoverExecution } from "./runtime/novelDirectorTakeoverExecution";
 import {
   resetDirectorTakeoverCurrentStep,
@@ -69,9 +64,7 @@ import {
   assertHighMemoryDirectorStartAllowed,
   releaseHighMemoryDirectorReservations,
 } from "./runtime/autoDirectorMemorySafety";
-import {
-  validateAutoDirectorTakeoverRequest,
-} from "./runtime/autoDirectorValidationService";
+import { validateAutoDirectorTakeoverRequest } from "./runtime/autoDirectorValidationService";
 import {
   normalizeDirectorAutoApprovalConfig,
   shouldAutoApproveDirectorApprovalPoint,
@@ -98,9 +91,7 @@ import { directorRiskPolicyOverrideService } from "./settings/DirectorRiskPolicy
 import { pendingReviewAutoPromotionService } from "../state/PendingReviewAutoPromotionService";
 import { parseSeedPayload } from "../workflow/novelWorkflow.shared";
 import { getDirectorInputFromSeedPayload } from "./runtime/novelDirectorHelpers";
-import {
-  directorWorkflowStepModuleRegistry,
-} from "./workflowStepRuntime/directorWorkflowStepModules";
+import { directorWorkflowStepModuleRegistry } from "./workflowStepRuntime/directorWorkflowStepModules";
 import {
   inspectWorkflowStepFacts,
   isExecutableWorkflowStepModule,
@@ -112,13 +103,13 @@ import { directorIssuePolicyService } from "./issues";
 function isWorkflowTaskCancelledError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return (
-    error instanceof AppError
-    && error.statusCode === 409
-    && error.message === "WORKFLOW_TASK_CANCELLED"
-  )
-    || message === "WORKFLOW_TASK_CANCELLED"
-    || message.includes("当前自动导演任务已取消")
-    || message.includes("This operation was aborted");
+    (error instanceof AppError &&
+      error.statusCode === 409 &&
+      error.message === "WORKFLOW_TASK_CANCELLED") ||
+    message === "WORKFLOW_TASK_CANCELLED" ||
+    message.includes("当前自动导演任务已取消") ||
+    message.includes("This operation was aborted")
+  );
 }
 
 export class NovelDirectorService {
@@ -134,20 +125,22 @@ export class NovelDirectorService {
   private readonly directorEventProjectionService = new DirectorEventProjectionService();
   private readonly styleProfileService = new StyleProfileService();
   private readonly styleBindingService = new StyleBindingService();
-  private readonly candidateStageService = new NovelDirectorCandidateStageService(this.workflowService);
+  private readonly candidateStageService = new NovelDirectorCandidateStageService(
+    this.workflowService,
+  );
   private readonly autoExecutionRuntime = new NovelDirectorAutoExecutionRuntime({
     novelContextService: this.novelContextService,
     novelService: this.novelService,
     volumeWorkspaceService: this.volumeService,
     workflowService: this.workflowService,
-    buildDirectorSeedPayload: (input, novelId, extra) => buildDirectorWorkflowSeedPayload(input, novelId, extra),
-    shouldAutoContinueQualityRepair: async ({ request, qualityRepairRisk }) => (
-      qualityRepairRisk.autoContinuable
-      && shouldAutoApproveDirectorApprovalPoint(
+    buildDirectorSeedPayload: (input, novelId, extra) =>
+      buildDirectorWorkflowSeedPayload(input, novelId, extra),
+    shouldAutoContinueQualityRepair: async ({ request, qualityRepairRisk }) =>
+      qualityRepairRisk.autoContinuable &&
+      shouldAutoApproveDirectorApprovalPoint(
         normalizeDirectorAutoApprovalConfig(request.autoApproval),
         "low_risk_quality_repair_continue",
-      )
-    ),
+      ),
     recordAutoApproval: async ({ taskId, checkpointType, checkpointSummary }) => {
       await recordAutoDirectorAutoApprovalFromTask({
         taskId,
@@ -156,8 +149,10 @@ export class NovelDirectorService {
       });
     },
     replanNovel: (novelId, input) => this.novelService.replanNovel(novelId, input),
-    resolveStateProposals: (input) => directorStateProposalResolutionService.resolvePendingProposals(input),
-    autoConfirmPendingCandidates: (novelId) => this.characterDynamicsService.autoConfirmPendingCandidates(novelId),
+    resolveStateProposals: (input) =>
+      directorStateProposalResolutionService.resolvePendingProposals(input),
+    autoConfirmPendingCandidates: (novelId) =>
+      this.characterDynamicsService.autoConfirmPendingCandidates(novelId),
     isPendingReviewAutoPromotionEnabled: () => qualityDebtSettingsService.isAutoPromotionEnabled(),
     autoPromotePendingReviewProposals: (input) => this.autoPromotePendingReviewProposals(input),
   });
@@ -172,7 +167,8 @@ export class NovelDirectorService {
     directorRuntime: this.directorRuntime,
     runtimeOrchestrator: this.directorRuntimeOrchestrator,
     scheduleBackgroundRun: (taskId, runner) => this.scheduleBackgroundRun(taskId, runner),
-    withWorkflowTaskUsage: (workflowTaskId, runner) => this.withWorkflowTaskUsage(workflowTaskId, runner),
+    withWorkflowTaskUsage: (workflowTaskId, runner) =>
+      this.withWorkflowTaskUsage(workflowTaskId, runner),
   });
   private readonly directorPipelineRuntime = new NovelDirectorPipelineRuntime({
     workflowService: this.workflowService,
@@ -183,7 +179,8 @@ export class NovelDirectorService {
     bookContractService: this.bookContractService,
     volumeService: this.volumeService,
     runtimeOrchestrator: this.directorRuntimeOrchestrator,
-    buildDirectorSeedPayload: (directorInput, novelId, extra) => buildDirectorWorkflowSeedPayload(directorInput, novelId, extra),
+    buildDirectorSeedPayload: (directorInput, novelId, extra) =>
+      buildDirectorWorkflowSeedPayload(directorInput, novelId, extra),
     assertHighMemoryStartAllowed: (payload) => this.assertHighMemoryDirectorStartAllowed(payload),
   });
   private readonly confirmRuntime = new NovelDirectorConfirmRuntime({
@@ -192,10 +189,13 @@ export class NovelDirectorService {
     directorRuntime: this.directorRuntime,
     runtimeOrchestrator: this.directorRuntimeOrchestrator,
     pipelineRuntime: this.directorPipelineRuntime,
-    buildDirectorSeedPayload: (directorInput, novelId, extra) => buildDirectorWorkflowSeedPayload(directorInput, novelId, extra),
+    buildDirectorSeedPayload: (directorInput, novelId, extra) =>
+      buildDirectorWorkflowSeedPayload(directorInput, novelId, extra),
     enrichDirectorStyleContext: (directorInput) => this.enrichDirectorStyleContext(directorInput),
-    ensurePrimaryNovelStyleBinding: (novelId, styleProfileId) => this.ensurePrimaryNovelStyleBinding(novelId, styleProfileId),
-    withWorkflowTaskUsage: (workflowTaskId, runner) => this.withWorkflowTaskUsage(workflowTaskId, runner),
+    ensurePrimaryNovelStyleBinding: (novelId, styleProfileId) =>
+      this.ensurePrimaryNovelStyleBinding(novelId, styleProfileId),
+    withWorkflowTaskUsage: (workflowTaskId, runner) =>
+      this.withWorkflowTaskUsage(workflowTaskId, runner),
     scheduleBackgroundRun: (taskId, runner) => this.scheduleBackgroundRun(taskId, runner),
     runBackgroundRun: (taskId, runner) => this.runBackgroundRun(taskId, runner),
     resolveRiskPolicy: (novelId) => this.resolveDirectorRiskPolicy(novelId),
@@ -203,7 +203,8 @@ export class NovelDirectorService {
   private readonly chapterTitleRepairRuntime = new NovelDirectorChapterTitleRepairRuntime({
     workflowService: this.workflowService,
     volumeService: this.volumeService,
-    buildDirectorSeedPayload: (directorInput, novelId, extra) => buildDirectorWorkflowSeedPayload(directorInput, novelId, extra),
+    buildDirectorSeedPayload: (directorInput, novelId, extra) =>
+      buildDirectorWorkflowSeedPayload(directorInput, novelId, extra),
     scheduleBackgroundRun: (taskId, runner) => this.scheduleBackgroundRun(taskId, runner),
   });
   private readonly continueRuntime = new NovelDirectorContinueRuntime({
@@ -217,10 +218,12 @@ export class NovelDirectorService {
     autoExecutionRuntime: this.autoExecutionRuntime,
     pipelineRuntime: this.directorPipelineRuntime,
     replanNovel: (novelId, input) => this.novelService.replanNovel(novelId, input),
-    continueCandidateStageTask: (taskId, payload) => this.continueCandidateStageTask(taskId, payload),
+    continueCandidateStageTask: (taskId, payload) =>
+      this.continueCandidateStageTask(taskId, payload),
     resolveAssetFirstRecovery: (payload) => this.resolveAssetFirstRecovery(payload),
     runDirectorPipeline: (payload) => this.runDirectorPipeline(payload),
-    buildDirectorSeedPayload: (directorInput, novelId, extra) => buildDirectorWorkflowSeedPayload(directorInput, novelId, extra),
+    buildDirectorSeedPayload: (directorInput, novelId, extra) =>
+      buildDirectorWorkflowSeedPayload(directorInput, novelId, extra),
     resolveRiskPolicy: (novelId) => this.resolveDirectorRiskPolicy(novelId),
     getDirectorAssetSnapshot: (novelId) => this.getDirectorAssetSnapshot(novelId),
     assertHighMemoryStartAllowed: (payload) => this.assertHighMemoryDirectorStartAllowed(payload),
@@ -279,10 +282,7 @@ export class NovelDirectorService {
     rethrowFailure = false,
   ): Promise<void> {
     try {
-      await runWithLlmUsageTracking(
-        await this.buildDirectorUsageContext(taskId),
-        runner,
-      );
+      await runWithLlmUsageTracking(await this.buildDirectorUsageContext(taskId), runner);
     } catch (error) {
       if (isWorkflowTaskCancelledError(error) || isDirectorRuntimeGateError(error)) {
         return;
@@ -291,7 +291,7 @@ export class NovelDirectorService {
       // 传输类瞬时失败由命令层退避重排，这里不把整条链判定为失败。
       // 仅在错误会继续抛回命令层（rethrowFailure）且任务确实还有可重排命令时才延迟判定，
       // 否则保持原有失败语义，避免任务永久挂在运行中。
-      const deferred = rethrowFailure && await this.deferTransientFailure(taskId, error);
+      const deferred = rethrowFailure && (await this.deferTransientFailure(taskId, error));
       if (deferred) {
         console.warn(`[director.background] transient failure deferred taskId=${taskId}`, error);
       } else {
@@ -314,36 +314,44 @@ export class NovelDirectorService {
     if (!isTransientStructuredFailure(error)) {
       return false;
     }
-    const activeCommands = await prisma.directorRunCommand.count({
-      where: {
-        taskId,
-        status: { in: ["queued", "leased", "running"] },
-      },
-    }).catch(() => 0);
+    const activeCommands = await prisma.directorRunCommand
+      .count({
+        where: {
+          taskId,
+          status: { in: ["queued", "leased", "running"] },
+        },
+      })
+      .catch(() => 0);
     return activeCommands > 0;
   }
 
-  private withWorkflowTaskUsage<T>(workflowTaskId: string | null | undefined, runner: () => Promise<T>): Promise<T> {
+  private withWorkflowTaskUsage<T>(
+    workflowTaskId: string | null | undefined,
+    runner: () => Promise<T>,
+  ): Promise<T> {
     const normalizedTaskId = workflowTaskId?.trim();
     if (!normalizedTaskId) {
       return runner();
     }
-    return this.buildDirectorUsageContext(normalizedTaskId)
-      .then((context) => runWithLlmUsageTracking(context, runner));
+    return this.buildDirectorUsageContext(normalizedTaskId).then((context) =>
+      runWithLlmUsageTracking(context, runner),
+    );
   }
 
   private async buildDirectorUsageContext(taskId: string): Promise<LlmUsageTrackingContext> {
     const normalizedTaskId = taskId.trim();
     const task = normalizedTaskId
-      ? await prisma.novelWorkflowTask.findUnique({
-        where: { id: normalizedTaskId },
-        select: {
-          novelId: true,
-          directorRun: {
-            select: { id: true },
-          },
-        },
-      }).catch(() => null)
+      ? await prisma.novelWorkflowTask
+          .findUnique({
+            where: { id: normalizedTaskId },
+            select: {
+              novelId: true,
+              directorRun: {
+                select: { id: true },
+              },
+            },
+          })
+          .catch(() => null)
       : null;
     return {
       workflowTaskId: normalizedTaskId || null,
@@ -353,9 +361,9 @@ export class NovelDirectorService {
     };
   }
 
-  private async enrichDirectorStyleContext<T extends { styleProfileId?: string; styleTone?: string; styleIntentSummary?: unknown }>(
-    input: T,
-  ): Promise<T> {
+  private async enrichDirectorStyleContext<
+    T extends { styleProfileId?: string; styleTone?: string; styleIntentSummary?: unknown },
+  >(input: T): Promise<T> {
     const styleProfileId = input.styleProfileId?.trim() || undefined;
     let styleProfile = null;
     if (styleProfileId) {
@@ -376,7 +384,10 @@ export class NovelDirectorService {
     };
   }
 
-  private async ensurePrimaryNovelStyleBinding(novelId: string, styleProfileId: string | null | undefined): Promise<void> {
+  private async ensurePrimaryNovelStyleBinding(
+    novelId: string,
+    styleProfileId: string | null | undefined,
+  ): Promise<void> {
     const normalizedProfileId = styleProfileId?.trim();
     if (!normalizedProfileId) {
       return;
@@ -413,11 +424,11 @@ export class NovelDirectorService {
     const preparedOutlineChapters = workspace ? flattenPreparedOutlineChapters(workspace) : [];
     const volumeChapterRangeMax = Math.max(
       0,
-      ...(workspace?.volumes ?? []).flatMap((volume) => (
+      ...(workspace?.volumes ?? []).flatMap((volume) =>
         volume.chapters
           .map((chapter) => chapter.chapterOrder)
-          .filter((order) => Number.isFinite(order))
-      )),
+          .filter((order) => Number.isFinite(order)),
+      ),
     );
     const structuredOutlineMax = Math.max(
       0,
@@ -425,12 +436,13 @@ export class NovelDirectorService {
         .map((chapter) => chapter.chapterOrder)
         .filter((order) => Number.isFinite(order)),
     );
-    const plannedChapterCount = Math.max(
-      novel?.estimatedChapterCount ?? 0,
-      volumeChapterRangeMax,
-      structuredOutlineMax,
-      chapters.length,
-    ) || null;
+    const plannedChapterCount =
+      Math.max(
+        novel?.estimatedChapterCount ?? 0,
+        volumeChapterRangeMax,
+        structuredOutlineMax,
+        chapters.length,
+      ) || null;
     return {
       characterCount: characters.length,
       chapterCount: chapters.length,
@@ -439,39 +451,51 @@ export class NovelDirectorService {
       hasVolumeStrategyPlan: Boolean(workspace?.strategyPlan),
       firstVolumeId: firstVolume?.id ?? null,
       firstVolumeChapterCount: firstVolume?.chapters.length ?? 0,
-      volumeChapterRanges: (workspace?.volumes ?? []).map((volume) => {
-        const orders = volume.chapters
-          .map((chapter) => chapter.chapterOrder)
-          .filter((order) => Number.isFinite(order))
-          .sort((left, right) => left - right);
-        return orders.length > 0
-          ? {
-            volumeOrder: volume.sortOrder,
-            startOrder: orders[0],
-            endOrder: orders[orders.length - 1],
-          }
-          : null;
-      }).filter((range): range is { volumeOrder: number; startOrder: number; endOrder: number } => Boolean(range)),
-      structuredOutlineChapterOrders: preparedOutlineChapters.map((chapter) => chapter.chapterOrder),
+      volumeChapterRanges: (workspace?.volumes ?? [])
+        .map((volume) => {
+          const orders = volume.chapters
+            .map((chapter) => chapter.chapterOrder)
+            .filter((order) => Number.isFinite(order))
+            .sort((left, right) => left - right);
+          return orders.length > 0
+            ? {
+                volumeOrder: volume.sortOrder,
+                startOrder: orders[0],
+                endOrder: orders[orders.length - 1],
+              }
+            : null;
+        })
+        .filter((range): range is { volumeOrder: number; startOrder: number; endOrder: number } =>
+          Boolean(range),
+        ),
+      structuredOutlineChapterOrders: preparedOutlineChapters.map(
+        (chapter) => chapter.chapterOrder,
+      ),
     };
   }
 
-  async continueTask(taskId: string, input?: {
-    continuationMode?: DirectorContinuationMode;
-    batchAlreadyStartedCount?: number;
-    forceResume?: boolean;
-    acceptManualChanges?: boolean;
-  }): Promise<void> {
+  async continueTask(
+    taskId: string,
+    input?: {
+      continuationMode?: DirectorContinuationMode;
+      batchAlreadyStartedCount?: number;
+      forceResume?: boolean;
+      acceptManualChanges?: boolean;
+    },
+  ): Promise<void> {
     return this.continueRuntime.continueTask(taskId, input);
   }
 
-  async executeContinueTask(taskId: string, input?: {
-    continuationMode?: DirectorContinuationMode;
-    batchAlreadyStartedCount?: number;
-    forceResume?: boolean;
-    acceptManualChanges?: boolean;
-    awaitBackgroundRun?: boolean;
-  }): Promise<void> {
+  async executeContinueTask(
+    taskId: string,
+    input?: {
+      continuationMode?: DirectorContinuationMode;
+      batchAlreadyStartedCount?: number;
+      forceResume?: boolean;
+      acceptManualChanges?: boolean;
+      awaitBackgroundRun?: boolean;
+    },
+  ): Promise<void> {
     return this.continueRuntime.continueTask(taskId, input);
   }
 
@@ -494,15 +518,21 @@ export class NovelDirectorService {
     return this.directorPipelineRuntime.runPipeline(input);
   }
 
-  async repairChapterTitles(taskId: string, input?: {
-    volumeId?: string | null;
-  }): Promise<void> {
+  async repairChapterTitles(
+    taskId: string,
+    input?: {
+      volumeId?: string | null;
+    },
+  ): Promise<void> {
     return this.chapterTitleRepairRuntime.repairChapterTitles(taskId, input);
   }
 
-  async executeChapterTitleRepair(taskId: string, input?: {
-    volumeId?: string | null;
-  }): Promise<void> {
+  async executeChapterTitleRepair(
+    taskId: string,
+    input?: {
+      volumeId?: string | null;
+    },
+  ): Promise<void> {
     return this.chapterTitleRepairRuntime.repairChapterTitles(taskId, input);
   }
 
@@ -512,8 +542,10 @@ export class NovelDirectorService {
       getStoryMacroPlan: (targetNovelId) => this.storyMacroService.getPlan(targetNovelId),
       getDirectorAssetSnapshot: (targetNovelId) => this.getDirectorAssetSnapshot(targetNovelId),
       getVolumeWorkspace: (targetNovelId) => this.volumeService.getVolumes(targetNovelId),
-      findActiveAutoDirectorTask: (targetNovelId) => this.workflowService.findActiveTaskByNovelAndLane(targetNovelId, "auto_director"),
-      findLatestAutoDirectorTask: (targetNovelId) => this.workflowService.findLatestVisibleTaskByNovelId(targetNovelId, "auto_director"),
+      findActiveAutoDirectorTask: (targetNovelId) =>
+        this.workflowService.findActiveTaskByNovelAndLane(targetNovelId, "auto_director"),
+      findLatestAutoDirectorTask: (targetNovelId) =>
+        this.workflowService.findLatestVisibleTaskByNovelId(targetNovelId, "auto_director"),
     });
     return buildDirectorTakeoverReadiness({
       novel: takeoverState.novel,
@@ -526,11 +558,14 @@ export class NovelDirectorService {
     });
   }
 
-  async analyzeRuntimeWorkspace(novelId: string, input?: {
-    workflowTaskId?: string | null;
-    includeAiInterpretation?: boolean;
-    llm?: DirectorLLMOptions;
-  }): Promise<DirectorWorkspaceAnalysis> {
+  async analyzeRuntimeWorkspace(
+    novelId: string,
+    input?: {
+      workflowTaskId?: string | null;
+      includeAiInterpretation?: boolean;
+      llm?: DirectorLLMOptions;
+    },
+  ): Promise<DirectorWorkspaceAnalysis> {
     return this.directorRuntime.analyzeWorkspace({
       novelId,
       workflowTaskId: input?.workflowTaskId,
@@ -539,12 +574,15 @@ export class NovelDirectorService {
     });
   }
 
-  async evaluateManualEditImpact(novelId: string, input?: {
-    workflowTaskId?: string | null;
-    chapterId?: string | null;
-    includeAiInterpretation?: boolean;
-    llm?: DirectorLLMOptions;
-  }): Promise<DirectorManualEditImpact> {
+  async evaluateManualEditImpact(
+    novelId: string,
+    input?: {
+      workflowTaskId?: string | null;
+      chapterId?: string | null;
+      includeAiInterpretation?: boolean;
+      llm?: DirectorLLMOptions;
+    },
+  ): Promise<DirectorManualEditImpact> {
     return this.directorRuntime.evaluateManualEditImpact({
       novelId,
       workflowTaskId: input?.workflowTaskId,
@@ -645,7 +683,9 @@ export class NovelDirectorService {
     return this.directorRuntime.getSnapshot(taskId);
   }
 
-  buildRuntimeProjection(snapshot: DirectorRuntimeSnapshot | null): DirectorRuntimeProjection | null {
+  buildRuntimeProjection(
+    snapshot: DirectorRuntimeSnapshot | null,
+  ): DirectorRuntimeProjection | null {
     return this.directorEventProjectionService.buildSnapshotProjection(snapshot);
   }
 
@@ -660,10 +700,13 @@ export class NovelDirectorService {
     return this.buildRuntimeProjection(await this.getRuntimeSnapshot(taskId));
   }
 
-  async updateRuntimePolicy(taskId: string, input: {
-    mode: DirectorPolicyMode;
-    patch?: Partial<Omit<DirectorRuntimePolicySnapshot, "mode" | "updatedAt">>;
-  }): Promise<DirectorRuntimeSnapshot | null> {
+  async updateRuntimePolicy(
+    taskId: string,
+    input: {
+      mode: DirectorPolicyMode;
+      patch?: Partial<Omit<DirectorRuntimePolicySnapshot, "mode" | "updatedAt">>;
+    },
+  ): Promise<DirectorRuntimeSnapshot | null> {
     return this.directorRuntime.updatePolicy({
       taskId,
       mode: input.mode,
@@ -671,10 +714,13 @@ export class NovelDirectorService {
     });
   }
 
-  async startTakeover(input: DirectorTakeoverRequest, options: {
-    workflowTaskId?: string | null;
-    awaitBackgroundRun?: boolean;
-  } = {}): Promise<DirectorTakeoverResponse> {
+  async startTakeover(
+    input: DirectorTakeoverRequest,
+    options: {
+      workflowTaskId?: string | null;
+      awaitBackgroundRun?: boolean;
+    } = {},
+  ): Promise<DirectorTakeoverResponse> {
     const commandTaskId = options.workflowTaskId?.trim() || null;
     const takeoverState = await loadDirectorTakeoverState({
       novelId: input.novelId,
@@ -686,18 +732,34 @@ export class NovelDirectorService {
         if (!commandTaskId) {
           return this.workflowService.findActiveTaskByNovelAndLane(targetNovelId, "auto_director");
         }
-        const rows = await this.workflowService.listVisibleTasksByNovelAndLane(targetNovelId, "auto_director");
-        return rows.find((row) => row.id !== commandTaskId && ["queued", "running", "waiting_approval"].includes(row.status)) ?? null;
+        const rows = await this.workflowService.listVisibleTasksByNovelAndLane(
+          targetNovelId,
+          "auto_director",
+        );
+        return (
+          rows.find(
+            (row) =>
+              row.id !== commandTaskId &&
+              ["queued", "running", "waiting_approval"].includes(row.status),
+          ) ?? null
+        );
       },
       findLatestAutoDirectorTask: async (targetNovelId) => {
         if (!commandTaskId) {
-          return this.workflowService.findLatestVisibleTaskByNovelId(targetNovelId, "auto_director");
+          return this.workflowService.findLatestVisibleTaskByNovelId(
+            targetNovelId,
+            "auto_director",
+          );
         }
-        const rows = await this.workflowService.listVisibleTasksByNovelAndLane(targetNovelId, "auto_director");
+        const rows = await this.workflowService.listVisibleTasksByNovelAndLane(
+          targetNovelId,
+          "auto_director",
+        );
         return rows.find((row) => row.id !== commandTaskId) ?? null;
       },
     });
-    const takeoverStrategy = input.strategy ?? (input.startPhase ? "restart_current_step" : "continue_existing");
+    const takeoverStrategy =
+      input.strategy ?? (input.startPhase ? "restart_current_step" : "continue_existing");
     if (takeoverState.hasActiveTask && takeoverStrategy !== "continue_existing") {
       throw new Error("当前已有自动导演任务在运行或等待审核，请先继续或取消当前任务。");
     }
@@ -719,7 +781,10 @@ export class NovelDirectorService {
       },
     });
     if (!takeoverValidation.allowed) {
-      throw new AppError(takeoverValidation.blockingReasons.join("；") || "当前接管请求需要先重新校验。", 409);
+      throw new AppError(
+        takeoverValidation.blockingReasons.join("；") || "当前接管请求需要先重新校验。",
+        409,
+      );
     }
 
     const takeoverDirectorInput = buildDirectorTakeoverInput({
@@ -728,21 +793,29 @@ export class NovelDirectorService {
       bookContract: takeoverState.bookContract,
       runMode: input.runMode,
     });
-    const { effectivePolicy: issuePolicy, source: issuePolicySource } = await directorIssuePolicyService.getNovelPolicy(input.novelId);
-    const directorInput = applyDirectorRunModeContract(await this.enrichDirectorStyleContext({
-      ...takeoverDirectorInput,
-      styleProfileId: input.styleProfileId ?? takeoverDirectorInput.styleProfileId,
-      postGenerationStyleReviewEnabled: input.postGenerationStyleReviewEnabled ?? takeoverDirectorInput.postGenerationStyleReviewEnabled,
-      autoExecutionPlan: input.autoExecutionPlan,
-      autoApproval: input.autoApproval,
-      provider: input.provider ?? takeoverDirectorInput.provider,
-      model: input.model?.trim() || takeoverDirectorInput.model,
-      temperature: typeof input.temperature === "number" ? input.temperature : takeoverDirectorInput.temperature,
-      issueGovernanceVersion: DIRECTOR_ISSUE_GOVERNANCE_VERSION,
-      issuePolicy,
-      issuePolicySource,
-      riskPolicy: await this.resolveDirectorRiskPolicy(input.novelId),
-    }));
+    const { effectivePolicy: issuePolicy, source: issuePolicySource } =
+      await directorIssuePolicyService.getNovelPolicy(input.novelId);
+    const directorInput = applyDirectorRunModeContract(
+      await this.enrichDirectorStyleContext({
+        ...takeoverDirectorInput,
+        styleProfileId: input.styleProfileId ?? takeoverDirectorInput.styleProfileId,
+        postGenerationStyleReviewEnabled:
+          input.postGenerationStyleReviewEnabled ??
+          takeoverDirectorInput.postGenerationStyleReviewEnabled,
+        autoExecutionPlan: input.autoExecutionPlan,
+        autoApproval: input.autoApproval,
+        provider: input.provider ?? takeoverDirectorInput.provider,
+        model: input.model?.trim() || takeoverDirectorInput.model,
+        temperature:
+          typeof input.temperature === "number"
+            ? input.temperature
+            : takeoverDirectorInput.temperature,
+        issueGovernanceVersion: DIRECTOR_ISSUE_GOVERNANCE_VERSION,
+        issuePolicy,
+        issuePolicySource,
+        riskPolicy: await this.resolveDirectorRiskPolicy(input.novelId),
+      }),
+    );
     const isFullBookAutopilot = isFullBookAutopilotRunMode(directorInput.runMode);
     if (typeof input.postGenerationStyleReviewEnabled === "boolean") {
       await this.novelService.updateNovel(input.novelId, {
@@ -775,26 +848,36 @@ export class NovelDirectorService {
       directorInput,
       workflowService: this.workflowService,
       autoExecutionRuntime: {
-        prepareRequestedAutoExecution: (payload) => this.autoExecutionRuntime.prepareRequestedAutoExecution(payload),
-        runFromReady: (payload) => this.directorRuntimeOrchestrator.runChapterExecutionNode(payload),
+        prepareRequestedAutoExecution: (payload) =>
+          this.autoExecutionRuntime.prepareRequestedAutoExecution(payload),
+        runFromReady: (payload) =>
+          this.directorRuntimeOrchestrator.runChapterExecutionNode(payload),
       },
-      buildDirectorSeedPayload: (request, novelId, extra) => buildDirectorWorkflowSeedPayload(request, novelId, extra),
-      scheduleBackgroundRun: (taskId, runner) => this.scheduleBackgroundRun(taskId, runTakeover(taskId, runner)),
+      buildDirectorSeedPayload: (request, novelId, extra) =>
+        buildDirectorWorkflowSeedPayload(request, novelId, extra),
+      scheduleBackgroundRun: (taskId, runner) =>
+        this.scheduleBackgroundRun(taskId, runTakeover(taskId, runner)),
       awaitBackgroundRun: options.awaitBackgroundRun,
-      runBackgroundRun: (taskId, runner) => this.runBackgroundRun(taskId, runTakeover(taskId, runner)),
+      runBackgroundRun: (taskId, runner) =>
+        this.runBackgroundRun(taskId, runTakeover(taskId, runner)),
       runDirectorPipeline: (payload) => this.directorPipelineRuntime.runPipeline(payload),
       assertHighMemoryStartAllowed: (payload) => this.assertHighMemoryDirectorStartAllowed(payload),
       createRewriteSnapshot: async ({ novelId, label }) => {
-        const snapshot = await this.novelService.createNovelSnapshot(novelId, "before_pipeline", label);
+        const snapshot = await this.novelService.createNovelSnapshot(
+          novelId,
+          "before_pipeline",
+          label,
+        );
         return {
           snapshotId: snapshot.id,
           label: snapshot.label ?? label,
           restoreEntry: "version_history",
         };
       },
-      recordRewriteSnapshotMilestone: ({ taskId, summary }) => this.workflowService.recordRewriteSnapshotMilestone(taskId, {
-        summary,
-      }),
+      recordRewriteSnapshotMilestone: ({ taskId, summary }) =>
+        this.workflowService.recordRewriteSnapshotMilestone(taskId, {
+          summary,
+        }),
       workflowTaskId: commandTaskId,
       prepareRestartStep: async ({ plan, takeoverState: currentTakeoverState, directorInput }) => {
         await resetDirectorTakeoverCurrentStep({
@@ -804,12 +887,17 @@ export class NovelDirectorService {
           takeoverState: currentTakeoverState,
           deps: {
             getVolumeWorkspace: (targetNovelId) => this.volumeService.getVolumes(targetNovelId),
-            updateVolumeWorkspace: (targetNovelId, payload) => this.volumeService.updateVolumes(targetNovelId, payload),
+            updateVolumeWorkspace: (targetNovelId, payload) =>
+              this.volumeService.updateVolumes(targetNovelId, payload),
             cancelPipelineJob: (jobId) => this.novelService.cancelPipelineJob(jobId),
           },
         });
       },
-      resetDownstreamState: async ({ plan, takeoverState: currentTakeoverState, directorInput }) => {
+      resetDownstreamState: async ({
+        plan,
+        takeoverState: currentTakeoverState,
+        directorInput,
+      }) => {
         await resetDirectorTakeoverDownstreamState({
           novelId: input.novelId,
           plan,
@@ -817,12 +905,17 @@ export class NovelDirectorService {
           takeoverState: currentTakeoverState,
           deps: {
             getVolumeWorkspace: (targetNovelId) => this.volumeService.getVolumes(targetNovelId),
-            updateVolumeWorkspace: (targetNovelId, payload) => this.volumeService.updateVolumes(targetNovelId, payload),
+            updateVolumeWorkspace: (targetNovelId, payload) =>
+              this.volumeService.updateVolumes(targetNovelId, payload),
             cancelPipelineJob: (jobId) => this.novelService.cancelPipelineJob(jobId),
           },
         });
       },
-      cancelReplacedRuns: async ({ replacementTaskId, directorInput, takeoverState: currentTakeoverState }) => {
+      cancelReplacedRuns: async ({
+        replacementTaskId,
+        directorInput,
+        takeoverState: currentTakeoverState,
+      }) => {
         await cancelContinueExistingReplacedRuns({
           novelId: input.novelId,
           replacementTaskId,
@@ -850,7 +943,8 @@ export class NovelDirectorService {
   async generateCandidates(input: DirectorCandidatesRequest): Promise<DirectorCandidatesResponse> {
     return this.candidateRuntime.runWithFailureHandling(
       input.workflowTaskId,
-      async () => this.candidateStageService.generateCandidates(await this.enrichDirectorStyleContext(input)),
+      async () =>
+        this.candidateStageService.generateCandidates(await this.enrichDirectorStyleContext(input)),
       "candidate_generation",
     );
   }
@@ -858,15 +952,19 @@ export class NovelDirectorService {
   async refineCandidates(input: DirectorRefinementRequest): Promise<DirectorRefineResponse> {
     return this.candidateRuntime.runWithFailureHandling(
       input.workflowTaskId,
-      async () => this.candidateStageService.refineCandidates(await this.enrichDirectorStyleContext(input)),
+      async () =>
+        this.candidateStageService.refineCandidates(await this.enrichDirectorStyleContext(input)),
       "candidate_refine",
     );
   }
 
-  async patchCandidate(input: DirectorCandidatePatchRequest): Promise<DirectorCandidatePatchResponse> {
+  async patchCandidate(
+    input: DirectorCandidatePatchRequest,
+  ): Promise<DirectorCandidatePatchResponse> {
     return this.candidateRuntime.runWithFailureHandling(
       input.workflowTaskId,
-      async () => this.candidateStageService.patchCandidate(await this.enrichDirectorStyleContext(input)),
+      async () =>
+        this.candidateStageService.patchCandidate(await this.enrichDirectorStyleContext(input)),
       "candidate_patch",
     );
   }
@@ -876,21 +974,29 @@ export class NovelDirectorService {
   ): Promise<DirectorCandidateTitleRefineResponse> {
     return this.candidateRuntime.runWithFailureHandling(
       input.workflowTaskId,
-      async () => this.candidateStageService.refineCandidateTitleOptions(await this.enrichDirectorStyleContext(input)),
+      async () =>
+        this.candidateStageService.refineCandidateTitleOptions(
+          await this.enrichDirectorStyleContext(input),
+        ),
       "candidate_title_refine",
     );
   }
 
-  async confirmCandidate(input: DirectorConfirmRequest, options: {
-    awaitBackgroundRun?: boolean;
-  } = {}): Promise<DirectorConfirmApiResponse> {
+  async confirmCandidate(
+    input: DirectorConfirmRequest,
+    options: {
+      awaitBackgroundRun?: boolean;
+    } = {},
+  ): Promise<DirectorConfirmApiResponse> {
     const issuePolicy = await directorIssuePolicyService.getGlobalPolicy();
-    return this.confirmRuntime.confirmCandidate({
-      ...input,
-      issueGovernanceVersion: DIRECTOR_ISSUE_GOVERNANCE_VERSION,
-      issuePolicy,
-      issuePolicySource: "global",
-    }, options);
+    return this.confirmRuntime.confirmCandidate(
+      {
+        ...input,
+        issueGovernanceVersion: DIRECTOR_ISSUE_GOVERNANCE_VERSION,
+        issuePolicy,
+        issuePolicySource: "global",
+      },
+      options,
+    );
   }
-
 }

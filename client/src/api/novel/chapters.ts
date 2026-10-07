@@ -69,7 +69,10 @@ export async function updateNovelChapter(
     riskFlags: string;
   }>,
 ) {
-  const { data } = await apiClient.put<ApiResponse<Chapter>>(`/novels/${id}/chapters/${chapterId}`, payload);
+  const { data } = await apiClient.put<ApiResponse<Chapter>>(
+    `/novels/${id}/chapters/${chapterId}`,
+    payload,
+  );
   return data;
 }
 
@@ -79,17 +82,19 @@ export async function deleteNovelChapter(id: string, chapterId: string) {
 }
 
 export async function getChapterTraces(novelId: string, chapterId: string) {
-  const { data } = await apiClient.get<ApiResponse<import("@ai-novel/shared/types/agent").AgentRun[]>>(
-    `/novels/${novelId}/chapters/${chapterId}/traces`,
-  );
+  const { data } = await apiClient.get<
+    ApiResponse<import("@ai-novel/shared/types/agent").AgentRun[]>
+  >(`/novels/${novelId}/chapters/${chapterId}/traces`);
   return data;
 }
 
 export async function getChapterTimeline(novelId: string, chapterId: string) {
-  const { data } = await apiClient.get<ApiResponse<{
-    context: TimelineContextForChapter;
-    latestReport: TimelineCheckReport | null;
-  }>>(`/novels/${novelId}/chapters/${chapterId}/timeline`);
+  const { data } = await apiClient.get<
+    ApiResponse<{
+      context: TimelineContextForChapter;
+      latestReport: TimelineCheckReport | null;
+    }>
+  >(`/novels/${novelId}/chapters/${chapterId}/timeline`);
   return data;
 }
 

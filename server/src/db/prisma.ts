@@ -46,10 +46,12 @@ const adapter = databaseUrl.startsWith("file:")
 
 export const prisma =
   global.prisma ??
-  guardPrismaExecutionWrites(new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-  }));
+  guardPrismaExecutionWrites(
+    new PrismaClient({
+      adapter,
+      log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+    }),
+  );
 
 if (process.env.NODE_ENV !== "production") {
   global.prisma = prisma;

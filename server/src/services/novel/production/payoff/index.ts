@@ -1,1 +1,4 @@
-export { ChapterPayoffPlanningService, chapterPayoffPlanningService } from "./ChapterPayoffPlanningService";
+export {
+  ChapterPayoffPlanningService,
+  chapterPayoffPlanningService,
+} from "./ChapterPayoffPlanningService";

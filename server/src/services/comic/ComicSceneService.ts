@@ -11,7 +11,13 @@ import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import { runImageGeneration, safeJsonParse } from "../image/runtime";
 import { resolveComicStyleKeywords } from "./comicStylePrompt";
-import { createSceneReferenceAdapter, publishReferenceUpload, referenceSourceFingerprint, resolveReferenceImageFile, sceneImageSource } from "./assets";
+import {
+  createSceneReferenceAdapter,
+  publishReferenceUpload,
+  referenceSourceFingerprint,
+  resolveReferenceImageFile,
+  sceneImageSource,
+} from "./assets";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,11 +64,23 @@ export function sceneImageUrl(sceneId: string): string {
 }
 
 /** Resolve only the database-confirmed image revision. */
-export async function resolveSceneFile(sceneId: string, revision?: string): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
-  const scene = await prisma.comicScene.findUnique({ where: { id: sceneId },
-    include: { project: { select: { stylePreset: true } } } });
-  return scene ? resolveReferenceImageFile("scene", sceneId, scene.sheetData,
-    referenceSourceFingerprint(sceneImageSource(scene)), revision) : null;
+export async function resolveSceneFile(
+  sceneId: string,
+  revision?: string,
+): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
+  const scene = await prisma.comicScene.findUnique({
+    where: { id: sceneId },
+    include: { project: { select: { stylePreset: true } } },
+  });
+  return scene
+    ? resolveReferenceImageFile(
+        "scene",
+        sceneId,
+        scene.sheetData,
+        referenceSourceFingerprint(sceneImageSource(scene)),
+        revision,
+      )
+    : null;
 }
 
 function buildSceneSheetPrompt(params: {
@@ -152,11 +170,21 @@ export class ComicSceneService {
 
   // ── 图片上传 ──────────────────────────────────────────────────────────────
 
-  async uploadSceneImage(sceneId: string, fileBuffer: Buffer, mimeType: string): Promise<{ url: string }> {
-    const scene = await prisma.comicScene.findUnique({ where: { id: sceneId },
-      include: { project: { select: { stylePreset: true } } } });
+  async uploadSceneImage(
+    sceneId: string,
+    fileBuffer: Buffer,
+    mimeType: string,
+  ): Promise<{ url: string }> {
+    const scene = await prisma.comicScene.findUnique({
+      where: { id: sceneId },
+      include: { project: { select: { stylePreset: true } } },
+    });
     if (!scene) throw new AppError(`场景不存在：${sceneId}`, 404);
-    return publishReferenceUpload(createSceneReferenceAdapter<SceneSheetData>(scene, true), fileBuffer, mimeType);
+    return publishReferenceUpload(
+      createSceneReferenceAdapter<SceneSheetData>(scene, true),
+      fileBuffer,
+      mimeType,
+    );
   }
 
   // ── AI 生成（prepare + generate 共享 buildContext） ───────────────────────
@@ -187,7 +215,10 @@ export class ComicSceneService {
     };
   }
 
-  async prepareSceneSheet(sceneId: string, provider?: string): Promise<import("../image/runtime").ImageGenerationPreview> {
+  async prepareSceneSheet(
+    sceneId: string,
+    provider?: string,
+  ): Promise<import("../image/runtime").ImageGenerationPreview> {
     const ctx = await this.buildSceneGenerationContext(sceneId);
     return {
       kind: ctx.adapter.kind,
@@ -214,7 +245,10 @@ export class ComicSceneService {
 
   // ── 文件服务 ──────────────────────────────────────────────────────────────
 
-  async serveSceneImage(sceneId: string, revision?: string): Promise<{ filePath: string; mimeType: string }> {
+  async serveSceneImage(
+    sceneId: string,
+    revision?: string,
+  ): Promise<{ filePath: string; mimeType: string }> {
     const resolved = await resolveSceneFile(sceneId, revision);
     if (!resolved) throw new AppError(`场景图片未找到：${sceneId}`, 404);
     return resolved;

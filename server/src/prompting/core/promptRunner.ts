@@ -1,4 +1,9 @@
-import { captureStreamOutput, createPromptStreamControl, observeStreamCompletion, withExecutionSignal } from "./streaming/PromptStreamLifecycle";
+import {
+  captureStreamOutput,
+  createPromptStreamControl,
+  observeStreamCompletion,
+  withExecutionSignal,
+} from "./streaming/PromptStreamLifecycle";
 import { guardStreamStall } from "../../llm/streamStallGuard";
 import { throwIfInvocationAborted } from "../../llm/invokeTimeout";
 import { HumanMessage, type BaseMessage, type BaseMessageChunk } from "@langchain/core/messages";
@@ -27,10 +32,7 @@ import { CUSTOM_SLOT_CONTEXT_GROUP } from "../slots/slotResolution";
 import { promptSlotOverrideService } from "../slots/PromptSlotOverrideService";
 import { resolveAdvancedPromptMessages } from "../templates/templateRuntime";
 import { selectContextBlocks } from "./contextSelection";
-import {
-  recordPromptQualityEvent,
-  type PromptQualityFailureKind,
-} from "./promptQualityTelemetry";
+import { recordPromptQualityEvent, type PromptQualityFailureKind } from "./promptQualityTelemetry";
 import { appendStructuredOutputHintMessages } from "./structuredOutputHint";
 import type {
   PromptAsset,
@@ -111,7 +113,9 @@ function buildPromptInvocationMeta(
     droppedContextBlockCount: context.droppedBlockIds.length,
     summarizedContextBlockCount: context.summarizedBlockIds.length,
     selectedContextGroupCounts: buildSelectedContextGroupCounts(context),
-    customAddendumBlockIds: context.selectedBlockIds.filter((id) => id.startsWith(`${CUSTOM_SLOT_CONTEXT_GROUP}:`)),
+    customAddendumBlockIds: context.selectedBlockIds.filter((id) =>
+      id.startsWith(`${CUSTOM_SLOT_CONTEXT_GROUP}:`),
+    ),
     estimatedInputTokens: context.estimatedInputTokens,
     repairUsed,
     repairAttempts,
@@ -139,9 +143,8 @@ async function resolvePromptOverlaysForAsset(input: {
     novelId: input.options?.novelId,
   });
 
-  const allBlocks = overlays.appendBlocks.length > 0
-    ? [...baseBlocks, ...overlays.appendBlocks]
-    : baseBlocks;
+  const allBlocks =
+    overlays.appendBlocks.length > 0 ? [...baseBlocks, ...overlays.appendBlocks] : baseBlocks;
 
   return { blocks: allBlocks, resolvedSlots: overlays.inlineSlots };
 }
@@ -150,7 +153,9 @@ function resolveStructuredRepairAttempts(asset: PromptAsset<unknown, unknown, un
   return Math.max(0, asset.repairPolicy?.maxAttempts ?? 1);
 }
 
-function resolveStructuredSemanticRetryAttempts(asset: PromptAsset<unknown, unknown, unknown>): number {
+function resolveStructuredSemanticRetryAttempts(
+  asset: PromptAsset<unknown, unknown, unknown>,
+): number {
   return Math.max(0, asset.semanticRetryPolicy?.maxAttempts ?? 0);
 }
 
@@ -212,20 +217,23 @@ function markPromptQualityFailure(error: unknown, failureKind: PromptQualityFail
 function classifyPromptQualityFailure(error: unknown): PromptQualityFailureKind {
   const marked = error as { promptQualityFailureKind?: unknown };
   if (
-    marked
-    && typeof marked === "object"
-    && (
-      marked.promptQualityFailureKind === "llm_error"
-      || marked.promptQualityFailureKind === "schema_repair_failed"
-      || marked.promptQualityFailureKind === "post_validate_failed"
-      || marked.promptQualityFailureKind === "empty_output"
-      || marked.promptQualityFailureKind === "unknown"
-    )
+    marked &&
+    typeof marked === "object" &&
+    (marked.promptQualityFailureKind === "llm_error" ||
+      marked.promptQualityFailureKind === "schema_repair_failed" ||
+      marked.promptQualityFailureKind === "post_validate_failed" ||
+      marked.promptQualityFailureKind === "empty_output" ||
+      marked.promptQualityFailureKind === "unknown")
   ) {
     return marked.promptQualityFailureKind;
   }
   const message = stringifyPromptError(error).toLowerCase();
-  if (message.includes("schema") || message.includes("json") || message.includes("zod") || message.includes("structured")) {
+  if (
+    message.includes("schema") ||
+    message.includes("json") ||
+    message.includes("zod") ||
+    message.includes("structured")
+  ) {
     return "schema_repair_failed";
   }
   if (message.includes("postvalidate") || message.includes("semantic")) {
@@ -242,19 +250,21 @@ function buildDefaultSemanticRetryMessages<I, R>(input: {
 }): BaseMessage[] {
   return [
     ...input.baseMessages,
-    new HumanMessage([
-      `上一次输出虽然通过了 JSON 结构校验，但没有通过业务校验。这是第 ${input.attempt} 次语义重试。`,
-      `失败原因：${input.validationError}`,
-      "",
-      "上一次的 JSON 输出：",
-      safeJsonStringify(input.parsedOutput),
-      "",
-      "请基于同一任务重新生成完整 JSON 对象。",
-      "硬要求：",
-      "1. 只输出最终 JSON 对象。",
-      "2. 不要输出 Markdown、解释、注释或额外文本。",
-      "3. 必须修正上面的业务校验失败点。",
-    ].join("\n")),
+    new HumanMessage(
+      [
+        `上一次输出虽然通过了 JSON 结构校验，但没有通过业务校验。这是第 ${input.attempt} 次语义重试。`,
+        `失败原因：${input.validationError}`,
+        "",
+        "上一次的 JSON 输出：",
+        safeJsonStringify(input.parsedOutput),
+        "",
+        "请基于同一任务重新生成完整 JSON 对象。",
+        "硬要求：",
+        "1. 只输出最终 JSON 对象。",
+        "2. 不要输出 Markdown、解释、注释或额外文本。",
+        "3. 必须修正上面的业务校验失败点。",
+      ].join("\n"),
+    ),
   ];
 }
 
@@ -267,16 +277,18 @@ function buildSemanticRetryMessages<I, O, R>(input: {
   validationError: string;
   attempt: number;
 }): BaseMessage[] {
-  return input.asset.semanticRetryPolicy?.buildMessages?.({
-    promptId: input.asset.id,
-    promptVersion: input.asset.version,
-    attempt: input.attempt,
-    promptInput: input.promptInput,
-    context: input.context,
-    baseMessages: input.baseMessages,
-    parsedOutput: input.parsedOutput,
-    validationError: input.validationError,
-  }) ?? buildDefaultSemanticRetryMessages(input);
+  return (
+    input.asset.semanticRetryPolicy?.buildMessages?.({
+      promptId: input.asset.id,
+      promptVersion: input.asset.version,
+      attempt: input.attempt,
+      promptInput: input.promptInput,
+      context: input.context,
+      baseMessages: input.baseMessages,
+      parsedOutput: input.parsedOutput,
+      validationError: input.validationError,
+    }) ?? buildDefaultSemanticRetryMessages(input)
+  );
 }
 
 export function preparePromptExecution<I, O, R = O>(input: {
@@ -371,8 +383,12 @@ function logPromptEvent(input: {
       `provider=${input.provider ?? "default"}`,
       `model=${input.model ?? "default"}`,
       typeof input.attempt === "number" ? `attempt=${input.attempt}` : "",
-      input.validationError ? `validationError=${JSON.stringify(input.validationError.slice(0, 240))}` : "",
-    ].filter(Boolean).join(" "),
+      input.validationError
+        ? `validationError=${JSON.stringify(input.validationError.slice(0, 240))}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" "),
   );
 }
 
@@ -495,7 +511,7 @@ function applyPromptPostValidate<I, O, R = O>(input: {
 }): O {
   return input.asset.postValidate
     ? input.asset.postValidate(input.rawOutput, input.promptInput, input.context)
-    : input.rawOutput as unknown as O;
+    : (input.rawOutput as unknown as O);
 }
 
 async function resolveStructuredOutput<I, O, R = O>(input: {
@@ -685,7 +701,9 @@ export async function runStructuredPrompt<I, O, R = O>(input: {
 }): Promise<PromptRunResult<O>> {
   input = { ...input, options: withExecutionSignal(input.options) };
   if (input.asset.mode !== "structured" || !input.asset.outputSchema) {
-    throw new Error(`Prompt asset ${input.asset.id}@${input.asset.version} is not a structured prompt.`);
+    throw new Error(
+      `Prompt asset ${input.asset.id}@${input.asset.version} is not a structured prompt.`,
+    );
   }
 
   const outputSchema = input.asset.outputSchema;
@@ -706,14 +724,15 @@ export async function runStructuredPrompt<I, O, R = O>(input: {
     officialMessages: prepared.messages,
     novelId: input.options?.novelId,
   });
-  const messages = resolvedTemplateMessages === prepared.messages
-    ? prepared.messages
-    : appendStructuredOutputHintMessages({
-    asset: input.asset,
-    promptInput: input.promptInput,
-    context: prepared.context,
-    messages: resolvedTemplateMessages,
-  });
+  const messages =
+    resolvedTemplateMessages === prepared.messages
+      ? prepared.messages
+      : appendStructuredOutputHintMessages({
+          asset: input.asset,
+          promptInput: input.promptInput,
+          context: prepared.context,
+          messages: resolvedTemplateMessages,
+        });
   logPromptEvent({
     event: "started",
     asset: input.asset as PromptAsset<unknown, unknown, unknown>,
@@ -735,7 +754,9 @@ export async function runStructuredPrompt<I, O, R = O>(input: {
       taskType: input.asset.taskType,
       messages,
       schema: outputSchema,
-      maxRepairAttempts: resolveStructuredRepairAttempts(input.asset as PromptAsset<unknown, unknown, unknown>),
+      maxRepairAttempts: resolveStructuredRepairAttempts(
+        input.asset as PromptAsset<unknown, unknown, unknown>,
+      ),
       promptMeta: prepared.invocation,
     });
     logMemoryUsage({
@@ -860,7 +881,10 @@ export async function runTextPrompt<I>(input: {
     const stream = await llm.stream(messages, buildPromptCallOptions(input.options));
     let rawOutput = "";
     let tokenUsage: LlmTokenUsageSnapshot | null = null;
-    for await (const chunk of guardStreamStall(stream, { signal: streamControl.signal, onStall: streamControl.cancel })) {
+    for await (const chunk of guardStreamStall(stream, {
+      signal: streamControl.signal,
+      onStall: streamControl.cancel,
+    })) {
       const content = toText(chunk.content);
       rawOutput += content;
       liveSession.delta(content);
@@ -960,7 +984,11 @@ export async function streamTextPrompt<I>(input: {
     });
     liveSession.phase("streaming", "模型正在返回内容");
     const rawStream = await llm.stream(messages, buildPromptCallOptions(input.options));
-    captured = captureStreamOutput(rawStream as AsyncIterable<BaseMessageChunk>, streamControl, (content) => liveSession.delta(content));
+    captured = captureStreamOutput(
+      rawStream as AsyncIterable<BaseMessageChunk>,
+      streamControl,
+      (content) => liveSession.delta(content),
+    );
   } catch (error) {
     liveSession.fail(error);
     recordPromptFailure({
@@ -980,49 +1008,51 @@ export async function streamTextPrompt<I>(input: {
     stream: captured.stream,
     cancel: streamControl.cancel,
     signal: streamControl.signal,
-    complete: captured.completedText.then(async (content) => {
-      liveSession.phase("validating", "正在整理生成结果");
-      const output = applyPromptPostValidate({
-        asset: input.asset,
-        promptInput: input.promptInput,
-        context: prepared.context,
-        rawOutput: content,
-      });
-      const result = buildPromptRunResult({
-        asset: input.asset as PromptAsset<unknown, unknown, unknown>,
-        output,
-        context: prepared.context,
-        provider: input.options?.provider,
-        model: input.options?.model,
-        latencyMs: Date.now() - startedAt,
-        invocation: buildPromptInvocationMeta(
-          input.asset as PromptAsset<unknown, unknown, unknown>,
-          prepared.context,
-          false,
-          0,
-          false,
-          0,
-          input.options,
-        ),
-        renderedPromptChars,
-        tokenUsage: await captured.completedUsage.catch(() => null),
-      });
-      liveSession.complete();
-      return result;
-    }).catch((error) => {
-      liveSession.fail(error);
-      recordPromptFailure({
-        asset: input.asset as PromptAsset<unknown, unknown, unknown>,
-        context: prepared.context,
-        invocation: prepared.invocation,
-        provider: input.options?.provider,
-        model: input.options?.model,
-        latencyMs: Date.now() - startedAt,
-        renderedPromptChars,
-        error,
-      });
-      throw error;
-    }),
+    complete: captured.completedText
+      .then(async (content) => {
+        liveSession.phase("validating", "正在整理生成结果");
+        const output = applyPromptPostValidate({
+          asset: input.asset,
+          promptInput: input.promptInput,
+          context: prepared.context,
+          rawOutput: content,
+        });
+        const result = buildPromptRunResult({
+          asset: input.asset as PromptAsset<unknown, unknown, unknown>,
+          output,
+          context: prepared.context,
+          provider: input.options?.provider,
+          model: input.options?.model,
+          latencyMs: Date.now() - startedAt,
+          invocation: buildPromptInvocationMeta(
+            input.asset as PromptAsset<unknown, unknown, unknown>,
+            prepared.context,
+            false,
+            0,
+            false,
+            0,
+            input.options,
+          ),
+          renderedPromptChars,
+          tokenUsage: await captured.completedUsage.catch(() => null),
+        });
+        liveSession.complete();
+        return result;
+      })
+      .catch((error) => {
+        liveSession.fail(error);
+        recordPromptFailure({
+          asset: input.asset as PromptAsset<unknown, unknown, unknown>,
+          context: prepared.context,
+          invocation: prepared.invocation,
+          provider: input.options?.provider,
+          model: input.options?.model,
+          latencyMs: Date.now() - startedAt,
+          renderedPromptChars,
+          error,
+        });
+        throw error;
+      }),
     context: prepared.context,
     invocation: prepared.invocation,
   });
@@ -1037,7 +1067,9 @@ export async function streamStructuredPrompt<I, O, R = O>(input: {
   const streamControl = createPromptStreamControl(input.options);
   input = { ...input, options: streamControl.options };
   if (input.asset.mode !== "structured" || !input.asset.outputSchema) {
-    throw new Error(`Prompt asset ${input.asset.id}@${input.asset.version} is not a structured prompt.`);
+    throw new Error(
+      `Prompt asset ${input.asset.id}@${input.asset.version} is not a structured prompt.`,
+    );
   }
 
   const outputSchema = input.asset.outputSchema;
@@ -1075,14 +1107,17 @@ export async function streamStructuredPrompt<I, O, R = O>(input: {
       executionMode: "structured",
     });
     const resolvedLLM = getResolvedLLMClientOptionsFromInstance(llm);
-    profile = resolvedLLM?.structuredProfile ?? resolveStructuredOutputProfile({
-      provider: resolvedLLM?.provider ?? input.options?.provider ?? "deepseek",
-      model: resolvedLLM?.model ?? input.options?.model,
-      baseURL: resolvedLLM?.baseURL,
-      requestProtocol: resolvedLLM?.requestProtocol,
-      executionMode: "structured",
-    });
-    strategy = resolvedLLM?.structuredStrategy ?? selectStructuredOutputStrategy(profile, outputSchema);
+    profile =
+      resolvedLLM?.structuredProfile ??
+      resolveStructuredOutputProfile({
+        provider: resolvedLLM?.provider ?? input.options?.provider ?? "deepseek",
+        model: resolvedLLM?.model ?? input.options?.model,
+        baseURL: resolvedLLM?.baseURL,
+        requestProtocol: resolvedLLM?.requestProtocol,
+        executionMode: "structured",
+      });
+    strategy =
+      resolvedLLM?.structuredStrategy ?? selectStructuredOutputStrategy(profile, outputSchema);
     const invokeOptions: Record<string, unknown> = {};
     const responseFormat = buildStructuredResponseFormat({
       strategy,
@@ -1097,7 +1132,11 @@ export async function streamStructuredPrompt<I, O, R = O>(input: {
     }
     liveSession.phase("streaming", "模型正在返回结构化结果");
     const rawStream = await llm.stream(prepared.messages, invokeOptions);
-    captured = captureStreamOutput(rawStream as AsyncIterable<BaseMessageChunk>, streamControl, (content) => liveSession.delta(content));
+    captured = captureStreamOutput(
+      rawStream as AsyncIterable<BaseMessageChunk>,
+      streamControl,
+      (content) => liveSession.delta(content),
+    );
   } catch (error) {
     liveSession.fail(error);
     recordPromptFailure({
@@ -1117,69 +1156,73 @@ export async function streamStructuredPrompt<I, O, R = O>(input: {
     stream: captured.stream,
     cancel: streamControl.cancel,
     signal: streamControl.signal,
-    complete: captured.completedText.then(async (rawContent) => {
-      liveSession.phase("validating", "正在检查生成结果");
-      let repairStarted = false;
-      const parsed = await parseStructuredLlmRawContentDetailed({
-        rawContent,
-        schema: outputSchema,
-        provider: input.options?.provider,
-        model: input.options?.model,
-        temperature: input.options?.temperature,
-        maxTokens: input.options?.maxTokens,
-        timeoutMs: input.options?.timeoutMs,
-        signal: input.options?.signal,
-        taskType: input.asset.taskType,
-        label: `${input.asset.id}@${input.asset.version}`,
-        maxRepairAttempts: resolveStructuredRepairAttempts(input.asset as PromptAsset<unknown, unknown, unknown>),
-        promptMeta: prepared.invocation,
-        onRepairOutputDelta: (content) => {
-          if (!repairStarted) {
-            repairStarted = true;
-            liveSession.phase("repairing", "正在修复生成结果");
-          }
-          liveSession.delta(content);
-        },
-        strategy,
-        profile,
-      });
-      const resolved = await resolveStructuredOutput({
-        asset: input.asset,
-        promptInput: input.promptInput,
-        context: prepared.context,
-        baseMessages: prepared.messages,
-        outputSchema,
-        initialResult: parsed,
-        options: input.options,
-      });
-      const result = buildPromptRunResult({
-        asset: input.asset as PromptAsset<unknown, unknown, unknown>,
-        output: resolved.output,
-        context: prepared.context,
-        provider: input.options?.provider,
-        model: input.options?.model,
-        latencyMs: Date.now() - startedAt,
-        invocation: resolved.invocation,
-        renderedPromptChars,
-        tokenUsage: await captured.completedUsage.catch(() => null),
-        postValidateFailureRecovered: resolved.postValidateFailureRecovered,
-      });
-      liveSession.complete();
-      return result;
-    }).catch((error) => {
-      liveSession.fail(error);
-      recordPromptFailure({
-        asset: input.asset as PromptAsset<unknown, unknown, unknown>,
-        context: prepared.context,
-        invocation: prepared.invocation,
-        provider: input.options?.provider,
-        model: input.options?.model,
-        latencyMs: Date.now() - startedAt,
-        renderedPromptChars,
-        error,
-      });
-      throw error;
-    }),
+    complete: captured.completedText
+      .then(async (rawContent) => {
+        liveSession.phase("validating", "正在检查生成结果");
+        let repairStarted = false;
+        const parsed = await parseStructuredLlmRawContentDetailed({
+          rawContent,
+          schema: outputSchema,
+          provider: input.options?.provider,
+          model: input.options?.model,
+          temperature: input.options?.temperature,
+          maxTokens: input.options?.maxTokens,
+          timeoutMs: input.options?.timeoutMs,
+          signal: input.options?.signal,
+          taskType: input.asset.taskType,
+          label: `${input.asset.id}@${input.asset.version}`,
+          maxRepairAttempts: resolveStructuredRepairAttempts(
+            input.asset as PromptAsset<unknown, unknown, unknown>,
+          ),
+          promptMeta: prepared.invocation,
+          onRepairOutputDelta: (content) => {
+            if (!repairStarted) {
+              repairStarted = true;
+              liveSession.phase("repairing", "正在修复生成结果");
+            }
+            liveSession.delta(content);
+          },
+          strategy,
+          profile,
+        });
+        const resolved = await resolveStructuredOutput({
+          asset: input.asset,
+          promptInput: input.promptInput,
+          context: prepared.context,
+          baseMessages: prepared.messages,
+          outputSchema,
+          initialResult: parsed,
+          options: input.options,
+        });
+        const result = buildPromptRunResult({
+          asset: input.asset as PromptAsset<unknown, unknown, unknown>,
+          output: resolved.output,
+          context: prepared.context,
+          provider: input.options?.provider,
+          model: input.options?.model,
+          latencyMs: Date.now() - startedAt,
+          invocation: resolved.invocation,
+          renderedPromptChars,
+          tokenUsage: await captured.completedUsage.catch(() => null),
+          postValidateFailureRecovered: resolved.postValidateFailureRecovered,
+        });
+        liveSession.complete();
+        return result;
+      })
+      .catch((error) => {
+        liveSession.fail(error);
+        recordPromptFailure({
+          asset: input.asset as PromptAsset<unknown, unknown, unknown>,
+          context: prepared.context,
+          invocation: prepared.invocation,
+          provider: input.options?.provider,
+          model: input.options?.model,
+          latencyMs: Date.now() - startedAt,
+          renderedPromptChars,
+          error,
+        });
+        throw error;
+      }),
     context: prepared.context,
     invocation: prepared.invocation,
   });
@@ -1189,6 +1232,8 @@ export function setPromptRunnerLLMFactoryForTests(factory?: PromptRunnerLLMFacto
   promptRunnerLLMFactory = factory ?? getLLM;
 }
 
-export function setPromptRunnerStructuredInvokerForTests(invoker?: PromptRunnerStructuredInvoker): void {
+export function setPromptRunnerStructuredInvokerForTests(
+  invoker?: PromptRunnerStructuredInvoker,
+): void {
   promptRunnerStructuredInvoker = invoker ?? invokeStructuredLlmDetailed;
 }

@@ -50,11 +50,41 @@ function createContextPackage() {
     timelineContext: {
       currentChapterIndex: 5,
       currentTime: { storyDayIndex: 2, label: "第二日午后" },
-      previousEvents: [{ id: "event-4", title: "第四章尾段", summary: "维修通道钥匙落入主角手中。", chapterIndex: 4, storyTimeLabel: "第二日午前" }],
-      plannedEventsThisChapter: [{ id: "event-5", title: "第一次反压", summary: "主角将情报转成主动权。" }],
-      openHooks: [{ id: "hook-4", title: "幕后黑手反击", description: "下一章展开反击。", status: "open", priority: "high", resolveMode: "short_arc", blocking: false }],
+      previousEvents: [
+        {
+          id: "event-4",
+          title: "第四章尾段",
+          summary: "维修通道钥匙落入主角手中。",
+          chapterIndex: 4,
+          storyTimeLabel: "第二日午前",
+        },
+      ],
+      plannedEventsThisChapter: [
+        { id: "event-5", title: "第一次反压", summary: "主角将情报转成主动权。" },
+      ],
+      openHooks: [
+        {
+          id: "hook-4",
+          title: "幕后黑手反击",
+          description: "下一章展开反击。",
+          status: "open",
+          priority: "high",
+          resolveMode: "short_arc",
+          blocking: false,
+        },
+      ],
       blockingHooks: [],
-      softHooks: [{ id: "hook-4", title: "幕后黑手反击", description: "下一章展开反击。", status: "open", priority: "high", resolveMode: "short_arc", blocking: false }],
+      softHooks: [
+        {
+          id: "hook-4",
+          title: "幕后黑手反击",
+          description: "下一章展开反击。",
+          status: "open",
+          priority: "high",
+          resolveMode: "short_arc",
+          blocking: false,
+        },
+      ],
       addressedHooks: [],
       forbiddenEvents: [{ id: "event-8", title: "幕后黑手身份揭示", reason: "尚未到达揭示窗口。" }],
       continuityRequirements: ["本章必须承接第四章尾段"],
@@ -158,13 +188,15 @@ function createContextPackage() {
       targetConflicts: ["The first counterattack must land."],
       targetRelationships: ["Protagonist: tentative alliance"],
       targetPayoffs: ["First payoff after securing the key intel."],
-      targetPayoffDirectives: [{
-        title: "First payoff after securing the key intel.",
-        ledgerKey: "first-payoff",
-        operation: "pressure",
-        reason: "只允许加压，不允许直接兑现。",
-        forbiddenReveal: null,
-      }],
+      targetPayoffDirectives: [
+        {
+          title: "First payoff after securing the key intel.",
+          ledgerKey: "first-payoff",
+          operation: "pressure",
+          reason: "只允许加压，不允许直接兑现。",
+          forbiddenReveal: null,
+        },
+      ],
       protectedSecrets: ["Hidden mastermind identity"],
     },
     protectedSecrets: ["Hidden mastermind identity"],
@@ -182,26 +214,28 @@ function createContextPackage() {
       createdAt: now,
       updatedAt: now,
     },
-    openConflicts: [{
-      id: "conflict-1",
-      novelId: "novel-1",
-      chapterId: "chapter-4",
-      sourceSnapshotId: null,
-      sourceIssueId: null,
-      sourceType: "state",
-      conflictType: "plot",
-      conflictKey: "first-counterattack",
-      title: "第一次反压仍未落地",
-      summary: "主角还没有把反击落成实际收益，压迫感正在透支。",
-      severity: "high",
-      status: "open",
-      evidence: ["上一章只拿到半份情报。"],
-      affectedCharacterIds: ["char-2"],
-      resolutionHint: "让女二带来的情报成为反压支点。",
-      lastSeenChapterOrder: 4,
-      createdAt: now,
-      updatedAt: now,
-    }],
+    openConflicts: [
+      {
+        id: "conflict-1",
+        novelId: "novel-1",
+        chapterId: "chapter-4",
+        sourceSnapshotId: null,
+        sourceIssueId: null,
+        sourceType: "state",
+        conflictType: "plot",
+        conflictKey: "first-counterattack",
+        title: "第一次反压仍未落地",
+        summary: "主角还没有把反击落成实际收益，压迫感正在透支。",
+        severity: "high",
+        status: "open",
+        evidence: ["上一章只拿到半份情报。"],
+        affectedCharacterIds: ["char-2"],
+        resolutionHint: "让女二带来的情报成为反压支点。",
+        lastSeenChapterOrder: 4,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
     storyWorldSlice: null,
     characterRoster: [
       {
@@ -264,23 +298,24 @@ function createContextPackage() {
       },
     ],
     creativeDecisions: [],
-    openAuditIssues: [{
-      id: "issue-1",
-      reportId: "report-1",
-      auditType: "plot",
-      severity: "high",
-      code: "plot_payoff_missing",
-      description: "上一轮没有完成预期兑现。",
-      evidence: "反压只停留在口头层面。",
-      fixSuggestion: "必须给读者一个明确的反压结果。",
-      status: "open",
-      createdAt: now,
-      updatedAt: now,
-    }],
-    previousChaptersSummary: [
-      "上一章：主角踩进陷阱，但确认女二仍掌握关键情报。",
+    openAuditIssues: [
+      {
+        id: "issue-1",
+        reportId: "report-1",
+        auditType: "plot",
+        severity: "high",
+        code: "plot_payoff_missing",
+        description: "上一轮没有完成预期兑现。",
+        evidence: "反压只停留在口头层面。",
+        fixSuggestion: "必须给读者一个明确的反压结果。",
+        status: "open",
+        createdAt: now,
+        updatedAt: now,
+      },
     ],
-    previousChapterTail: "第四章尾段：主角攥紧维修通道钥匙，听见女二留下的暗号，决定立刻从外城维修区反打。",
+    previousChaptersSummary: ["上一章：主角踩进陷阱，但确认女二仍掌握关键情报。"],
+    previousChapterTail:
+      "第四章尾段：主角攥紧维修通道钥匙，听见女二留下的暗号，决定立刻从外城维修区反打。",
     openingHint: "Recent openings: none.",
     continuation: {
       enabled: false,
@@ -342,42 +377,46 @@ function createContextPackage() {
           stanceLabel: "隐线支援",
         },
       ],
-      relations: [{
-        id: "rel-1",
-        novelId: "novel-1",
-        relationId: "pair-1",
-        sourceCharacterId: "char-1",
-        targetCharacterId: "char-2",
-        sourceCharacterName: "主角",
-        targetCharacterName: "女二",
-        volumeId: "volume-1",
-        volumeTitle: "第一卷",
-        chapterId: null,
-        chapterOrder: 5,
-        stageLabel: "互试探合作",
-        stageSummary: "双方都要靠交换信息来建立基本信任。",
-        nextTurnPoint: "交换关键情报",
-        sourceType: "projection",
-        confidence: 0.9,
-        isCurrent: true,
-        createdAt: now,
-        updatedAt: now,
-      }],
-      candidates: [{
-        id: "candidate-1",
-        novelId: "novel-1",
-        sourceChapterId: "chapter-4",
-        sourceChapterOrder: 4,
-        proposedName: "林策",
-        proposedRole: "情报商",
-        summary: "可能承接黑市情报链。",
-        evidence: ["第四章提到一个只闻其名的黑市联系人。"],
-        matchedCharacterId: null,
-        status: "pending",
-        confidence: 0.72,
-        createdAt: now,
-        updatedAt: now,
-      }],
+      relations: [
+        {
+          id: "rel-1",
+          novelId: "novel-1",
+          relationId: "pair-1",
+          sourceCharacterId: "char-1",
+          targetCharacterId: "char-2",
+          sourceCharacterName: "主角",
+          targetCharacterName: "女二",
+          volumeId: "volume-1",
+          volumeTitle: "第一卷",
+          chapterId: null,
+          chapterOrder: 5,
+          stageLabel: "互试探合作",
+          stageSummary: "双方都要靠交换信息来建立基本信任。",
+          nextTurnPoint: "交换关键情报",
+          sourceType: "projection",
+          confidence: 0.9,
+          isCurrent: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      candidates: [
+        {
+          id: "candidate-1",
+          novelId: "novel-1",
+          sourceChapterId: "chapter-4",
+          sourceChapterOrder: 4,
+          proposedName: "林策",
+          proposedRole: "情报商",
+          summary: "可能承接黑市情报链。",
+          evidence: ["第四章提到一个只闻其名的黑市联系人。"],
+          matchedCharacterId: null,
+          status: "pending",
+          confidence: 0.72,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
       factionTracks: [],
       assignments: [],
     },
@@ -412,98 +451,114 @@ function createContextPackage() {
       softFutureSummary: "第二卷会引出更高层势力。",
     },
     narrativeProgressHint: buildNarrativeProgressHint(5, 20),
-    ledgerPendingItems: [{
-      id: "ledger-1",
-      novelId: "novel-1",
-      ledgerKey: "intel-key",
-      title: "女二情报钥匙",
-      summary: "女二带来的情报必须转成第一次反压的具体动作。",
-      scopeType: "volume",
-      currentStatus: "pending_payoff",
-      targetStartChapterOrder: 5,
-      targetEndChapterOrder: 6,
-      firstSeenChapterOrder: 3,
-      lastTouchedChapterOrder: 4,
-      lastTouchedChapterId: "chapter-4",
-      setupChapterId: "chapter-3",
-      payoffChapterId: null,
-      lastSnapshotId: "snapshot-4",
-      sourceRefs: [],
-      evidence: [{
-        summary: "第四章已经说明女二手上掌握关键情报。",
-        chapterId: "chapter-4",
-        chapterOrder: 4,
-      }],
-      riskSignals: [],
-      statusReason: "本章需要把女二情报转成实际反压动作。",
-      confidence: 0.93,
-      createdAt: now,
-      updatedAt: now,
-    }],
-    ledgerUrgentItems: [{
-      id: "ledger-2",
-      novelId: "novel-1",
-      ledgerKey: "black-market-account",
-      title: "黑市账户异常",
-      summary: "黑市账户的异常波动必须在本章被主角明确触碰。",
-      scopeType: "chapter",
-      currentStatus: "setup",
-      targetStartChapterOrder: 5,
-      targetEndChapterOrder: 5,
-      firstSeenChapterOrder: 4,
-      lastTouchedChapterOrder: 4,
-      lastTouchedChapterId: "chapter-4",
-      setupChapterId: "chapter-4",
-      payoffChapterId: null,
-      lastSnapshotId: "snapshot-4",
-      sourceRefs: [],
-      evidence: [{
-        summary: "第四章提到账本上有一笔异常转账。",
-        chapterId: "chapter-4",
-        chapterOrder: 4,
-      }],
-      riskSignals: [{
-        code: "payoff_missing_progress",
-        severity: "medium",
-        summary: "已经进入应触碰窗口。",
-      }],
-      statusReason: "窗口已经压到第5章，不能继续只提不动。",
-      confidence: 0.88,
-      createdAt: now,
-      updatedAt: now,
-    }],
-    ledgerOverdueItems: [{
-      id: "ledger-3",
-      novelId: "novel-1",
-      ledgerKey: "missing-payoff",
-      title: "第一次反压收益",
-      summary: "读者承诺的第一次反压收益还没有真正兑现。",
-      scopeType: "volume",
-      currentStatus: "overdue",
-      targetStartChapterOrder: 4,
-      targetEndChapterOrder: 4,
-      firstSeenChapterOrder: 2,
-      lastTouchedChapterOrder: 4,
-      lastTouchedChapterId: "chapter-4",
-      setupChapterId: "chapter-2",
-      payoffChapterId: null,
-      lastSnapshotId: "snapshot-4",
-      sourceRefs: [],
-      evidence: [{
-        summary: "前四章一直在铺垫，但还没有形成读者可感知的收益。",
-        chapterId: "chapter-4",
-        chapterOrder: 4,
-      }],
-      riskSignals: [{
-        code: "payoff_overdue",
-        severity: "high",
-        summary: "已经超过目标窗口。",
-      }],
-      statusReason: "第4章承诺的反压收益仍未落地。",
-      confidence: 0.95,
-      createdAt: now,
-      updatedAt: now,
-    }],
+    ledgerPendingItems: [
+      {
+        id: "ledger-1",
+        novelId: "novel-1",
+        ledgerKey: "intel-key",
+        title: "女二情报钥匙",
+        summary: "女二带来的情报必须转成第一次反压的具体动作。",
+        scopeType: "volume",
+        currentStatus: "pending_payoff",
+        targetStartChapterOrder: 5,
+        targetEndChapterOrder: 6,
+        firstSeenChapterOrder: 3,
+        lastTouchedChapterOrder: 4,
+        lastTouchedChapterId: "chapter-4",
+        setupChapterId: "chapter-3",
+        payoffChapterId: null,
+        lastSnapshotId: "snapshot-4",
+        sourceRefs: [],
+        evidence: [
+          {
+            summary: "第四章已经说明女二手上掌握关键情报。",
+            chapterId: "chapter-4",
+            chapterOrder: 4,
+          },
+        ],
+        riskSignals: [],
+        statusReason: "本章需要把女二情报转成实际反压动作。",
+        confidence: 0.93,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    ledgerUrgentItems: [
+      {
+        id: "ledger-2",
+        novelId: "novel-1",
+        ledgerKey: "black-market-account",
+        title: "黑市账户异常",
+        summary: "黑市账户的异常波动必须在本章被主角明确触碰。",
+        scopeType: "chapter",
+        currentStatus: "setup",
+        targetStartChapterOrder: 5,
+        targetEndChapterOrder: 5,
+        firstSeenChapterOrder: 4,
+        lastTouchedChapterOrder: 4,
+        lastTouchedChapterId: "chapter-4",
+        setupChapterId: "chapter-4",
+        payoffChapterId: null,
+        lastSnapshotId: "snapshot-4",
+        sourceRefs: [],
+        evidence: [
+          {
+            summary: "第四章提到账本上有一笔异常转账。",
+            chapterId: "chapter-4",
+            chapterOrder: 4,
+          },
+        ],
+        riskSignals: [
+          {
+            code: "payoff_missing_progress",
+            severity: "medium",
+            summary: "已经进入应触碰窗口。",
+          },
+        ],
+        statusReason: "窗口已经压到第5章，不能继续只提不动。",
+        confidence: 0.88,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    ledgerOverdueItems: [
+      {
+        id: "ledger-3",
+        novelId: "novel-1",
+        ledgerKey: "missing-payoff",
+        title: "第一次反压收益",
+        summary: "读者承诺的第一次反压收益还没有真正兑现。",
+        scopeType: "volume",
+        currentStatus: "overdue",
+        targetStartChapterOrder: 4,
+        targetEndChapterOrder: 4,
+        firstSeenChapterOrder: 2,
+        lastTouchedChapterOrder: 4,
+        lastTouchedChapterId: "chapter-4",
+        setupChapterId: "chapter-2",
+        payoffChapterId: null,
+        lastSnapshotId: "snapshot-4",
+        sourceRefs: [],
+        evidence: [
+          {
+            summary: "前四章一直在铺垫，但还没有形成读者可感知的收益。",
+            chapterId: "chapter-4",
+            chapterOrder: 4,
+          },
+        ],
+        riskSignals: [
+          {
+            code: "payoff_overdue",
+            severity: "high",
+            summary: "已经超过目标窗口。",
+          },
+        ],
+        statusReason: "第4章承诺的反压收益仍未落地。",
+        confidence: 0.95,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
     ledgerSummary: {
       totalCount: 3,
       pendingCount: 1,
@@ -515,128 +570,144 @@ function createContextPackage() {
     },
     characterResourceContext: {
       summary: "可用关键资源 1 项；需要留意铺垫 1 项；不可直接使用 1 项",
-      availableItems: [{
-        id: "resource-1",
-        novelId: "novel-1",
-        resourceKey: "service-key:char-1",
-        name: "维修通道钥匙",
-        summary: "主角持有能打开维修通道的钥匙。",
-        resourceType: "credential",
-        narrativeFunction: "key",
-        ownerType: "character",
-        ownerId: "char-1",
-        ownerName: "主角",
-        ownerCharacterId: "char-1",
-        holderCharacterId: "char-1",
-        holderCharacterName: "主角",
-        status: "available",
-        readerKnows: true,
-        holderKnows: true,
-        knownByCharacterIds: ["char-1"],
-        introducedChapterId: "chapter-4",
-        introducedChapterOrder: 4,
-        lastTouchedChapterId: "chapter-4",
-        lastTouchedChapterOrder: 4,
-        expectedUseStartChapterOrder: 5,
-        expectedUseEndChapterOrder: 6,
-        constraints: ["只能打开维修通道"],
-        riskSignals: [],
-        sourceRefs: [],
-        evidence: [{ summary: "主角收起维修通道钥匙。", chapterId: "chapter-4", chapterOrder: 4 }],
-        confidence: 0.9,
-        createdAt: now,
-        updatedAt: now,
-      }],
-      setupNeededItems: [{
-        id: "resource-2",
-        novelId: "novel-1",
-        resourceKey: "hidden-ledger:char-2",
-        name: "女二暗账副本",
-        summary: "女二掌握的暗账副本还没有公开给主角。",
-        resourceType: "clue",
-        narrativeFunction: "proof",
-        ownerType: "character",
-        ownerId: "char-2",
-        ownerName: "女二",
-        ownerCharacterId: "char-2",
-        holderCharacterId: "char-2",
-        holderCharacterName: "女二",
-        status: "hidden",
-        readerKnows: true,
-        holderKnows: true,
-        knownByCharacterIds: ["char-2"],
-        introducedChapterId: "chapter-4",
-        introducedChapterOrder: 4,
-        lastTouchedChapterId: "chapter-4",
-        lastTouchedChapterOrder: 4,
-        expectedUseStartChapterOrder: 5,
-        expectedUseEndChapterOrder: 7,
-        constraints: ["主角不能提前知道副本内容"],
-        riskSignals: [],
-        sourceRefs: [],
-        evidence: [{ summary: "女二没有把暗账副本交给主角。", chapterId: "chapter-4", chapterOrder: 4 }],
-        confidence: 0.82,
-        createdAt: now,
-        updatedAt: now,
-      }],
-      blockedItems: [{
-        id: "resource-3",
-        novelId: "novel-1",
-        resourceKey: "old-pass:char-1",
-        name: "旧通行证",
-        summary: "旧通行证在上一章被烧毁。",
-        resourceType: "credential",
-        narrativeFunction: "key",
-        ownerType: "character",
-        ownerId: "char-1",
-        ownerName: "主角",
-        ownerCharacterId: "char-1",
-        holderCharacterId: "char-1",
-        holderCharacterName: "主角",
-        status: "destroyed",
-        readerKnows: true,
-        holderKnows: true,
-        knownByCharacterIds: ["char-1"],
-        introducedChapterId: "chapter-2",
-        introducedChapterOrder: 2,
-        lastTouchedChapterId: "chapter-4",
-        lastTouchedChapterOrder: 4,
-        expectedUseStartChapterOrder: null,
-        expectedUseEndChapterOrder: null,
-        constraints: ["不能再用旧通行证进入内门"],
-        riskSignals: [{
+      availableItems: [
+        {
+          id: "resource-1",
+          novelId: "novel-1",
+          resourceKey: "service-key:char-1",
+          name: "维修通道钥匙",
+          summary: "主角持有能打开维修通道的钥匙。",
+          resourceType: "credential",
+          narrativeFunction: "key",
+          ownerType: "character",
+          ownerId: "char-1",
+          ownerName: "主角",
+          ownerCharacterId: "char-1",
+          holderCharacterId: "char-1",
+          holderCharacterName: "主角",
+          status: "available",
+          readerKnows: true,
+          holderKnows: true,
+          knownByCharacterIds: ["char-1"],
+          introducedChapterId: "chapter-4",
+          introducedChapterOrder: 4,
+          lastTouchedChapterId: "chapter-4",
+          lastTouchedChapterOrder: 4,
+          expectedUseStartChapterOrder: 5,
+          expectedUseEndChapterOrder: 6,
+          constraints: ["只能打开维修通道"],
+          riskSignals: [],
+          sourceRefs: [],
+          evidence: [
+            { summary: "主角收起维修通道钥匙。", chapterId: "chapter-4", chapterOrder: 4 },
+          ],
+          confidence: 0.9,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      setupNeededItems: [
+        {
+          id: "resource-2",
+          novelId: "novel-1",
+          resourceKey: "hidden-ledger:char-2",
+          name: "女二暗账副本",
+          summary: "女二掌握的暗账副本还没有公开给主角。",
+          resourceType: "clue",
+          narrativeFunction: "proof",
+          ownerType: "character",
+          ownerId: "char-2",
+          ownerName: "女二",
+          ownerCharacterId: "char-2",
+          holderCharacterId: "char-2",
+          holderCharacterName: "女二",
+          status: "hidden",
+          readerKnows: true,
+          holderKnows: true,
+          knownByCharacterIds: ["char-2"],
+          introducedChapterId: "chapter-4",
+          introducedChapterOrder: 4,
+          lastTouchedChapterId: "chapter-4",
+          lastTouchedChapterOrder: 4,
+          expectedUseStartChapterOrder: 5,
+          expectedUseEndChapterOrder: 7,
+          constraints: ["主角不能提前知道副本内容"],
+          riskSignals: [],
+          sourceRefs: [],
+          evidence: [
+            { summary: "女二没有把暗账副本交给主角。", chapterId: "chapter-4", chapterOrder: 4 },
+          ],
+          confidence: 0.82,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      blockedItems: [
+        {
+          id: "resource-3",
+          novelId: "novel-1",
+          resourceKey: "old-pass:char-1",
+          name: "旧通行证",
+          summary: "旧通行证在上一章被烧毁。",
+          resourceType: "credential",
+          narrativeFunction: "key",
+          ownerType: "character",
+          ownerId: "char-1",
+          ownerName: "主角",
+          ownerCharacterId: "char-1",
+          holderCharacterId: "char-1",
+          holderCharacterName: "主角",
+          status: "destroyed",
+          readerKnows: true,
+          holderKnows: true,
+          knownByCharacterIds: ["char-1"],
+          introducedChapterId: "chapter-2",
+          introducedChapterOrder: 2,
+          lastTouchedChapterId: "chapter-4",
+          lastTouchedChapterOrder: 4,
+          expectedUseStartChapterOrder: null,
+          expectedUseEndChapterOrder: null,
+          constraints: ["不能再用旧通行证进入内门"],
+          riskSignals: [
+            {
+              code: "resource_destroyed_reuse",
+              severity: "high",
+              summary: "旧通行证已毁坏，不能无铺垫复用。",
+            },
+          ],
+          sourceRefs: [],
+          evidence: [{ summary: "旧通行证被火烧成灰。", chapterId: "chapter-4", chapterOrder: 4 }],
+          confidence: 0.94,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      highRiskCommittedItems: [],
+      pendingProposalItems: [
+        {
+          id: "proposal-1",
+          novelId: "novel-1",
+          chapterId: "chapter-5",
+          sourceType: "manual_resource_extract",
+          sourceStage: "chapter_resource_review",
+          proposalType: "character_resource_update",
+          riskLevel: "medium",
+          status: "pending_review",
+          summary: "女二暗账副本可能已经交给主角",
+          payload: {},
+          evidence: ["女二把副本推到桌上。"],
+          validationNotes: ["medium risk resource update"],
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      riskSignals: [
+        {
           code: "resource_destroyed_reuse",
           severity: "high",
           summary: "旧通行证已毁坏，不能无铺垫复用。",
-        }],
-        sourceRefs: [],
-        evidence: [{ summary: "旧通行证被火烧成灰。", chapterId: "chapter-4", chapterOrder: 4 }],
-        confidence: 0.94,
-        createdAt: now,
-        updatedAt: now,
-      }],
-      highRiskCommittedItems: [],
-      pendingProposalItems: [{
-        id: "proposal-1",
-        novelId: "novel-1",
-        chapterId: "chapter-5",
-        sourceType: "manual_resource_extract",
-        sourceStage: "chapter_resource_review",
-        proposalType: "character_resource_update",
-        riskLevel: "medium",
-        status: "pending_review",
-        summary: "女二暗账副本可能已经交给主角",
-        payload: {},
-        evidence: ["女二把副本推到桌上。"],
-        validationNotes: ["medium risk resource update"],
-        createdAt: now,
-        updatedAt: now,
-      }],
-      riskSignals: [{
-        code: "resource_destroyed_reuse",
-        severity: "high",
-        summary: "旧通行证已毁坏，不能无铺垫复用。",
-      }],
+        },
+      ],
     },
     chapterMission: null,
     chapterWriteContext: null,
@@ -691,7 +762,14 @@ function createStyleContext() {
           taskStyleProfileId: null,
           activeSourceTargets: ["novel"],
           activeSourceLabels: ["拆书写法"],
-          writerIncludedSections: ["narrative", "character", "language", "rhythm", "antiAi", "selfCheck"],
+          writerIncludedSections: [
+            "narrative",
+            "character",
+            "language",
+            "rhythm",
+            "antiAi",
+            "selfCheck",
+          ],
           plannerIncludedSections: ["narrative", "character", "language", "antiAi"],
           droppedSections: [],
           maturity: "structured",
@@ -723,21 +801,39 @@ test("chapter layered contexts carry volume mission, character duties and repair
   const repairContext = buildChapterRepairContext({
     writeContext,
     contextPackage,
-    issues: [{
-      severity: "high",
-      category: "pacing",
-      evidence: "上一轮没有把女二情报落成反压结果。",
-      fixSuggestion: "让女二的情报直接推动第一次反压兑现。",
-    }],
+    issues: [
+      {
+        severity: "high",
+        category: "pacing",
+        evidence: "上一轮没有把女二情报落成反压结果。",
+        fixSuggestion: "让女二的情报直接推动第一次反压兑现。",
+      },
+    ],
   });
 
   assert.ok(writeContext.participants.some((item) => item.name === "女二"));
   assert.ok(writeContext.characterHardFacts.some((item) => item.name === "女二"));
-  assert.ok(writeContext.characterBehaviorGuides.some((item) => item.volumeResponsibility.includes("反压机会")));
+  assert.ok(
+    writeContext.characterBehaviorGuides.some((item) =>
+      item.volumeResponsibility.includes("反压机会"),
+    ),
+  );
   assert.ok(writeContext.characterBehaviorGuides.some((item) => item.absenceRisk === "high"));
-  assert.ok(writeContext.characterBehaviorGuides.some((item) => item.visibleProfileSummary?.includes("常见穿着=洗旧的深灰工装外套")));
-  assert.ok(writeContext.characterBehaviorGuides.some((item) => item.visibleProfileSummary?.includes("登场印象=沉默克制")));
-  assert.ok(writeContext.obligationContract.requiredCharacterAppearances.includes("女二（已缺席 3 章，宜自然带出）"));
+  assert.ok(
+    writeContext.characterBehaviorGuides.some((item) =>
+      item.visibleProfileSummary?.includes("常见穿着=洗旧的深灰工装外套"),
+    ),
+  );
+  assert.ok(
+    writeContext.characterBehaviorGuides.some((item) =>
+      item.visibleProfileSummary?.includes("登场印象=沉默克制"),
+    ),
+  );
+  assert.ok(
+    writeContext.obligationContract.requiredCharacterAppearances.includes(
+      "女二（已缺席 3 章，宜自然带出）",
+    ),
+  );
   assert.match(writeContext.narrativeProgressHint, /第 5 章 \/ 预计共 20 章/);
   assert.ok(writeContext.pendingCandidateGuards.some((item) => item.proposedName === "林策"));
   assert.ok(writeContext.openConflictSummaries.some((item) => item.includes("第一次反压仍未落地")));
@@ -752,24 +848,77 @@ test("chapter layered contexts carry volume mission, character duties and repair
   assert.equal(writeContext.readerExperience.rewardLevel, "partial");
   assert.match(writeContext.readerExperience.promisedReward, /第一次可见主动权/);
   assert.ok(writeContext.chapterStateGoal.summary.includes("visible gain"));
-  assert.deepEqual(writeContext.chapterMission.mustAdvance, ["The first counterattack must land.", "完成第一次明确反压"]);
+  assert.deepEqual(writeContext.chapterMission.mustAdvance, [
+    "The first counterattack must land.",
+    "完成第一次明确反压",
+  ]);
   assert.equal(writeContext.payoffDirectives[0].operation, "pressure");
   assert.ok(writeContext.chapterBoundary.protectedReveals.includes("Hidden mastermind identity"));
-  assert.ok(writeContext.chapterBoundary.doNotCross.some((item) => item.includes("不要提前揭露幕后黑手")));
-  assert.ok(reviewContext.structureObligations.includes("volume mission: 建立压迫源并完成第一次反压"));
-  assert.ok(reviewContext.structureObligations.some((item) => item.includes("payoff directive: pressure First payoff")));
-  assert.ok(reviewContext.structureObligations.some((item) => item.includes("pending payoff: 女二情报钥匙")));
-  assert.ok(reviewContext.structureObligations.some((item) => item.includes("urgent payoff: 黑市账户异常")));
-  assert.ok(reviewContext.structureObligations.some((item) => item.includes("overdue payoff: 第一次反压收益")));
-  assert.ok(reviewContext.structureObligations.some((item) => item.includes("resource setup needed: 女二暗账副本")));
-  assert.ok(reviewContext.structureObligations.some((item) => item.includes("resource unavailable: 旧通行证")));
-  assert.ok(reviewContext.structureObligations.some((item) => item.includes("unconfirmed resource proposal: 女二暗账副本可能已经交给主角")));
-  assert.ok(!reviewContext.structureObligations.some((item) => item.includes("resource needs confirmation")));
-  assert.ok(repairContext.allowedEditBoundaries.some((item) => item.includes("Pending character candidates remain read-only")));
+  assert.ok(
+    writeContext.chapterBoundary.doNotCross.some((item) => item.includes("不要提前揭露幕后黑手")),
+  );
+  assert.ok(
+    reviewContext.structureObligations.includes("volume mission: 建立压迫源并完成第一次反压"),
+  );
+  assert.ok(
+    reviewContext.structureObligations.some((item) =>
+      item.includes("payoff directive: pressure First payoff"),
+    ),
+  );
+  assert.ok(
+    reviewContext.structureObligations.some((item) =>
+      item.includes("pending payoff: 女二情报钥匙"),
+    ),
+  );
+  assert.ok(
+    reviewContext.structureObligations.some((item) => item.includes("urgent payoff: 黑市账户异常")),
+  );
+  assert.ok(
+    reviewContext.structureObligations.some((item) =>
+      item.includes("overdue payoff: 第一次反压收益"),
+    ),
+  );
+  assert.ok(
+    reviewContext.structureObligations.some((item) =>
+      item.includes("resource setup needed: 女二暗账副本"),
+    ),
+  );
+  assert.ok(
+    reviewContext.structureObligations.some((item) =>
+      item.includes("resource unavailable: 旧通行证"),
+    ),
+  );
+  assert.ok(
+    reviewContext.structureObligations.some((item) =>
+      item.includes("unconfirmed resource proposal: 女二暗账副本可能已经交给主角"),
+    ),
+  );
+  assert.ok(
+    !reviewContext.structureObligations.some((item) =>
+      item.includes("resource needs confirmation"),
+    ),
+  );
+  assert.ok(
+    repairContext.allowedEditBoundaries.some((item) =>
+      item.includes("Pending character candidates remain read-only"),
+    ),
+  );
   assert.ok(repairContext.allowedEditBoundaries.some((item) => item.includes("女二")));
-  assert.ok(repairContext.allowedEditBoundaries.some((item) => item.includes("urgent payoff thread: 黑市账户异常")));
-  assert.ok(repairContext.allowedEditBoundaries.some((item) => item.includes("overdue payoff pressure: 第一次反压收益")));
-  assert.ok(repairContext.allowedEditBoundaries.some((item) => item.includes("Patch resource continuity before using 旧通行证")));
+  assert.ok(
+    repairContext.allowedEditBoundaries.some((item) =>
+      item.includes("urgent payoff thread: 黑市账户异常"),
+    ),
+  );
+  assert.ok(
+    repairContext.allowedEditBoundaries.some((item) =>
+      item.includes("overdue payoff pressure: 第一次反压收益"),
+    ),
+  );
+  assert.ok(
+    repairContext.allowedEditBoundaries.some((item) =>
+      item.includes("Patch resource continuity before using 旧通行证"),
+    ),
+  );
 
   const writerBlocks = buildChapterWriterContextBlocks(writeContext);
   const reviewBlocks = buildChapterReviewContextBlocks(reviewContext);
@@ -784,89 +933,138 @@ test("chapter layered contexts carry volume mission, character duties and repair
     assert.match(readerExperienceBlocks[0].content, /维修通道钥匙和女二暗号/);
     assert.match(readerExperienceBlocks[0].content, /幕后势力察觉漏洞暴露/);
   }
-  assert.ok(writerBlocks.some((block) => (
-     block.id === "timeline_context"
-     && /第四章尾段/.test(block.content)
-     && /第一次反压/.test(block.content)
-     && /幕后黑手身份揭示/.test(block.content)
-   )));
+  assert.ok(
+    writerBlocks.some(
+      (block) =>
+        block.id === "timeline_context" &&
+        /第四章尾段/.test(block.content) &&
+        /第一次反压/.test(block.content) &&
+        /幕后黑手身份揭示/.test(block.content),
+    ),
+  );
   assert.ok(!writerBlocks.some((block) => block.id === "previous_chapter_hook"));
 
   assert.ok(!writerBlocks.some((block) => block.id === "chapter_boundary"));
-  assert.ok(writerBlocks.some((block) => (
-    block.id === "payoff_directives"
-    && /First payoff after securing the key intel/.test(block.content)
-    && /\[pressure\]/.test(block.content)
-  )));
-  assert.ok(writerBlocks.some((block) => (
-    block.id === "chapter_mission"
-    && /原始任务单/.test(block.content)
-    && /维修通道钥匙/.test(block.content)
-  )));
-  assert.ok(writerBlocks.some((block) => (
-    block.id === "previous_chapter_tail"
-    && block.required
-    && block.allowSummary === false
-    && /第四章尾段/.test(block.content)
-  )));
-  assert.ok(writerBlocks.some((block) => (
-    block.id === "narrative_progress_hint"
-    && block.priority === 98
-    && block.required === false
-    && /发展阶段/.test(block.content)
-  )));
+  assert.ok(
+    writerBlocks.some(
+      (block) =>
+        block.id === "payoff_directives" &&
+        /First payoff after securing the key intel/.test(block.content) &&
+        /\[pressure\]/.test(block.content),
+    ),
+  );
+  assert.ok(
+    writerBlocks.some(
+      (block) =>
+        block.id === "chapter_mission" &&
+        /原始任务单/.test(block.content) &&
+        /维修通道钥匙/.test(block.content),
+    ),
+  );
+  assert.ok(
+    writerBlocks.some(
+      (block) =>
+        block.id === "previous_chapter_tail" &&
+        block.required &&
+        block.allowSummary === false &&
+        /第四章尾段/.test(block.content),
+    ),
+  );
+  assert.ok(
+    writerBlocks.some(
+      (block) =>
+        block.id === "narrative_progress_hint" &&
+        block.priority === 98 &&
+        block.required === false &&
+        /发展阶段/.test(block.content),
+    ),
+  );
   assert.ok(!writerBlocks.some((block) => block.id === "scene_plan"));
-  assert.ok(writerBlocks.some((block) => (
-    block.id === "payoff_ledger"
-    && /Payoff ledger summary: pending=1, urgent=1, overdue=1/.test(block.content)
-    && /Active pending payoffs/.test(block.content)
-    && /Overdue payoffs/.test(block.content)
-  )));
-  assert.ok(writerBlocks.some((block) => (
-    block.id === "character_hard_facts"
-    && block.required
-    && block.allowSummary === false
-    && /被压制的调查者/.test(block.content)
-    && /不得突然拥有超自然能力/.test(block.content)
-    && /未现身前不得直接交出暗账副本/.test(block.content)
-  )));
-  assert.ok(writerBlocks.some((block) => (
-    block.id === "character_resource_context"
-    && /维修通道钥匙/.test(block.content)
-    && /旧通行证/.test(block.content)
-    && /Pending resource proposals \(not committed\)/.test(block.content)
-    && /女二暗账副本可能已经交给主角/.test(block.content)
-  )));
-  assert.ok(reviewBlocks.some((block) => (
-    block.id === "character_dynamics"
-    && /角色行为指导/.test(block.content)
-    && /候选角色护栏/.test(block.content)
-  )));
-  assert.ok(reviewBlocks.some((block) => (
-    block.id === "chapter_boundary"
-    && block.required
-    && block.allowSummary === false
-    && /Chapter boundary/.test(block.content)
-    && /Do not cross/.test(block.content)
-  )));
-  assert.ok(reviewBlocks.some((block) => (
-    block.id === "structure_obligations"
-    && /urgent payoff: 黑市账户异常/.test(block.content)
-    && /overdue payoff: 第一次反压收益/.test(block.content)
-  )));
-  assert.ok(reviewBlocks.some((block) => (
-    block.id === "chapter_mission"
-    && /目标篇幅：约 3000 个中文字符/.test(block.content)
-    && /状态驱动的下一步动作：write_chapter/.test(block.content)
-    && /2550-3450/.test(block.content)
-  )));
-  assert.ok(writerBlocks.some((block) => (
-    block.id === "state_goal"
-    && /Protected secrets/.test(block.content)
-  )));
-  assert.ok(repairBlocks.some((block) => block.id === "structure_obligations" && /volume mission/.test(block.content)));
-  assert.ok(repairBlocks.some((block) => block.id === "repair_boundaries" && /read-only/.test(block.content)));
-  assert.ok(repairBlocks.some((block) => block.id === "repair_boundaries" && /do not disclose/.test(block.content)));
+  assert.ok(
+    writerBlocks.some(
+      (block) =>
+        block.id === "payoff_ledger" &&
+        /Payoff ledger summary: pending=1, urgent=1, overdue=1/.test(block.content) &&
+        /Active pending payoffs/.test(block.content) &&
+        /Overdue payoffs/.test(block.content),
+    ),
+  );
+  assert.ok(
+    writerBlocks.some(
+      (block) =>
+        block.id === "character_hard_facts" &&
+        block.required &&
+        block.allowSummary === false &&
+        /被压制的调查者/.test(block.content) &&
+        /不得突然拥有超自然能力/.test(block.content) &&
+        /未现身前不得直接交出暗账副本/.test(block.content),
+    ),
+  );
+  assert.ok(
+    writerBlocks.some(
+      (block) =>
+        block.id === "character_resource_context" &&
+        /维修通道钥匙/.test(block.content) &&
+        /旧通行证/.test(block.content) &&
+        /Pending resource proposals \(not committed\)/.test(block.content) &&
+        /女二暗账副本可能已经交给主角/.test(block.content),
+    ),
+  );
+  assert.ok(
+    reviewBlocks.some(
+      (block) =>
+        block.id === "character_dynamics" &&
+        /角色行为指导/.test(block.content) &&
+        /候选角色护栏/.test(block.content),
+    ),
+  );
+  assert.ok(
+    reviewBlocks.some(
+      (block) =>
+        block.id === "chapter_boundary" &&
+        block.required &&
+        block.allowSummary === false &&
+        /Chapter boundary/.test(block.content) &&
+        /Do not cross/.test(block.content),
+    ),
+  );
+  assert.ok(
+    reviewBlocks.some(
+      (block) =>
+        block.id === "structure_obligations" &&
+        /urgent payoff: 黑市账户异常/.test(block.content) &&
+        /overdue payoff: 第一次反压收益/.test(block.content),
+    ),
+  );
+  assert.ok(
+    reviewBlocks.some(
+      (block) =>
+        block.id === "chapter_mission" &&
+        /目标篇幅：约 3000 个中文字符/.test(block.content) &&
+        /状态驱动的下一步动作：write_chapter/.test(block.content) &&
+        /2550-3450/.test(block.content),
+    ),
+  );
+  assert.ok(
+    writerBlocks.some(
+      (block) => block.id === "state_goal" && /Protected secrets/.test(block.content),
+    ),
+  );
+  assert.ok(
+    repairBlocks.some(
+      (block) => block.id === "structure_obligations" && /volume mission/.test(block.content),
+    ),
+  );
+  assert.ok(
+    repairBlocks.some(
+      (block) => block.id === "repair_boundaries" && /read-only/.test(block.content),
+    ),
+  );
+  assert.ok(
+    repairBlocks.some(
+      (block) => block.id === "repair_boundaries" && /do not disclose/.test(block.content),
+    ),
+  );
 });
 
 test("chapter layered character hard facts soften pending review state and goal only", () => {
@@ -888,8 +1086,14 @@ test("chapter layered character hard facts soften pending review state and goal 
 
   assert.ok(hardFactsBlock);
   assert.match(hardFactsBlock.content, /标记为待确认的当前状态\/当前目标只作参考/);
-  assert.match(hardFactsBlock.content, /当前状态\(待确认，如与最新剧情冲突可按合理逻辑调整\)=待确认：已经开始反压/);
-  assert.match(hardFactsBlock.content, /当前目标\(待确认，如与最新剧情冲突可按合理逻辑调整\)=待确认：追查黑市账户/);
+  assert.match(
+    hardFactsBlock.content,
+    /当前状态\(待确认，如与最新剧情冲突可按合理逻辑调整\)=待确认：已经开始反压/,
+  );
+  assert.match(
+    hardFactsBlock.content,
+    /当前目标\(待确认，如与最新剧情冲突可按合理逻辑调整\)=待确认：追查黑市账户/,
+  );
   assert.match(hardFactsBlock.content, /当前位置=外城维修区/);
   assert.doesNotMatch(hardFactsBlock.content, /当前位置\(待确认/);
 });
@@ -1053,16 +1257,22 @@ test("chapter context only supplies mind and active dialogue guidance to actual 
     volumeWindow: contextPackage.volumeWindow,
     contextPackage,
   });
-  const protagonistGuide = writeContext.characterBehaviorGuides.find((guide) => guide.characterId === "char-1");
-  const observerGuide = writeContext.characterBehaviorGuides.find((guide) => guide.characterId === "char-3");
-  const guidanceBlock = buildChapterWriterContextBlocks(writeContext).find((block) => block.id === "character_dynamics");
+  const protagonistGuide = writeContext.characterBehaviorGuides.find(
+    (guide) => guide.characterId === "char-1",
+  );
+  const observerGuide = writeContext.characterBehaviorGuides.find(
+    (guide) => guide.characterId === "char-3",
+  );
+  const guidanceBlock = buildChapterWriterContextBlocks(writeContext).find(
+    (block) => block.id === "character_dynamics",
+  );
 
   assert.match(protagonistGuide.mindGuidance, /主角相信反压机会已经出现/);
   assert.equal(observerGuide.mindGuidance, null);
   assert.match(protagonistGuide.authorInfluenceGuidance, /先利用维修通道确认退路/);
   assert.equal(observerGuide.authorInfluenceGuidance, null);
   assert.match(guidanceBlock.content, /角色理解（主观，不等同事实）/);
-   assert.match(guidanceBlock.content, /依据：主角攥紧维修通道钥匙/);
+  assert.match(guidanceBlock.content, /依据：主角攥紧维修通道钥匙/);
   assert.match(guidanceBlock.content, /角色对话后确认的软性行为倾向（非客观事实）/);
   assert.doesNotMatch(guidanceBlock.content, /旁观者以为自己无需卷入/);
   assert.doesNotMatch(guidanceBlock.content, /暂时避开冲突/);
@@ -1070,12 +1280,18 @@ test("chapter context only supplies mind and active dialogue guidance to actual 
 });
 
 test("registered gender survives runtime hard facts and all chapter prompt modes", () => {
-  const { buildRuntimeCharacterHardFactsList } = require("../dist/services/novel/characters/characterHardFacts.js");
+  const {
+    buildRuntimeCharacterHardFactsList,
+  } = require("../dist/services/novel/characters/characterHardFacts.js");
   const contextPackage = createContextPackage();
   // No other hard fact: gender alone must be sufficient to keep a character.
-  contextPackage.characterRoster = [{ id: "gender-only", name: "林见夏", role: "protagonist", gender: "male" }];
+  contextPackage.characterRoster = [
+    { id: "gender-only", name: "林见夏", role: "protagonist", gender: "male" },
+  ];
   contextPackage.characterDynamics = null;
-  contextPackage.characterHardFacts = buildRuntimeCharacterHardFactsList(contextPackage.characterRoster);
+  contextPackage.characterHardFacts = buildRuntimeCharacterHardFactsList(
+    contextPackage.characterRoster,
+  );
   assert.equal(contextPackage.characterHardFacts.length, 1);
   assert.equal(contextPackage.characterHardFacts[0].gender, "male");
   const writeContext = buildChapterWriteContext({
@@ -1085,7 +1301,10 @@ test("registered gender survives runtime hard facts and all chapter prompt modes
     contextPackage,
   });
   for (const mode of ["full", "incremental", "review", "repair"]) {
-    const block = assertNonEmptyBlock(buildChapterWriterContextBlocks(writeContext, { mode }), "character_hard_facts");
+    const block = assertNonEmptyBlock(
+      buildChapterWriterContextBlocks(writeContext, { mode }),
+      "character_hard_facts",
+    );
     assert.match(block.content, /林见夏.*性别=male/);
     assert.equal(block.required, true);
     assert.equal(block.allowSummary, false);
@@ -1102,7 +1321,10 @@ test("current canonical state cannot be summarized away in any chapter prompt mo
   });
   writeContext.localStateSummary = "挑战已启动，倒计时暂停冻结；并非待启动。";
   for (const mode of ["full", "incremental", "review", "repair"]) {
-    const block = assertNonEmptyBlock(buildChapterWriterContextBlocks(writeContext, { mode }), "local_state");
+    const block = assertNonEmptyBlock(
+      buildChapterWriterContextBlocks(writeContext, { mode }),
+      "local_state",
+    );
     assert.match(block.content, /挑战已启动，倒计时暂停冻结/);
     assert.equal(block.required, true);
     assert.equal(block.allowSummary, false);
@@ -1110,15 +1332,31 @@ test("current canonical state cannot be summarized away in any chapter prompt mo
 });
 
 test("runtime schemas preserve registered gender and accept historical contexts without it", async () => {
-  const { runtimeCharacterSchema, chapterCharacterHardFactSchema } = await import("../../shared/dist/types/chapterRuntime.js");
-  const { buildRuntimeCharacterHardFactsList } = require("../dist/services/novel/characters/characterHardFacts.js");
+  const { runtimeCharacterSchema, chapterCharacterHardFactSchema } =
+    await import("../../shared/dist/types/chapterRuntime.js");
+  const {
+    buildRuntimeCharacterHardFactsList,
+  } = require("../dist/services/novel/characters/characterHardFacts.js");
   for (const gender of ["male", "female", "other", "unknown", null]) {
-    const character = runtimeCharacterSchema.parse({ id: "char-1", name: "角色", role: "protagonist", gender });
+    const character = runtimeCharacterSchema.parse({
+      id: "char-1",
+      name: "角色",
+      role: "protagonist",
+      gender,
+    });
     assert.equal(character.gender, gender);
-    const fact = chapterCharacterHardFactSchema.parse({ characterId: character.id, name: character.name, gender });
+    const fact = chapterCharacterHardFactSchema.parse({
+      characterId: character.id,
+      name: character.name,
+      gender,
+    });
     assert.equal(fact.gender, gender);
   }
-  const historical = runtimeCharacterSchema.parse({ id: "legacy", name: "未设性别", role: "supporting" });
+  const historical = runtimeCharacterSchema.parse({
+    id: "legacy",
+    name: "未设性别",
+    role: "supporting",
+  });
   assert.equal(historical.gender, undefined);
   assert.deepEqual(buildRuntimeCharacterHardFactsList([historical]), []);
 });

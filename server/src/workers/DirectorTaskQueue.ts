@@ -95,12 +95,19 @@ export class DirectorTaskQueue {
     options: DirectorTaskQueueOptions = {},
     commandService = new DirectorCommandService(),
   ) {
-    this.workerId = options.workerId
-      ?? process.env.DIRECTOR_WORKER_ID?.trim()
-      ?? `director-worker-${os.hostname()}-${process.pid}`;
+    this.workerId =
+      options.workerId ??
+      process.env.DIRECTOR_WORKER_ID?.trim() ??
+      `director-worker-${os.hostname()}-${process.pid}`;
     this.leaseMs = resolveNumberEnv("DIRECTOR_WORKER_LEASE_MS", options.leaseMs ?? 120_000);
-    this.staleScanMs = resolveNumberEnv("DIRECTOR_WORKER_STALE_SCAN_MS", options.staleScanMs ?? 30_000);
-    this.executionSlots = resolveNumberEnv("DIRECTOR_WORKER_EXECUTION_SLOTS", options.executionSlots ?? resolveDefaultSlots());
+    this.staleScanMs = resolveNumberEnv(
+      "DIRECTOR_WORKER_STALE_SCAN_MS",
+      options.staleScanMs ?? 30_000,
+    );
+    this.executionSlots = resolveNumberEnv(
+      "DIRECTOR_WORKER_EXECUTION_SLOTS",
+      options.executionSlots ?? resolveDefaultSlots(),
+    );
     this.pollMs = resolveNumberEnv("DIRECTOR_WORKER_POLL_MS", options.pollMs ?? 5_000);
     this.commandService = commandService;
   }
@@ -141,13 +148,19 @@ export class DirectorTaskQueue {
     return command ? { command } : null;
   }
 
-  async acquireResourceGate(novelId: string | null | undefined, commandType: string, signal?: AbortSignal): Promise<void> {
+  async acquireResourceGate(
+    novelId: string | null | undefined,
+    commandType: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
     const resourceClass = resourceClassForCommand(commandType);
     const key = `${novelId?.trim() || "_global"}:${resourceClass}`;
     let gate = this.gates.get(key);
     if (!gate) {
       const envName = `DIRECTOR_WORKER_RESOURCE_${resourceClass.toUpperCase()}_LIMIT`;
-      gate = new ResourceGate(resolveNumberEnv(envName, PER_NOVEL_RESOURCE_LIMITS[resourceClass] ?? 2));
+      gate = new ResourceGate(
+        resolveNumberEnv(envName, PER_NOVEL_RESOURCE_LIMITS[resourceClass] ?? 2),
+      );
       this.gates.set(key, gate);
     }
     await gate.acquire(signal);
@@ -178,7 +191,11 @@ export class DirectorTaskQueue {
       renewing = true;
       const renewalStartedAt = Date.now();
       try {
-        const renewed = await this.commandService.renewLease(commandId, `${this.workerId}:${slotId}`, this.leaseMs);
+        const renewed = await this.commandService.renewLease(
+          commandId,
+          `${this.workerId}:${slotId}`,
+          this.leaseMs,
+        );
         if (!renewed) loseLease();
         else if (!stopped && !controller.signal.aborted) armExpiry(renewalStartedAt + this.leaseMs);
       } catch (error) {
@@ -198,7 +215,12 @@ export class DirectorTaskQueue {
       controller.signal.addEventListener("abort", finish, { once: true });
       void initialRenewal.then(finish);
     });
-    const timer = setInterval(() => { void renew(); }, Math.max(100, Math.floor(this.leaseMs / 3)));
+    const timer = setInterval(
+      () => {
+        void renew();
+      },
+      Math.max(100, Math.floor(this.leaseMs / 3)),
+    );
     const stop = (() => {
       stopped = true;
       clearInterval(timer);
@@ -211,7 +233,11 @@ export class DirectorTaskQueue {
   }
 
   async markRunning(commandId: string, slotId: string): Promise<void> {
-    await this.commandService.markCommandRunning(commandId, `${this.workerId}:${slotId}`, this.leaseMs);
+    await this.commandService.markCommandRunning(
+      commandId,
+      `${this.workerId}:${slotId}`,
+      this.leaseMs,
+    );
   }
 
   assertLeaseActive(stopRenewal: { isLost?: () => boolean }): void {

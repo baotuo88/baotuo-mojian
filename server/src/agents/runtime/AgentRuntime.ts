@@ -15,7 +15,15 @@ import { RunExecutionService } from "./RunExecutionService";
 import { withSharedRunLock } from "./runLocks";
 import { cancelAgentExecution, runWithAgentExecution } from "./agentExecution";
 import { isExecutionStoppedError, withoutExecutionScope } from "../../platform/execution";
-import { normalizeAgent, parseRunMetadata, safeJson, TERMINAL_STATUSES, isRecord, asObject, type RunMetadata } from "./runtimeHelpers";
+import {
+  normalizeAgent,
+  parseRunMetadata,
+  safeJson,
+  TERMINAL_STATUSES,
+  isRecord,
+  asObject,
+  type RunMetadata,
+} from "./runtimeHelpers";
 
 export class AgentRuntime {
   private readonly store = new AgentTraceStore();
@@ -25,18 +33,25 @@ export class AgentRuntime {
   private readonly approvals = new ApprovalContinuationService(this.store, this.executor);
 
   private async withRunLock<T>(runId: string, fn: () => Promise<T>): Promise<T> {
-    return withSharedRunLock(runId, () => runWithAgentExecution(runId, async () => {
-      try {
-        return await fn();
-      } catch (error) {
-        if (isExecutionStoppedError(error)) {
-          await withoutExecutionScope(() => this.store.updateRun(runId, {
-            status: "cancelled", currentStep: "cancelled", finishedAt: new Date(), error: null,
-          }));
+    return withSharedRunLock(runId, () =>
+      runWithAgentExecution(runId, async () => {
+        try {
+          return await fn();
+        } catch (error) {
+          if (isExecutionStoppedError(error)) {
+            await withoutExecutionScope(() =>
+              this.store.updateRun(runId, {
+                status: "cancelled",
+                currentStep: "cancelled",
+                finishedAt: new Date(),
+                error: null,
+              }),
+            );
+          }
+          throw error;
         }
-        throw error;
-      }
-    }));
+      }),
+    );
   }
 
   private async failRun(
@@ -59,7 +74,10 @@ export class AgentRuntime {
     });
   }
 
-  private async createRunFromInput(input: AgentRunStartInput, metadataPatch?: Partial<RunMetadata>) {
+  private async createRunFromInput(
+    input: AgentRunStartInput,
+    metadataPatch?: Partial<RunMetadata>,
+  ) {
     const metadata: RunMetadata = {
       contextMode: input.contextMode,
       provider: input.provider,
@@ -78,7 +96,11 @@ export class AgentRuntime {
     });
   }
 
-  private async updateRunMetadata(runId: string, input: AgentRunStartInput, plannerIntent?: StructuredIntent): Promise<void> {
+  private async updateRunMetadata(
+    runId: string,
+    input: AgentRunStartInput,
+    plannerIntent?: StructuredIntent,
+  ): Promise<void> {
     const metadata: RunMetadata = {
       contextMode: input.contextMode,
       provider: input.provider,
@@ -93,7 +115,10 @@ export class AgentRuntime {
     });
   }
 
-  async start(input: AgentRunStartInput, callbacks?: AgentRuntimeCallbacks): Promise<AgentRuntimeResult> {
+  async start(
+    input: AgentRunStartInput,
+    callbacks?: AgentRuntimeCallbacks,
+  ): Promise<AgentRuntimeResult> {
     if (input.contextMode === "novel" && !input.novelId) {
       throw new Error("novel mode requires novelId.");
     }
@@ -103,11 +128,14 @@ export class AgentRuntime {
       novelId: input.novelId,
       limit: 10,
     });
-    const blockingRun = activeRuns.find((item) => item.status === "running" || item.status === "waiting_approval");
+    const blockingRun = activeRuns.find(
+      (item) => item.status === "running" || item.status === "waiting_approval",
+    );
     if (blockingRun && blockingRun.id !== input.runId) {
-      const message = blockingRun.status === "waiting_approval"
-        ? "当前已有运行在等待审批，请先处理审批。"
-        : "当前已有运行仍在执行中。";
+      const message =
+        blockingRun.status === "waiting_approval"
+          ? "当前已有运行在等待审批，请先处理审批。"
+          : "当前已有运行仍在执行中。";
       return this.executor.getRunDetailOrThrow(blockingRun.id, message);
     }
 
@@ -116,7 +144,10 @@ export class AgentRuntime {
       const existing = await this.store.getRun(input.runId);
       if (existing && !TERMINAL_STATUSES.has(existing.status)) {
         if (existing.status === "waiting_approval") {
-          return this.executor.getRunDetailOrThrow(existing.id, "当前运行正等待审批，请先处理审批。");
+          return this.executor.getRunDetailOrThrow(
+            existing.id,
+            "当前运行正等待审批，请先处理审批。",
+          );
         }
         return this.executor.getRunDetailOrThrow(existing.id, "当前运行仍在执行中。");
       }
@@ -236,7 +267,10 @@ export class AgentRuntime {
     });
   }
 
-  async resolveApproval(input: AgentApprovalDecisionInput, callbacks?: AgentRuntimeCallbacks): Promise<AgentRuntimeResult> {
+  async resolveApproval(
+    input: AgentApprovalDecisionInput,
+    callbacks?: AgentRuntimeCallbacks,
+  ): Promise<AgentRuntimeResult> {
     return this.approvals.resolve(input, callbacks, this.failRun.bind(this));
   }
 
@@ -264,9 +298,7 @@ export class AgentRuntime {
         tool: tool as ToolCall["tool"],
         reason: typeof payload.reason === "string" ? payload.reason : "replay",
         idempotencyKey: `${typeof step.idempotencyKey === "string" ? step.idempotencyKey : `replay_${Date.now()}`}_replay`,
-        input: request.mode === "dry_run"
-          ? { ...input, dryRun: true }
-          : input,
+        input: request.mode === "dry_run" ? { ...input, dryRun: true } : input,
         dryRun: request.mode === "dry_run",
       };
       replayActions.push({
@@ -370,7 +402,11 @@ export class AgentRuntime {
   }
 
   /** 创建章节生成轨迹 run，用于章节编辑页展示 */
-  async createChapterGenRun(novelId: string, chapterId: string, chapterOrder: number): Promise<string> {
+  async createChapterGenRun(
+    novelId: string,
+    chapterId: string,
+    chapterOrder: number,
+  ): Promise<string> {
     const run = await this.store.createRun({
       sessionId: `chapter-gen-${chapterId}-${Date.now()}`,
       goal: `章节 ${chapterOrder} 生成`,

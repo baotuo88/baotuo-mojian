@@ -64,15 +64,46 @@ const ASSET_TYPE_LABELS: Record<CharacterAssetType, string> = {
   other: "其他",
 };
 
-const ASSET_TYPE_ORDER: CharacterAssetType[] = ["costume", "weapon", "item", "vehicle", "ability", "other"];
+const ASSET_TYPE_ORDER: CharacterAssetType[] = [
+  "costume",
+  "weapon",
+  "item",
+  "vehicle",
+  "ability",
+  "other",
+];
 
 const ASSET_TYPE_ACCENT: Record<CharacterAssetType, { chip: string; dot: string; soft: string }> = {
-  costume: { chip: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-700/50 dark:bg-violet-900/20 dark:text-violet-300", dot: "bg-violet-500", soft: "hover:bg-violet-50 hover:border-violet-300 dark:hover:bg-violet-900/20" },
-  weapon:  { chip: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300", dot: "bg-rose-500", soft: "hover:bg-rose-50 hover:border-rose-300 dark:hover:bg-rose-900/20" },
-  item:    { chip: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300", dot: "bg-amber-500", soft: "hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-900/20" },
-  vehicle: { chip: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700/50 dark:bg-sky-900/20 dark:text-sky-300", dot: "bg-sky-500", soft: "hover:bg-sky-50 hover:border-sky-300 dark:hover:bg-sky-900/20" },
-  ability: { chip: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300", dot: "bg-emerald-500", soft: "hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-900/20" },
-  other:   { chip: "border-border bg-muted text-muted-foreground", dot: "bg-muted-foreground/60", soft: "hover:bg-muted/60" },
+  costume: {
+    chip: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-700/50 dark:bg-violet-900/20 dark:text-violet-300",
+    dot: "bg-violet-500",
+    soft: "hover:bg-violet-50 hover:border-violet-300 dark:hover:bg-violet-900/20",
+  },
+  weapon: {
+    chip: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300",
+    dot: "bg-rose-500",
+    soft: "hover:bg-rose-50 hover:border-rose-300 dark:hover:bg-rose-900/20",
+  },
+  item: {
+    chip: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300",
+    dot: "bg-amber-500",
+    soft: "hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-900/20",
+  },
+  vehicle: {
+    chip: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700/50 dark:bg-sky-900/20 dark:text-sky-300",
+    dot: "bg-sky-500",
+    soft: "hover:bg-sky-50 hover:border-sky-300 dark:hover:bg-sky-900/20",
+  },
+  ability: {
+    chip: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+    soft: "hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-900/20",
+  },
+  other: {
+    chip: "border-border bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground/60",
+    soft: "hover:bg-muted/60",
+  },
 };
 
 const STATUS_DOT_STYLE: Record<string, string> = {
@@ -110,7 +141,8 @@ function AssetCard({
   const triggerGen = () => {
     flow.start({
       prepare: () => prepareCharacterAssetImage(asset.id, provider || undefined),
-      generate: (overrides) => generateCharacterAssetImage(asset.id, provider || undefined, overrides),
+      generate: (overrides) =>
+        generateCharacterAssetImage(asset.id, provider || undefined, overrides),
       onSuccess: onUpdated,
       onError: onUpdated,
     });
@@ -128,10 +160,17 @@ function AssetCard({
     onError: (e) => toast.error(String(e)),
   });
 
-  const accent = ASSET_TYPE_ACCENT[asset.assetType as CharacterAssetType] ?? ASSET_TYPE_ACCENT.other;
+  const accent =
+    ASSET_TYPE_ACCENT[asset.assetType as CharacterAssetType] ?? ASSET_TYPE_ACCENT.other;
   const image = confirmedReferenceImage(imageData);
   const generating = flow.dialogProps.loading || flow.dialogProps.submitting;
-  const status = image ? "done" : generating ? "generating" : imageData.status === "generating" ? "idle" : imageData.status;
+  const status = image
+    ? "done"
+    : generating
+      ? "generating"
+      : imageData.status === "generating"
+        ? "idle"
+        : imageData.status;
 
   return (
     <>
@@ -142,13 +181,24 @@ function AssetCard({
         errorMessage={imageData.error}
         title={asset.name}
         subtitle={asset.description ?? undefined}
-        typeBadge={{ label: ASSET_TYPE_LABELS[asset.assetType as CharacterAssetType] ?? asset.assetType, className: accent.chip }}
+        typeBadge={{
+          label: ASSET_TYPE_LABELS[asset.assetType as CharacterAssetType] ?? asset.assetType,
+          className: accent.chip,
+        }}
         onGenerate={triggerGen}
         onUpload={(file) => uploadMut.mutate(file)}
         onDelete={() => deleteMut.mutate()}
         busy={generating || uploadMut.isPending || deleteMut.isPending}
         generateLabel={imageData.status === "generating" ? "重新生成" : undefined}
-        footer={imageData.status === "generating" ? <p className="text-[11px] text-muted-foreground">生成结果待确认，可重新生成。</p> : imageData.status === "error" ? <p className="text-[11px] text-destructive">{imageData.error ?? "图片生成失败，可重试。"}</p> : undefined}
+        footer={
+          imageData.status === "generating" ? (
+            <p className="text-[11px] text-muted-foreground">生成结果待确认，可重新生成。</p>
+          ) : imageData.status === "error" ? (
+            <p className="text-[11px] text-destructive">
+              {imageData.error ?? "图片生成失败，可重试。"}
+            </p>
+          ) : undefined
+        }
         confirmDeleteText={`删除资产「${asset.name}」？此操作不可撤销。`}
       />
     </>
@@ -224,17 +274,26 @@ function AssetAddRow({
   });
 
   const accent = ASSET_TYPE_ACCENT[type];
-  const placeholderName = type === "costume" ? "战斗套装" : type === "weapon" ? "月光剑" : type === "vehicle" ? "踏雪马" : type === "ability" ? "破云剑诀" : "宗门腰牌";
+  const placeholderName =
+    type === "costume"
+      ? "战斗套装"
+      : type === "weapon"
+        ? "月光剑"
+        : type === "vehicle"
+          ? "踏雪马"
+          : type === "ability"
+            ? "破云剑诀"
+            : "宗门腰牌";
 
   return (
     <div className="mb-3 rounded-lg border-2 border-dashed border-primary/30 bg-background px-3 py-2.5">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className={`h-1.5 w-1.5 rounded-full ${accent.dot}`} />
-          <p className="text-[11px] font-semibold text-foreground">
-            新增{ASSET_TYPE_LABELS[type]}
-          </p>
-          <span className="text-[10px] text-muted-foreground">回车提交 · Esc 关闭 · 可连续添加</span>
+          <p className="text-[11px] font-semibold text-foreground">新增{ASSET_TYPE_LABELS[type]}</p>
+          <span className="text-[10px] text-muted-foreground">
+            回车提交 · Esc 关闭 · 可连续添加
+          </span>
         </div>
         <button
           type="button"
@@ -281,13 +340,7 @@ function AssetAddRow({
   );
 }
 
-function AssetSection({
-  character,
-  provider,
-}: {
-  character: ComicCharacter;
-  provider: string;
-}) {
+function AssetSection({ character, provider }: { character: ComicCharacter; provider: string }) {
   const queryClient = useQueryClient();
   const [activeAddType, setActiveAddType] = useState<CharacterAssetType | null>(null);
 
@@ -300,9 +353,10 @@ function AssetSection({
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: assetsKey });
 
-  const grouped = ASSET_TYPE_ORDER
-    .map((type) => ({ type, items: assets.filter((a) => a.assetType === type) }))
-    .filter((g) => g.items.length > 0);
+  const grouped = ASSET_TYPE_ORDER.map((type) => ({
+    type,
+    items: assets.filter((a) => a.assetType === type),
+  })).filter((g) => g.items.length > 0);
 
   const isEmpty = !isLoading && assets.length === 0;
 
@@ -356,7 +410,8 @@ function AssetSection({
           </div>
           <p className="text-xs font-semibold text-foreground">还没有资产</p>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-            点击上方任意彩色标签即可快速添加。<br />
+            点击上方任意彩色标签即可快速添加。
+            <br />
             生格子图时会自动把对应资产合成到参考图，锁定服装 / 武器 / 道具外形。
           </p>
         </div>

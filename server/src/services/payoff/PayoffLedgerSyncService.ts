@@ -38,7 +38,9 @@ const PAYOFF_CHAPTER_WINDOW_BEFORE = 24;
 const PAYOFF_CHAPTER_WINDOW_AFTER = 12;
 
 function compactText(value: string | null | undefined, fallback = "无"): string {
-  const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
+  const normalized = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   return normalized || fallback;
 }
 
@@ -98,7 +100,9 @@ function normalizeConflict(row: {
 function formatMajorPayoffs(rawPlanJson: string | null | undefined): string {
   const parsed = safeParseJson<{ major_payoffs?: unknown }>(rawPlanJson, {});
   const majorPayoffs = Array.isArray(parsed.major_payoffs)
-    ? parsed.major_payoffs.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    ? parsed.major_payoffs.filter(
+        (item): item is string => typeof item === "string" && item.trim().length > 0,
+      )
     : [];
   return majorPayoffs.length > 0
     ? majorPayoffs.map((item, index) => `${index + 1}. ${item}`).join("\n")
@@ -106,7 +110,10 @@ function formatMajorPayoffs(rawPlanJson: string | null | undefined): string {
 }
 
 export class PayoffLedgerSyncService {
-  private async getResolvedChapterOrder(novelId: string, options: PayoffLedgerSyncOptions): Promise<number | null> {
+  private async getResolvedChapterOrder(
+    novelId: string,
+    options: PayoffLedgerSyncOptions,
+  ): Promise<number | null> {
     if (typeof options.chapterOrder === "number") {
       return options.chapterOrder;
     }
@@ -152,100 +159,106 @@ export class PayoffLedgerSyncService {
 
   private async buildSyncPromptInput(novelId: string, options: PayoffLedgerSyncOptions) {
     const chapterOrder = await this.getResolvedChapterOrder(novelId, options);
-    const [novel, volumeRows, chapterRows, snapshot, openConflicts, recentAuditReports] = await Promise.all([
-      prisma.novel.findUnique({
-        where: { id: novelId },
-        select: {
-          id: true,
-          title: true,
-          storyMacroPlan: {
-            select: {
-              decompositionJson: true,
+    const [novel, volumeRows, chapterRows, snapshot, openConflicts, recentAuditReports] =
+      await Promise.all([
+        prisma.novel.findUnique({
+          where: { id: novelId },
+          select: {
+            id: true,
+            title: true,
+            storyMacroPlan: {
+              select: {
+                decompositionJson: true,
+              },
+            },
+            bookContract: {
+              select: {
+                chapter3Payoff: true,
+                chapter10Payoff: true,
+                chapter30Payoff: true,
+              },
             },
           },
-          bookContract: {
-            select: {
-              chapter3Payoff: true,
-              chapter10Payoff: true,
-              chapter30Payoff: true,
+        }),
+        prisma.volumePlan.findMany({
+          where: { novelId },
+          orderBy: { sortOrder: "asc" },
+          select: {
+            id: true,
+            sortOrder: true,
+            title: true,
+            summary: true,
+            openPayoffsJson: true,
+          },
+        }),
+        prisma.volumeChapterPlan.findMany({
+          where: {
+            volume: { novelId },
+            ...(typeof chapterOrder === "number"
+              ? {
+                  chapterOrder: {
+                    gte: Math.max(0, chapterOrder - PAYOFF_CHAPTER_WINDOW_BEFORE),
+                    lte: chapterOrder + PAYOFF_CHAPTER_WINDOW_AFTER,
+                  },
+                }
+              : {}),
+          },
+          orderBy: { chapterOrder: "asc" },
+          select: {
+            id: true,
+            volumeId: true,
+            chapterOrder: true,
+            title: true,
+            payoffRefsJson: true,
+          },
+        }),
+        prisma.storyStateSnapshot.findFirst({
+          where: { novelId },
+          orderBy: { createdAt: "desc" },
+          include: {
+            sourceChapter: {
+              select: {
+                id: true,
+                order: true,
+                title: true,
+              },
+            },
+            foreshadowStates: true,
+          },
+        }),
+        prisma.openConflict.findMany({
+          where: {
+            novelId,
+            status: "open",
+          },
+          orderBy: [{ updatedAt: "desc" }],
+          take: 8,
+        }),
+        prisma.auditReport.findMany({
+          where: { novelId, auditType: "plot" },
+          orderBy: [{ createdAt: "desc" }],
+          take: 4,
+          include: {
+            issues: {
+              where: { status: "open" },
+              orderBy: { createdAt: "desc" },
             },
           },
-        },
-      }),
-      prisma.volumePlan.findMany({
-        where: { novelId },
-        orderBy: { sortOrder: "asc" },
-        select: {
-          id: true,
-          sortOrder: true,
-          title: true,
-          summary: true,
-          openPayoffsJson: true,
-        },
-      }),
-      prisma.volumeChapterPlan.findMany({
-        where: {
-          volume: { novelId },
-          ...(typeof chapterOrder === "number"
-            ? {
-                chapterOrder: {
-                  gte: Math.max(0, chapterOrder - PAYOFF_CHAPTER_WINDOW_BEFORE),
-                  lte: chapterOrder + PAYOFF_CHAPTER_WINDOW_AFTER,
-                },
-              }
-            : {}),
-        },
-        orderBy: { chapterOrder: "asc" },
-        select: {
-          id: true,
-          volumeId: true,
-          chapterOrder: true,
-          title: true,
-          payoffRefsJson: true,
-        },
-      }),
-      prisma.storyStateSnapshot.findFirst({
-        where: { novelId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          sourceChapter: {
-            select: {
-              id: true,
-              order: true,
-              title: true,
-            },
-          },
-          foreshadowStates: true,
-        },
-      }),
-      prisma.openConflict.findMany({
-        where: {
-          novelId,
-          status: "open",
-        },
-        orderBy: [{ updatedAt: "desc" }],
-        take: 8,
-      }),
-      prisma.auditReport.findMany({
-        where: { novelId, auditType: "plot" },
-        orderBy: [{ createdAt: "desc" }],
-        take: 4,
-        include: {
-          issues: {
-            where: { status: "open" },
-            orderBy: { createdAt: "desc" },
-          },
-        },
-      }),
-    ]);
+        }),
+      ]);
 
     if (!novel) {
       throw new Error("小说不存在。");
     }
 
-    const activeVolume = typeof chapterOrder === "number"
-      ? volumeRows.find((volume) => chapterRows.some((chapter) => chapter.volumeId === volume.id && chapter.chapterOrder === chapterOrder))
-      : volumeRows.at(-1) ?? null;
+    const activeVolume =
+      typeof chapterOrder === "number"
+        ? volumeRows.find((volume) =>
+            chapterRows.some(
+              (chapter) => chapter.volumeId === volume.id && chapter.chapterOrder === chapterOrder,
+            ),
+          )
+        : (volumeRows.at(-1) ?? null);
 
     const activeVolumeChapters = activeVolume
       ? chapterRows.filter((chapter) => chapter.volumeId === activeVolume.id)
@@ -270,54 +283,79 @@ export class PayoffLedgerSyncService {
         ? `最新状态快照来源：第${snapshot.sourceChapter.order}章《${snapshot.sourceChapter.title}》`
         : "最新状态快照来源：无",
       snapshot?.summary ? `状态快照摘要：${snapshot.summary}` : "",
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-    const openPayoffsText = volumeRows.length > 0
-      ? volumeRows.map((volume) => {
-          const openPayoffs = safeParseJson<string[]>(volume.openPayoffsJson, []);
-          if (openPayoffs.length === 0) {
+    const openPayoffsText =
+      volumeRows.length > 0
+        ? volumeRows
+            .map((volume) => {
+              const openPayoffs = safeParseJson<string[]>(volume.openPayoffsJson, []);
+              if (openPayoffs.length === 0) {
+                return "";
+              }
+              return `【第${volume.sortOrder}卷 ${volume.title}】 ${openPayoffs.map((item) => compactText(item, "无")).join("；")}`;
+            })
+            .filter(Boolean)
+            .join("\n\n") || "无"
+        : "无";
+
+    const chapterPayoffRefsText =
+      chapterRows
+        .map((chapter) => {
+          const refs = safeParseJson<string[]>(chapter.payoffRefsJson, []);
+          if (refs.length === 0) {
             return "";
           }
-          return `【第${volume.sortOrder}卷 ${volume.title}】 ${openPayoffs.map((item) => compactText(item, "无")).join("；")}`;
-        }).filter(Boolean).join("\n\n") || "无"
-      : "无";
-
-    const chapterPayoffRefsText = chapterRows.map((chapter) => {
-      const refs = safeParseJson<string[]>(chapter.payoffRefsJson, []);
-      if (refs.length === 0) {
-        return "";
-      }
-      return `第${chapter.chapterOrder}章《${chapter.title}》 | ${refs.map((item) => compactText(item, "无")).join("；")}`;
-    }).filter(Boolean).join("\n\n") || "无";
+          return `第${chapter.chapterOrder}章《${chapter.title}》 | ${refs.map((item) => compactText(item, "无")).join("；")}`;
+        })
+        .filter(Boolean)
+        .join("\n\n") || "无";
 
     const foreshadowStatesText = snapshot?.foreshadowStates.length
-      ? snapshot.foreshadowStates.map((item) => (
-        [
-          `标题：${item.title}`,
-          `状态：${compactText(item.status)}`,
-          item.summary ? `摘要：${item.summary}` : "",
-          item.setupChapterId ? `setupChapterId：${item.setupChapterId}` : "",
-          item.payoffChapterId ? `payoffChapterId：${item.payoffChapterId}` : "",
-        ].filter(Boolean).join(" | ")
-      )).join("\n")
+      ? snapshot.foreshadowStates
+          .map((item) =>
+            [
+              `标题：${item.title}`,
+              `状态：${compactText(item.status)}`,
+              item.summary ? `摘要：${item.summary}` : "",
+              item.setupChapterId ? `setupChapterId：${item.setupChapterId}` : "",
+              item.payoffChapterId ? `payoffChapterId：${item.payoffChapterId}` : "",
+            ]
+              .filter(Boolean)
+              .join(" | "),
+          )
+          .join("\n")
       : "无";
 
-    const payoffConflictsText = openConflicts.length > 0
-      ? openConflicts.map((row) => {
-          const conflict = normalizeConflict(row);
-          return [
-            `${conflict.conflictType}/${conflict.severity}：${conflict.title}`,
-            compactText(conflict.summary),
-            conflict.resolutionHint ? `修复建议：${compactText(conflict.resolutionHint)}` : "",
-          ].filter(Boolean).join(" | ");
-        }).join("\n")
-      : "无";
+    const payoffConflictsText =
+      openConflicts.length > 0
+        ? openConflicts
+            .map((row) => {
+              const conflict = normalizeConflict(row);
+              return [
+                `${conflict.conflictType}/${conflict.severity}：${conflict.title}`,
+                compactText(conflict.summary),
+                conflict.resolutionHint ? `修复建议：${compactText(conflict.resolutionHint)}` : "",
+              ]
+                .filter(Boolean)
+                .join(" | ");
+            })
+            .join("\n")
+        : "无";
 
-    const payoffAuditIssuesText = recentAuditReports.length > 0
-      ? recentAuditReports.flatMap((report) => report.issues.map((issue) => (
-        `${issue.code} (${issue.severity})：${compactText(issue.description)} | 证据：${compactText(issue.evidence)}`
-      ))).join("\n") || "无"
-      : "无";
+    const payoffAuditIssuesText =
+      recentAuditReports.length > 0
+        ? recentAuditReports
+            .flatMap((report) =>
+              report.issues.map(
+                (issue) =>
+                  `${issue.code} (${issue.severity})：${compactText(issue.description)} | 证据：${compactText(issue.evidence)}`,
+              ),
+            )
+            .join("\n") || "无"
+        : "无";
 
     return {
       chapterOrder,
@@ -340,7 +378,9 @@ export class PayoffLedgerSyncService {
 
   private async syncLedgerOpenConflicts(novelId: string, items: PayoffLedgerItem[]): Promise<void> {
     const syntheticIssues = buildSyntheticPayoffIssues(items);
-    const activeConflictKeys = syntheticIssues.map((issue) => `payoff:${issue.ledgerKey}:${issue.code}`);
+    const activeConflictKeys = syntheticIssues.map(
+      (issue) => `payoff:${issue.ledgerKey}:${issue.code}`,
+    );
 
     await prisma.$transaction(async (tx) => {
       await tx.openConflict.updateMany({
@@ -361,7 +401,11 @@ export class PayoffLedgerSyncService {
         const ledgerItem = items.find((item) => item.ledgerKey === issue.ledgerKey);
         const conflictKey = `payoff:${issue.ledgerKey}:${issue.code}`;
         const data = {
-          chapterId: ledgerItem?.lastTouchedChapterId ?? ledgerItem?.setupChapterId ?? ledgerItem?.payoffChapterId ?? null,
+          chapterId:
+            ledgerItem?.lastTouchedChapterId ??
+            ledgerItem?.setupChapterId ??
+            ledgerItem?.payoffChapterId ??
+            null,
           sourceSnapshotId: ledgerItem?.lastSnapshotId ?? null,
           sourceIssueId: null,
           conflictType: issue.code,
@@ -372,7 +416,8 @@ export class PayoffLedgerSyncService {
           evidenceJson: JSON.stringify([issue.evidence]),
           affectedCharacterIdsJson: JSON.stringify([]),
           resolutionHint: issue.fixSuggestion,
-          lastSeenChapterOrder: ledgerItem?.lastTouchedChapterOrder ?? ledgerItem?.targetEndChapterOrder ?? null,
+          lastSeenChapterOrder:
+            ledgerItem?.lastTouchedChapterOrder ?? ledgerItem?.targetEndChapterOrder ?? null,
         };
         const updated = await tx.openConflict.updateMany({
           where: {
@@ -396,7 +441,10 @@ export class PayoffLedgerSyncService {
     });
   }
 
-  async getPayoffLedger(novelId: string, options: PayoffLedgerReadOptions = {}): Promise<PayoffLedgerResponse> {
+  async getPayoffLedger(
+    novelId: string,
+    options: PayoffLedgerReadOptions = {},
+  ): Promise<PayoffLedgerResponse> {
     let rows = await this.loadLedgerRows(novelId);
     if (rows.length === 0 && options.syncIfMissing !== false) {
       try {
@@ -409,10 +457,16 @@ export class PayoffLedgerSyncService {
     return buildPayoffLedgerResponse(rows.map(mapPayoffLedgerRow), options.chapterOrder);
   }
 
-  async syncLedger(novelId: string, options: PayoffLedgerSyncOptions = {}): Promise<PayoffLedgerResponse> {
+  async syncLedger(
+    novelId: string,
+    options: PayoffLedgerSyncOptions = {},
+  ): Promise<PayoffLedgerResponse> {
     const existingRows = await this.loadLedgerRows(novelId);
     try {
-      const { promptInput, chapterOrder, latestSnapshotId } = await this.buildSyncPromptInput(novelId, options);
+      const { promptInput, chapterOrder, latestSnapshotId } = await this.buildSyncPromptInput(
+        novelId,
+        options,
+      );
       const result = await runStructuredPrompt({
         asset: payoffLedgerSyncPrompt,
         promptInput,
@@ -423,7 +477,7 @@ export class PayoffLedgerSyncService {
         },
       });
       const now = new Date();
-      const resolvedItemsByKey = new Map<string, typeof result.output.items[number]>();
+      const resolvedItemsByKey = new Map<string, (typeof result.output.items)[number]>();
       for (const rawItem of result.output.items) {
         const sanitizedItem = sanitizePayoffLedgerSyncItem(rawItem);
         const ledgerKey = resolvePayoffLedgerSyncLedgerKey(sanitizedItem, existingRows);
@@ -446,13 +500,15 @@ export class PayoffLedgerSyncService {
           sourceRefs: item.sourceRefs,
         })),
       });
-      const chapterLookup = createNovelChapterReferenceLookup(await prisma.chapter.findMany({
-        where: { novelId },
-        select: {
-          id: true,
-          order: true,
-        },
-      }));
+      const chapterLookup = createNovelChapterReferenceLookup(
+        await prisma.chapter.findMany({
+          where: { novelId },
+          select: {
+            id: true,
+            order: true,
+          },
+        }),
+      );
 
       await prisma.$transaction(async (tx) => {
         for (const item of resolvedItems) {
@@ -460,21 +516,22 @@ export class PayoffLedgerSyncService {
           const normalizedChapterRefs = normalizePayoffLedgerPromptChapterRefs({
             item: {
               ...item,
-              evidence: [
-                ...safeParseJson(previous?.evidenceJson, []),
-                ...item.evidence,
-              ],
+              evidence: [...safeParseJson(previous?.evidenceJson, []), ...item.evidence],
             },
             previous,
             lookup: chapterLookup,
             currentChapterOrder: chapterOrder,
             sourceChapterId: options.sourceChapterId,
           });
-          const riskSignals = clearStaleRiskSignal(dedupeRiskSignals(item.riskSignals.map((signal) => ({
-            code: signal.code,
-            severity: signal.severity,
-            summary: signal.summary,
-          }))));
+          const riskSignals = clearStaleRiskSignal(
+            dedupeRiskSignals(
+              item.riskSignals.map((signal) => ({
+                code: signal.code,
+                severity: signal.severity,
+                summary: signal.summary,
+              })),
+            ),
+          );
           await tx.payoffLedgerItem.upsert({
             where: {
               novelId_ledgerKey: {
@@ -511,8 +568,10 @@ export class PayoffLedgerSyncService {
               currentStatus: item.currentStatus,
               targetStartChapterOrder: item.targetStartChapterOrder ?? null,
               targetEndChapterOrder: item.targetEndChapterOrder ?? null,
-              firstSeenChapterOrder: item.firstSeenChapterOrder ?? previous?.firstSeenChapterOrder ?? null,
-              lastTouchedChapterOrder: item.lastTouchedChapterOrder ?? previous?.lastTouchedChapterOrder ?? null,
+              firstSeenChapterOrder:
+                item.firstSeenChapterOrder ?? previous?.firstSeenChapterOrder ?? null,
+              lastTouchedChapterOrder:
+                item.lastTouchedChapterOrder ?? previous?.lastTouchedChapterOrder ?? null,
               lastTouchedChapterId: normalizedChapterRefs.lastTouchedChapterId,
               setupChapterId: normalizedChapterRefs.setupChapterId,
               payoffChapterId: normalizedChapterRefs.payoffChapterId,
@@ -550,14 +609,22 @@ export class PayoffLedgerSyncService {
             continue;
           }
           if (
-            outputByKey.has(row.ledgerKey)
-            || row.currentStatus === "paid_off"
-            || row.currentStatus === "failed"
+            outputByKey.has(row.ledgerKey) ||
+            row.currentStatus === "paid_off" ||
+            row.currentStatus === "failed"
           ) {
             continue;
           }
           const staleSignals = appendStaleRiskSignal(
-            safeParseJson(row.riskSignalsJson, [] as Array<{ code: string; severity: "low" | "medium" | "high" | "critical"; summary: string; stale?: boolean }>),
+            safeParseJson(
+              row.riskSignalsJson,
+              [] as Array<{
+                code: string;
+                severity: "low" | "medium" | "high" | "critical";
+                summary: string;
+                stale?: boolean;
+              }>,
+            ),
             "本轮 AI 对账没有再次命中这条伏笔，已保留旧账本并标记为 stale，等待下一次同步确认。",
           );
           await tx.payoffLedgerItem.update({
@@ -576,57 +643,77 @@ export class PayoffLedgerSyncService {
       return buildPayoffLedgerResponse(items, chapterOrder);
     } catch (error) {
       if (existingRows.length > 0) {
-        await prisma.$transaction(async (tx) => {
-          for (const row of existingRows) {
-            const staleSignals = appendStaleRiskSignal(
-              safeParseJson(row.riskSignalsJson, [] as Array<{ code: string; severity: "low" | "medium" | "high" | "critical"; summary: string; stale?: boolean }>),
-              "伏笔账本同步失败，已保留上次成功结果。",
-            );
-            await tx.payoffLedgerItem.update({
-              where: { id: row.id },
-              data: {
-                riskSignalsJson: serializeLedgerJson(staleSignals),
-              },
-            });
-          }
-        }).catch(() => null);
-        return buildPayoffLedgerResponse(existingRows.map(mapPayoffLedgerRow), options.chapterOrder);
+        await prisma
+          .$transaction(async (tx) => {
+            for (const row of existingRows) {
+              const staleSignals = appendStaleRiskSignal(
+                safeParseJson(
+                  row.riskSignalsJson,
+                  [] as Array<{
+                    code: string;
+                    severity: "low" | "medium" | "high" | "critical";
+                    summary: string;
+                    stale?: boolean;
+                  }>,
+                ),
+                "伏笔账本同步失败，已保留上次成功结果。",
+              );
+              await tx.payoffLedgerItem.update({
+                where: { id: row.id },
+                data: {
+                  riskSignalsJson: serializeLedgerJson(staleSignals),
+                },
+              });
+            }
+          })
+          .catch(() => null);
+        return buildPayoffLedgerResponse(
+          existingRows.map(mapPayoffLedgerRow),
+          options.chapterOrder,
+        );
       }
       throw error;
     }
   }
 
-  buildSyntheticAuditReports(novelId: string, chapterId: string, chapterOrder: number, ledger: PayoffLedgerResponse): AuditReport[] {
+  buildSyntheticAuditReports(
+    novelId: string,
+    chapterId: string,
+    chapterOrder: number,
+    ledger: PayoffLedgerResponse,
+  ): AuditReport[] {
     const issues = buildSyntheticPayoffIssues(ledger.items, chapterOrder);
     if (issues.length === 0) {
       return [];
     }
     const reportId = `payoff-ledger:${novelId}:${chapterId}`;
     const now = new Date().toISOString();
-    return [{
-      id: reportId,
-      novelId,
-      chapterId,
-      auditType: "plot",
-      overallScore: null,
-      summary: "系统根据伏笔账本补充了需要继续跟踪的兑现风险。",
-      legacyScoreJson: null,
-      issues: issues.map((issue) => ({
-        id: `${reportId}:${issue.ledgerKey}:${issue.code}`,
-        reportId,
+    return [
+      {
+        id: reportId,
+        novelId,
+        chapterId,
         auditType: "plot",
-        severity: issue.severity,
-        code: issue.code,
-        description: issue.description,
-        evidence: issue.evidence,
-        fixSuggestion: issue.fixSuggestion,
-        status: "open",
+        overallScore: null,
+        summary: "系统根据伏笔账本补充了需要继续跟踪的兑现风险。",
+        legacyScoreJson: null,
+        issues: issues.map((issue) => ({
+          id: `${reportId}:${issue.ledgerKey}:${issue.code}`,
+          reportId,
+          auditType: "plot",
+          severity: issue.severity,
+          code: issue.code,
+          description: issue.description,
+          evidence: issue.evidence,
+          fixSuggestion: issue.fixSuggestion,
+          status: "open",
+          createdAt: now,
+          updatedAt: now,
+        })),
         createdAt: now,
         updatedAt: now,
-      })),
-      createdAt: now,
-      updatedAt: now,
-    }];
+      },
+    ];
   }
 }
 

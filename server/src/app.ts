@@ -98,9 +98,9 @@ export function createApp() {
   const corsOriginEnv = process.env.CORS_ORIGIN;
   const corsAllowList = corsOriginEnv
     ? corsOriginEnv
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean)
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
     : [];
 
   const allowLan = parseEnvFlag(process.env.ALLOW_LAN, process.env.NODE_ENV !== "production");
@@ -120,16 +120,18 @@ export function createApp() {
     }),
   );
   app.use(helmet());
-  app.use(morgan((tokens, req, res) => {
-    const method = tokens.method(req, res) ?? "-";
-    const url = tokens.url(req, res) ?? "-";
-    const status = tokens.status(req, res) ?? "-";
-    const responseTime = tokens["response-time"](req, res) ?? "0";
-    const contentLength = tokens.res(req, res, "content-length") ?? "0";
-    const errorMessage = tokens["error-message"](req, res);
-    const errorSuffix = errorMessage ? ` | error: ${errorMessage}` : "";
-    return `${method} ${url} ${status} ${responseTime} ms - ${contentLength}${errorSuffix}`;
-  }));
+  app.use(
+    morgan((tokens, req, res) => {
+      const method = tokens.method(req, res) ?? "-";
+      const url = tokens.url(req, res) ?? "-";
+      const status = tokens.status(req, res) ?? "-";
+      const responseTime = tokens["response-time"](req, res) ?? "0";
+      const contentLength = tokens.res(req, res, "content-length") ?? "0";
+      const errorMessage = tokens["error-message"](req, res);
+      const errorSuffix = errorMessage ? ` | error: ${errorMessage}` : "";
+      return `${method} ${url} ${status} ${responseTime} ms - ${contentLength}${errorSuffix}`;
+    }),
+  );
   app.use(express.json({ limit: jsonBodyLimit }));
 
   app.use("/api/health", healthRouter);
@@ -228,7 +230,8 @@ function resolveServerStartOptions(options?: ServerStartOptions): {
   port: number;
   allowLan: boolean;
 } {
-  const allowLan = options?.allowLan ?? parseEnvFlag(process.env.ALLOW_LAN, process.env.NODE_ENV !== "production");
+  const allowLan =
+    options?.allowLan ?? parseEnvFlag(process.env.ALLOW_LAN, process.env.NODE_ENV !== "production");
   return {
     allowLan,
     port: options?.port ?? Number(process.env.PORT ?? 3000),
@@ -330,8 +333,8 @@ export async function startServer(options?: ServerStartOptions): Promise<Started
 
   const ragCompatibilityReport = await initializeRagSettingsCompatibility();
   if (
-    ragCompatibilityReport.importedSettingKeys.length > 0
-    || ragCompatibilityReport.importedProviderRecords.length > 0
+    ragCompatibilityReport.importedSettingKeys.length > 0 ||
+    ragCompatibilityReport.importedProviderRecords.length > 0
   ) {
     console.log("[server] imported legacy RAG env settings.", ragCompatibilityReport);
   }

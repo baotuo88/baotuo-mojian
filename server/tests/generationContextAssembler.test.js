@@ -8,13 +8,21 @@ const {
 } = require("../dist/services/novel/runtime/GenerationContextAssembler.js");
 const { prisma } = require("../dist/db/prisma.js");
 const { plannerService } = require("../dist/services/planner/PlannerService.js");
-const { contextAssemblyService } = require("../dist/services/novel/production/ContextAssemblyService.js");
-const { chapterPayoffPlanningService } = require("../dist/services/novel/production/payoff/index.js");
+const {
+  contextAssemblyService,
+} = require("../dist/services/novel/production/ContextAssemblyService.js");
+const {
+  chapterPayoffPlanningService,
+} = require("../dist/services/novel/production/payoff/index.js");
 const { ragServices } = require("../dist/services/rag/index.js");
 const { novelReferenceService } = require("../dist/services/novel/NovelReferenceService.js");
-const { characterDynamicsQueryService } = require("../dist/services/novel/dynamics/CharacterDynamicsQueryService.js");
+const {
+  characterDynamicsQueryService,
+} = require("../dist/services/novel/dynamics/CharacterDynamicsQueryService.js");
 const { payoffLedgerSyncService } = require("../dist/services/payoff/PayoffLedgerSyncService.js");
-const { characterResourceLedgerService } = require("../dist/services/novel/characterResource/CharacterResourceLedgerService.js");
+const {
+  characterResourceLedgerService,
+} = require("../dist/services/novel/characterResource/CharacterResourceLedgerService.js");
 const { timelineContextService } = require("../dist/modules/timeline/index.js");
 
 test("blocking pending-review proposals are scoped to the current chapter plus global proposals", () => {
@@ -23,10 +31,7 @@ test("blocking pending-review proposals are scoped to the current chapter plus g
   assert.deepEqual(where, {
     novelId: "novel-1",
     status: "pending_review",
-    OR: [
-      { chapterId: "chapter-2" },
-      { chapterId: null },
-    ],
+    OR: [{ chapterId: "chapter-2" }, { chapterId: null }],
   });
 });
 
@@ -111,12 +116,14 @@ function createStoryWorldSlice() {
     storyId: "novel-1",
     worldId: "world-slice-1",
     coreWorldFrame: "星核枯竭的北境舞台。",
-    appliedRules: [{
-      id: "rule-star-core",
-      name: "星核代价",
-      summary: "透支星核会损伤寿命。",
-      whyItMatters: "能力不能无代价升级。",
-    }],
+    appliedRules: [
+      {
+        id: "rule-star-core",
+        name: "星核代价",
+        summary: "透支星核会损伤寿命。",
+        whyItMatters: "能力不能无代价升级。",
+      },
+    ],
     activeForces: [],
     activeLocations: [],
     activeElements: [],
@@ -245,14 +252,31 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     contextAssemblyService.build = async () => ({
       snapshot: createCanonicalSnapshot(),
       nextAction: "write_chapter",
-      chapterStateGoal: { chapterId: "chapter-1", chapterOrder: 1, summary: "本章推进", targetConflicts: [], targetRelationships: [], targetPayoffs: [], targetPayoffDirectives: [], protectedSecrets: [] },
+      chapterStateGoal: {
+        chapterId: "chapter-1",
+        chapterOrder: 1,
+        summary: "本章推进",
+        targetConflicts: [],
+        targetRelationships: [],
+        targetPayoffs: [],
+        targetPayoffDirectives: [],
+        protectedSecrets: [],
+      },
       protectedSecrets: [],
     });
     chapterPayoffPlanningService.plan = async (input) => {
       assert.equal(input.chapter.taskSheet, "新任务单");
       assert.equal(input.chapter.sceneCards, freshSceneCards);
       assert.equal(input.forbiddenEvents[0].title, "未来揭示");
-      return [{ ledgerKey: "reward", title: "阶段回报", operation: "payoff", reason: "遵循本章合同", forbiddenReveal: null }];
+      return [
+        {
+          ledgerKey: "reward",
+          title: "阶段回报",
+          operation: "payoff",
+          reason: "遵循本章合同",
+          forbiddenReveal: null,
+        },
+      ];
     };
     novelReferenceService.buildReferenceForStage = async () => "";
     characterDynamicsQueryService.getOverview = async () => null;
@@ -262,11 +286,41 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     timelineContextService.buildForChapter = async () => ({
       currentChapterIndex: 1,
       currentTime: { storyDayIndex: 2, label: "第2日清晨" },
-      previousEvents: [{ id: "event-previous", title: "前章事件", summary: "前章后果", chapterIndex: 0, storyTimeLabel: "第1日" }],
-      plannedEventsThisChapter: [{ id: "event-planned", title: "本章事件", summary: "本章必须推进" }],
-      openHooks: [{ id: "hook-1", title: "长线钩子", description: "等待后续回收", status: "open", priority: "high", resolveMode: "long_arc", blocking: false }],
+      previousEvents: [
+        {
+          id: "event-previous",
+          title: "前章事件",
+          summary: "前章后果",
+          chapterIndex: 0,
+          storyTimeLabel: "第1日",
+        },
+      ],
+      plannedEventsThisChapter: [
+        { id: "event-planned", title: "本章事件", summary: "本章必须推进" },
+      ],
+      openHooks: [
+        {
+          id: "hook-1",
+          title: "长线钩子",
+          description: "等待后续回收",
+          status: "open",
+          priority: "high",
+          resolveMode: "long_arc",
+          blocking: false,
+        },
+      ],
       blockingHooks: [],
-      softHooks: [{ id: "hook-1", title: "长线钩子", description: "等待后续回收", status: "open", priority: "high", resolveMode: "long_arc", blocking: false }],
+      softHooks: [
+        {
+          id: "hook-1",
+          title: "长线钩子",
+          description: "等待后续回收",
+          status: "open",
+          priority: "high",
+          resolveMode: "long_arc",
+          blocking: false,
+        },
+      ],
       addressedHooks: [],
       forbiddenEvents: [{ id: "event-future", title: "未来揭示", reason: "尚未到达" }],
       continuityRequirements: ["本章必须推进：本章事件"],
@@ -315,15 +369,23 @@ test("assembler refreshes chapter execution fields after chapter plan regenerati
     assert.equal(assembled.contextPackage.characterRoster[0].gender, "male");
     assert.equal(assembled.contextPackage.characterHardFacts[0].gender, "male");
     assert.equal(assembled.contextPackage.chapterWriteContext.characterHardFacts[0].gender, "male");
-    assert.equal(assembled.contextPackage.chapterWriteContext.payoffDirectives[0].operation, "payoff");
+    assert.equal(
+      assembled.contextPackage.chapterWriteContext.payoffDirectives[0].operation,
+      "payoff",
+    );
     assert.equal(chapterFindFirstCalls, 2);
     assert.equal(assembled.chapter.taskSheet, "新任务单");
     assert.equal(assembled.contextPackage.chapter.sceneCards, freshSceneCards);
     assert.equal(assembled.contextPackage.storyWorldSlice, storyWorldSlice);
     assert.match(assembled.contextPackage.chapter.supportingContextText, /本书世界上下文/);
     assert.match(assembled.contextPackage.chapter.supportingContextText, /星核枯竭的北境舞台/);
-    assert.equal(assembled.contextPackage.chapterWriteContext.chapterBoundary.entryState, "新合同入口1");
-    assert.ok(assembled.contextPackage.chapterWriteContext.chapterBoundary.doNotCross.includes("新禁止"));
+    assert.equal(
+      assembled.contextPackage.chapterWriteContext.chapterBoundary.entryState,
+      "新合同入口1",
+    );
+    assert.ok(
+      assembled.contextPackage.chapterWriteContext.chapterBoundary.doNotCross.includes("新禁止"),
+    );
     assert.equal(assembled.contextPackage.timelineContext.currentChapterIndex, 1);
     assert.equal(assembled.contextPackage.timelineContext.openHooks[0].title, "长线钩子");
     assert.equal(assembled.contextPackage.timelineContext.forbiddenEvents[0].title, "未来揭示");

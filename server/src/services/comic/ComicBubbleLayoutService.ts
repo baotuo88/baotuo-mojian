@@ -15,15 +15,26 @@ import { prisma } from "../../db/prisma";
 import { AppError } from "../../middleware/errorHandler";
 import { randomUUID } from "node:crypto";
 import { throwIfExecutionAborted } from "../../platform/execution";
-import { letteringSourceFingerprint, panelRevisionPath, resolveLetteredImageFile, resolvePanelImageFile } from "./assets";
+import {
+  letteringSourceFingerprint,
+  panelRevisionPath,
+  resolveLetteredImageFile,
+  resolvePanelImageFile,
+} from "./assets";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type BubbleType = "round" | "spike" | "cloud" | "caption";
 export type AnchorHint =
-  | "top-left" | "top-center" | "top-right"
-  | "mid-left" | "mid-center" | "mid-right"
-  | "bottom-left" | "bottom-center" | "bottom-right";
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "mid-left"
+  | "mid-center"
+  | "mid-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
 
 export interface Dialogue {
   speaker: string;
@@ -56,19 +67,24 @@ const MAX_CHARS_PER_LINE = 10;
 
 // 锚点位置 → [x%, y%]（相对图片宽高的百分比）
 const ANCHOR_POSITIONS: Record<string, [number, number]> = {
-  "top-left":      [0.18, 0.12],
-  "top-center":    [0.50, 0.12],
-  "top-right":     [0.82, 0.12],
-  "mid-left":      [0.18, 0.50],
-  "mid-center":    [0.50, 0.50],
-  "mid-right":     [0.82, 0.50],
-  "bottom-left":   [0.18, 0.88],
-  "bottom-center": [0.50, 0.88],
-  "bottom-right":  [0.82, 0.88],
+  "top-left": [0.18, 0.12],
+  "top-center": [0.5, 0.12],
+  "top-right": [0.82, 0.12],
+  "mid-left": [0.18, 0.5],
+  "mid-center": [0.5, 0.5],
+  "mid-right": [0.82, 0.5],
+  "bottom-left": [0.18, 0.88],
+  "bottom-center": [0.5, 0.88],
+  "bottom-right": [0.82, 0.88],
 };
 // 默认排列顺序（anchorHint 缺失时按话序占用格点）
 const DEFAULT_ANCHOR_ORDER: AnchorHint[] = [
-  "top-right", "top-left", "mid-right", "mid-left", "bottom-right", "bottom-left",
+  "top-right",
+  "top-left",
+  "mid-right",
+  "mid-left",
+  "bottom-right",
+  "bottom-left",
 ];
 
 // ─── SVG 生成 ─────────────────────────────────────────────────────────────────
@@ -103,7 +119,10 @@ function buildBubbleSvg(
   const padding = Math.min(BUBBLE_PADDING, Math.max(2, Math.floor(imgWidth / 40)));
   const maxBubbleWidth = Math.floor((opts.maxBubbleWidthRatio ?? 0.42) * imgWidth);
   const lineHeightPx = Math.ceil(fontSize * LINE_HEIGHT_RATIO);
-  const charsPerLine = Math.max(1, Math.min(MAX_CHARS_PER_LINE, Math.floor(maxBubbleWidth / (fontSize * 0.8))));
+  const charsPerLine = Math.max(
+    1,
+    Math.min(MAX_CHARS_PER_LINE, Math.floor(maxBubbleWidth / (fontSize * 0.8))),
+  );
   const lines = wrapText(dialogue.text, charsPerLine);
 
   const textW = Math.min(
@@ -126,12 +145,15 @@ function buildBubbleSvg(
   const opacity = opts.bubbleOpacity ?? 0.95;
   const textY0 = padding + fontSize;
 
-  const textElems = lines.map((line, i) =>
-    `<text x="${padding}" y="${textY0 + i * lineHeightPx}"
+  const textElems = lines
+    .map(
+      (line, i) =>
+        `<text x="${padding}" y="${textY0 + i * lineHeightPx}"
       font-family="${escapeXml(CJK_FONT_STACK)}"
       font-size="${fontSize}"
-      fill="#1a1a1a">${escapeXml(line)}</text>`
-  ).join("\n");
+      fill="#1a1a1a">${escapeXml(line)}</text>`,
+    )
+    .join("\n");
 
   let bgShape = "";
   switch (dialogue.bubbleType) {
@@ -171,13 +193,16 @@ function buildBubbleSvg(
   }
 
   const textFill = dialogue.bubbleType === "caption" ? "#f5f0e8" : "#1a1a1a";
-  const textElemsAdj = lines.map((line, i) =>
-    `<text x="${bw / 2}" y="${textY0 + i * lineHeightPx - 4}"
+  const textElemsAdj = lines
+    .map(
+      (line, i) =>
+        `<text x="${bw / 2}" y="${textY0 + i * lineHeightPx - 4}"
       font-family="${escapeXml(CJK_FONT_STACK)}"
       font-size="${fontSize}"
       text-anchor="middle"
-      fill="${textFill}">${escapeXml(line)}</text>`
-  ).join("\n");
+      fill="${textFill}">${escapeXml(line)}</text>`,
+    )
+    .join("\n");
 
   const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${bw}" height="${bh}">
 ${bgShape}
@@ -188,8 +213,12 @@ ${textElemsAdj}
 }
 
 function escapeXml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -212,7 +241,8 @@ export class ComicBubbleLayoutService {
     // 加载原始格子图
     const sourceFingerprint = letteringSourceFingerprint(panel);
     const sourceFile = await resolvePanelImageFile(panel);
-    if (!sourceFingerprint || !sourceFile) throw new AppError("该格缺少有效图片，请先生成图像。", 400);
+    if (!sourceFingerprint || !sourceFile)
+      throw new AppError("该格缺少有效图片，请先生成图像。", 400);
     const rawBuffer = await fs.readFile(sourceFile.filePath);
     const meta = await sharp(rawBuffer).metadata();
     const imgWidth = meta.width ?? 1024;
@@ -269,9 +299,15 @@ export class ComicBubbleLayoutService {
       generatedAt: new Date().toISOString(),
     };
     const saved = await prisma.comicPanel.updateMany({
-      where: { id: panelId, imageData: panel.imageData, dialogues: panel.dialogues,
-        visualPrompt: panel.visualPrompt, characterRefs: panel.characterRefs, sceneRef: panel.sceneRef,
-        letteredData: panel.letteredData },
+      where: {
+        id: panelId,
+        imageData: panel.imageData,
+        dialogues: panel.dialogues,
+        visualPrompt: panel.visualPrompt,
+        characterRefs: panel.characterRefs,
+        sceneRef: panel.sceneRef,
+        letteredData: panel.letteredData,
+      },
       data: { letteredData: JSON.stringify(letteredData) },
     });
     if (saved.count !== 1) throw new AppError("该格图片或对白已更新，请刷新后重新排版。", 409);

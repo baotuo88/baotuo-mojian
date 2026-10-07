@@ -4,7 +4,8 @@
 
 角色形象图生成服务面向写作新手，配置入口必须尽量低负担：用户只应理解“哪个厂商负责文本模型、哪个模型负责图片生成”，不应被要求判断内置厂商白名单或手动修复前后端厂商枚举。
 
-项目中的图像生成流程默认调用 OpenAI 兼容的 `/images/generations` 接口。部分内置厂商有推荐图像模型，但自定义网关、本地转发服务和聚合接口也可能提供同样的图像接口。
+项目中的图像生成流程默认调用 OpenAI 兼容的 `/images/generations`
+接口。部分内置厂商有推荐图像模型，但自定义网关、本地转发服务和聚合接口也可能提供同样的图像接口。
 
 ## Decision
 
@@ -13,11 +14,15 @@
 ## Current Rule
 
 - 文本默认模型和图像模型是两类独立设置。
-- 图像模型保存到 `provider.imageModel.<provider>` 设置键下，不要求 provider 是内置厂商。
+- 图像模型保存到 `provider.imageModel.<provider>`
+  设置键下，不要求 provider 是内置厂商。
 - 内置厂商可以提供推荐图像模型选项；自定义厂商默认不预设选项，但允许手动填写。
-- 图片生成执行时读取任务上的 provider 和 model，再用该 provider 保存的 API 地址和 API Key 调用接口；无参考图走 `/images/generations`，选中参考图走 `/images/edits`，完整传递本地与 URL 参考素材。未接入参考图的通道明确报错，不静默忽略。
+- 图片生成执行时读取任务上的 provider 和 model，再用该 provider 保存的 API 地址和 API
+  Key 调用接口；无参考图走 `/images/generations`，选中参考图走
+  `/images/edits`，完整传递本地与 URL 参考素材。未接入参考图的通道明确报错，不静默忽略。
 - 自定义或本地 OpenAI 兼容服务可以不填写 API Key；请求会省略 Authorization 头。
-- 角色形象图的前端选择列表必须来自当前设置数据，不能写死为 `openai`、`siliconflow`、`grok` 之类的固定列表。
+- 角色形象图的前端选择列表必须来自当前设置数据，不能写死为
+  `openai`、`siliconflow`、`grok` 之类的固定列表。
 
 ## Failure Modes
 

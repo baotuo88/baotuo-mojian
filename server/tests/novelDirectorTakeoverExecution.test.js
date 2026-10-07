@@ -173,11 +173,7 @@ test("restart_current_step stores rewrite snapshot reference in task seed and mi
     },
   });
 
-  assert.deepEqual(calls.slice(0, 3), [
-    ["snapshot", "自动导演重写前备份"],
-    "reset",
-    "bootstrap",
-  ]);
+  assert.deepEqual(calls.slice(0, 3), [["snapshot", "自动导演重写前备份"], "reset", "bootstrap"]);
   assert.equal(bootstrapInput.seedPayload.rewriteSnapshot.snapshotId, "snapshot_before_rewrite");
   assert.equal(bootstrapInput.seedPayload.rewriteSnapshot.label, "自动导演重写前备份");
   assert.equal(bootstrapInput.seedPayload.rewriteSnapshot.restoreEntry, "version_history");
@@ -190,44 +186,45 @@ test("restart_current_step stops before reset when rewrite snapshot creation fai
   const calls = [];
 
   await assert.rejects(
-    () => startDirectorTakeoverExecution({
-      request: {
-        novelId: "novel_takeover_demo",
-        entryStep: "chapter",
-        strategy: "restart_current_step",
-      },
-      takeoverState: buildTakeoverState(),
-      directorInput: {
-        candidate: { workingTitle: "Neon Archive" },
-        runMode: "auto_to_execution",
-        autoExecutionPlan: { mode: "chapter_range" },
-      },
-      workflowService: {
-        bootstrapTask: async () => {
-          calls.push("bootstrap");
-          return { id: "workflow_takeover_demo" };
+    () =>
+      startDirectorTakeoverExecution({
+        request: {
+          novelId: "novel_takeover_demo",
+          entryStep: "chapter",
+          strategy: "restart_current_step",
         },
-        markTaskRunning: async () => {
-          calls.push("mark_running");
+        takeoverState: buildTakeoverState(),
+        directorInput: {
+          candidate: { workingTitle: "Neon Archive" },
+          runMode: "auto_to_execution",
+          autoExecutionPlan: { mode: "chapter_range" },
         },
-      },
-      autoExecutionRuntime: {
-        prepareRequestedAutoExecution: async () => {
-          calls.push("prepare_auto_execution");
+        workflowService: {
+          bootstrapTask: async () => {
+            calls.push("bootstrap");
+            return { id: "workflow_takeover_demo" };
+          },
+          markTaskRunning: async () => {
+            calls.push("mark_running");
+          },
         },
-        runFromReady: async () => {},
-      },
-      buildDirectorSeedPayload: () => ({}),
-      scheduleBackgroundRun: () => {},
-      runDirectorPipeline: async () => {},
-      createRewriteSnapshot: async () => {
-        calls.push("snapshot");
-        throw new Error("snapshot storage unavailable");
-      },
-      prepareRestartStep: async () => {
-        calls.push("reset");
-      },
-    }),
+        autoExecutionRuntime: {
+          prepareRequestedAutoExecution: async () => {
+            calls.push("prepare_auto_execution");
+          },
+          runFromReady: async () => {},
+        },
+        buildDirectorSeedPayload: () => ({}),
+        scheduleBackgroundRun: () => {},
+        runDirectorPipeline: async () => {},
+        createRewriteSnapshot: async () => {
+          calls.push("snapshot");
+          throw new Error("snapshot storage unavailable");
+        },
+        prepareRestartStep: async () => {
+          calls.push("reset");
+        },
+      }),
     /无法创建自动导演重写前备份/,
   );
 
@@ -302,7 +299,9 @@ test("continue_existing from structured records downstream reset metadata and re
     },
     autoExecutionRuntime: {
       prepareRequestedAutoExecution: async () => {
-        throw new Error("structured takeover should not enter auto execution before downstream reset");
+        throw new Error(
+          "structured takeover should not enter auto execution before downstream reset",
+        );
       },
       runFromReady: async () => {},
     },
@@ -325,7 +324,10 @@ test("continue_existing from structured records downstream reset metadata and re
 
   assert.equal(bootstrapInput.seedPayload.takeover.downstreamReset.preserveAssets, true);
   assert.equal(bootstrapInput.seedPayload.takeover.downstreamReset.fromStep, "structured");
-  assert.deepEqual(bootstrapInput.seedPayload.takeover.downstreamReset.resetSteps, ["chapter", "pipeline"]);
+  assert.deepEqual(bootstrapInput.seedPayload.takeover.downstreamReset.resetSteps, [
+    "chapter",
+    "pipeline",
+  ]);
   assert.equal(bootstrapInput.initialState.stage, "structured_outline");
   assert.equal(bootstrapInput.initialState.itemKey, "beat_sheet");
   assert.equal(bootstrapInput.initialState.volumeId, "volume_1");
@@ -390,10 +392,7 @@ test("continue_existing from structured resets downstream runtime state before b
     },
   });
 
-  assert.deepEqual(calls.slice(0, 2), [
-    "reset_downstream:structured",
-    "bootstrap",
-  ]);
+  assert.deepEqual(calls.slice(0, 2), ["reset_downstream:structured", "bootstrap"]);
   assert.equal(bootstrapInput.seedPayload.autoExecution, undefined);
 });
 
@@ -543,53 +542,57 @@ test("restart_current_step records downstream reset metadata for workspace navig
 
   assert.equal(bootstrapInput.seedPayload.takeover.downstreamReset.preserveAssets, false);
   assert.equal(bootstrapInput.seedPayload.takeover.downstreamReset.fromStep, "structured");
-  assert.deepEqual(bootstrapInput.seedPayload.takeover.downstreamReset.resetSteps, ["chapter", "pipeline"]);
+  assert.deepEqual(bootstrapInput.seedPayload.takeover.downstreamReset.resetSteps, [
+    "chapter",
+    "pipeline",
+  ]);
 });
 
 test("takeover startup failure after bootstrap marks the replacement task failed", async () => {
   const calls = [];
 
   await assert.rejects(
-    () => startDirectorTakeoverExecution({
-      request: {
-        novelId: "novel_takeover_demo",
-        entryStep: "structured",
-        strategy: "continue_existing",
-      },
-      takeoverState: buildTakeoverState(),
-      directorInput: {
-        candidate: { workingTitle: "Neon Archive" },
-        runMode: "auto_to_execution",
-        autoExecutionPlan: { mode: "chapter_range" },
-      },
-      workflowService: {
-        bootstrapTask: async (input) => {
-          calls.push(["bootstrap", input.initialState.stage, input.initialState.itemKey]);
-          return { id: "workflow_takeover_demo" };
+    () =>
+      startDirectorTakeoverExecution({
+        request: {
+          novelId: "novel_takeover_demo",
+          entryStep: "structured",
+          strategy: "continue_existing",
         },
-        markTaskRunning: async () => {
-          calls.push("mark_running");
+        takeoverState: buildTakeoverState(),
+        directorInput: {
+          candidate: { workingTitle: "Neon Archive" },
+          runMode: "auto_to_execution",
+          autoExecutionPlan: { mode: "chapter_range" },
         },
-        markTaskFailed: async (taskId, message) => {
-          calls.push(["mark_failed", taskId, message]);
+        workflowService: {
+          bootstrapTask: async (input) => {
+            calls.push(["bootstrap", input.initialState.stage, input.initialState.itemKey]);
+            return { id: "workflow_takeover_demo" };
+          },
+          markTaskRunning: async () => {
+            calls.push("mark_running");
+          },
+          markTaskFailed: async (taskId, message) => {
+            calls.push(["mark_failed", taskId, message]);
+          },
         },
-      },
-      autoExecutionRuntime: {
-        prepareRequestedAutoExecution: async () => {},
-        runFromReady: async () => {},
-      },
-      buildDirectorSeedPayload: (_request, _novelId, extra) => ({ ...extra }),
-      scheduleBackgroundRun: () => {
-        calls.push("schedule");
-      },
-      runDirectorPipeline: async () => {},
-      cancelReplacedRuns: async () => {
-        calls.push("cancel_replaced_runs");
-      },
-      assertHighMemoryStartAllowed: async () => {
-        throw new Error("已有自动导演任务正在处理同一范围");
-      },
-    }),
+        autoExecutionRuntime: {
+          prepareRequestedAutoExecution: async () => {},
+          runFromReady: async () => {},
+        },
+        buildDirectorSeedPayload: (_request, _novelId, extra) => ({ ...extra }),
+        scheduleBackgroundRun: () => {
+          calls.push("schedule");
+        },
+        runDirectorPipeline: async () => {},
+        cancelReplacedRuns: async () => {
+          calls.push("cancel_replaced_runs");
+        },
+        assertHighMemoryStartAllowed: async () => {
+          throw new Error("已有自动导演任务正在处理同一范围");
+        },
+      }),
     /已有自动导演任务正在处理同一范围/,
   );
 
@@ -604,24 +607,41 @@ for (const outcome of ["success", "transient_failure"]) {
   test(`worker takeover awaits pipeline and preserves command failure handling (${outcome})`, async () => {
     const calls = [];
     let release;
-    const pendingPipeline = new Promise((resolve) => { release = resolve; });
+    const pendingPipeline = new Promise((resolve) => {
+      release = resolve;
+    });
     const pipelineError = new Error("503 Service Unavailable");
     let settled = false;
     const execution = startDirectorTakeoverExecution({
-      request: { novelId: "novel_takeover_demo", entryStep: "structured", strategy: "continue_existing" },
+      request: {
+        novelId: "novel_takeover_demo",
+        entryStep: "structured",
+        strategy: "continue_existing",
+      },
       takeoverState: buildTakeoverState(),
-      directorInput: { candidate: { workingTitle: "Neon Archive" }, runMode: "full_book_autopilot" },
+      directorInput: {
+        candidate: { workingTitle: "Neon Archive" },
+        runMode: "full_book_autopilot",
+      },
       workflowTaskId: "task-worker",
       awaitBackgroundRun: true,
       workflowService: {
-        async bootstrapTask() { return { id: "task-worker" }; },
+        async bootstrapTask() {
+          return { id: "task-worker" };
+        },
         async markTaskRunning() {},
-        async markTaskFailed() { calls.push("failed"); },
+        async markTaskFailed() {
+          calls.push("failed");
+        },
       },
       autoExecutionRuntime: {},
       buildDirectorSeedPayload: () => ({}),
-      scheduleBackgroundRun() { calls.push("scheduled"); },
-      async runBackgroundRun(_taskId, runner) { await runner(); },
+      scheduleBackgroundRun() {
+        calls.push("scheduled");
+      },
+      async runBackgroundRun(_taskId, runner) {
+        await runner();
+      },
       async runDirectorPipeline() {
         calls.push("pipeline_started");
         await pendingPipeline;
@@ -629,7 +649,14 @@ for (const outcome of ["success", "transient_failure"]) {
         calls.push("pipeline_finished");
       },
     });
-    execution.then(() => { settled = true; }, () => { settled = true; });
+    execution.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
     await new Promise(setImmediate);
     const prematurelySettled = settled;
     release();

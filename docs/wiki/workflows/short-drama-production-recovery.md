@@ -12,18 +12,24 @@
 
 ### 整集制作
 
-- `DramaBatchJob` 固定分镜 ID 和镜头集合。每次外部调用前重新确认当前分镜，禁止在新分镜出现后继续旧任务。
+- `DramaBatchJob`
+  固定分镜 ID 和镜头集合。每次外部调用前重新确认当前分镜，禁止在新分镜出现后继续旧任务。
 - 同一项目/集数/类型的并发创建复用已有任务，数据库事务串行化竞争；只允许一个调用通过条件更新领取 pending 任务。
 - 暂停不承诺撤销供应商正在执行的镜头，只停止后续镜头。完成镜头 ID、复用数量、错误列表和费用在每镜结束后保存。
-- `done` 包含 `skipped`，已处理量为 `done + failed`。恢复保留完成集合和累计费用，不重新从零统计。
-- `POST /projects/:id/batch-jobs/:jobId/resume` 需要 `confirmAdditionalCost: true`，paused/failed 可恢复；缺失或变化的分镜返回冲突。旧分镜暂停记录不应阻断新分镜恢复。
+- `done` 包含 `skipped`，已处理量为
+  `done + failed`。恢复保留完成集合和累计费用，不重新从零统计。
+- `POST /projects/:id/batch-jobs/:jobId/resume` 需要
+  `confirmAdditionalCost: true`，paused/failed 可恢复；缺失或变化的分镜返回冲突。旧分镜暂停记录不应阻断新分镜恢复。
 - 项目详情包含最近任务和所有待处理任务，不能让历史分页隐藏恢复入口。
 
 ### 视频提交
 
-- `prompted -> submitting` 用数据库条件更新占用。同提示词的 queued/running/succeeded 任务复用已有记录，避免重复提交。
-- 上游异常或重启遗留 submitting 转为 `submission_unknown`。只有用户明确确认 `confirmResubmit: true` 才能重新提交，批任务不得自动确认。
-- 新提交清空当前 taskId，把上次任务回执移入 `providerResult.previousAttempt`。submitting/unknown 即使存在遗留旧 ID，也禁止刷新旧 ID 覆盖当前未知状态。
+- `prompted -> submitting`
+  用数据库条件更新占用。同提示词的 queued/running/succeeded 任务复用已有记录，避免重复提交。
+- 上游异常或重启遗留 submitting 转为 `submission_unknown`。只有用户明确确认
+  `confirmResubmit: true` 才能重新提交，批任务不得自动确认。
+- 新提交清空当前 taskId，把上次任务回执移入
+  `providerResult.previousAttempt`。submitting/unknown 即使存在遗留旧 ID，也禁止刷新旧 ID 覆盖当前未知状态。
 - 刷新按读到的状态、任务 ID、版本和回执作条件更新。历史 superseded 记录不能因轮询重新成为当前版本，迟到结果不能覆盖新的任务。
 - 当前成功结果保留 URL；缺失 URL 的回执不应清空可用视频。
 - provider 不允许默认为模拟服务。模拟通道只供显式测试使用，真实使用由设置中的媒体通道提供。

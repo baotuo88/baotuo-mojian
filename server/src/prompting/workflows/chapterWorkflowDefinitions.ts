@@ -8,9 +8,10 @@ export const chapterWorkflowDefinitions: WorkflowDefinition[] = [
     kind: "single",
     resolve: ({ intent, plannerInput }) => {
       const range = intent.chapterSelectors.range;
-      const relativeFirstN = intent.chapterSelectors.relative?.type === "first_n"
-        ? intent.chapterSelectors.relative.count
-        : null;
+      const relativeFirstN =
+        intent.chapterSelectors.relative?.type === "first_n"
+          ? intent.chapterSelectors.relative.count
+          : null;
 
       const normalizedOrders = (intent.chapterSelectors.orders ?? [])
         .filter((order) => Number.isFinite(order))
@@ -28,39 +29,57 @@ export const chapterWorkflowDefinitions: WorkflowDefinition[] = [
         }));
       }
       if (range) {
-        return [{
-          agent: "Planner",
-          tool: "summarize_chapter_range",
-          reason: "按章节范围汇总内容",
-          input: { novelId: plannerInput.novelId, startOrder: range.startOrder, endOrder: range.endOrder, mode: "summary" },
-          keyPrefix: `chapter_range_${range.startOrder}_${range.endOrder}`,
-        }];
+        return [
+          {
+            agent: "Planner",
+            tool: "summarize_chapter_range",
+            reason: "按章节范围汇总内容",
+            input: {
+              novelId: plannerInput.novelId,
+              startOrder: range.startOrder,
+              endOrder: range.endOrder,
+              mode: "summary",
+            },
+            keyPrefix: `chapter_range_${range.startOrder}_${range.endOrder}`,
+          },
+        ];
       }
       if (relativeFirstN != null) {
-        return [{
-          agent: "Planner",
-          tool: "summarize_chapter_range",
-          reason: "按前 N 章汇总内容",
-          input: { novelId: plannerInput.novelId, startOrder: 1, endOrder: relativeFirstN, mode: "summary" },
-          keyPrefix: `chapter_first_n_${relativeFirstN}`,
-        }];
+        return [
+          {
+            agent: "Planner",
+            tool: "summarize_chapter_range",
+            reason: "按前 N 章汇总内容",
+            input: {
+              novelId: plannerInput.novelId,
+              startOrder: 1,
+              endOrder: relativeFirstN,
+              mode: "summary",
+            },
+            keyPrefix: `chapter_first_n_${relativeFirstN}`,
+          },
+        ];
       }
       if (intent.chapterSelectors.chapterId) {
-        return [{
-          agent: "Planner",
-          tool: "get_chapter_content",
-          reason: "按章节 ID 读取正文",
-          input: { novelId: plannerInput.novelId, chapterId: intent.chapterSelectors.chapterId },
-          keyPrefix: "chapter_content_by_id",
-        }];
+        return [
+          {
+            agent: "Planner",
+            tool: "get_chapter_content",
+            reason: "按章节 ID 读取正文",
+            input: { novelId: plannerInput.novelId, chapterId: intent.chapterSelectors.chapterId },
+            keyPrefix: "chapter_content_by_id",
+          },
+        ];
       }
-      return [{
-        agent: "Planner",
-        tool: "get_novel_context",
-        reason: "读取小说上下文，辅助定位章节",
-        input: { novelId: plannerInput.novelId },
-        keyPrefix: "context_for_chapter_query",
-      }];
+      return [
+        {
+          agent: "Planner",
+          tool: "get_novel_context",
+          reason: "读取小说上下文，辅助定位章节",
+          input: { novelId: plannerInput.novelId },
+          keyPrefix: "context_for_chapter_query",
+        },
+      ];
     },
   },
   {
@@ -73,34 +92,47 @@ export const chapterWorkflowDefinitions: WorkflowDefinition[] = [
       }
       const range = intent.chapterSelectors.range
         ? {
-          startOrder: Math.min(intent.chapterSelectors.range.startOrder, intent.chapterSelectors.range.endOrder),
-          endOrder: Math.max(intent.chapterSelectors.range.startOrder, intent.chapterSelectors.range.endOrder),
-        }
+            startOrder: Math.min(
+              intent.chapterSelectors.range.startOrder,
+              intent.chapterSelectors.range.endOrder,
+            ),
+            endOrder: Math.max(
+              intent.chapterSelectors.range.startOrder,
+              intent.chapterSelectors.range.endOrder,
+            ),
+          }
         : null;
       const normalizedOrders = (intent.chapterSelectors.orders ?? [])
         .filter((order) => Number.isFinite(order))
         .map((order) => Math.max(1, Math.trunc(order)))
         .filter((order, index, list) => list.indexOf(order) === index)
         .sort((left, right) => left - right);
-      const resolvedRange = range
-        ?? (normalizedOrders.length > 0
-          ? { startOrder: normalizedOrders[0], endOrder: normalizedOrders[normalizedOrders.length - 1] }
+      const resolvedRange =
+        range ??
+        (normalizedOrders.length > 0
+          ? {
+              startOrder: normalizedOrders[0],
+              endOrder: normalizedOrders[normalizedOrders.length - 1],
+            }
           : null);
       const startOrder = resolvedRange?.startOrder ?? 1;
       const endOrder = resolvedRange?.endOrder ?? startOrder;
-      return [{
-        agent: "Planner",
-        tool: "preview_pipeline_run",
-        reason: "预览写作范围",
-        input: { novelId: plannerInput.novelId, startOrder, endOrder },
-        keyPrefix: `preview_${startOrder}_${endOrder}`,
-      }, {
-        agent: "Planner",
-        tool: "queue_pipeline_run",
-        reason: "创建写作流水线任务",
-        input: { novelId: plannerInput.novelId, startOrder, endOrder },
-        keyPrefix: `queue_${startOrder}_${endOrder}`,
-      }];
+      return [
+        {
+          agent: "Planner",
+          tool: "preview_pipeline_run",
+          reason: "预览写作范围",
+          input: { novelId: plannerInput.novelId, startOrder, endOrder },
+          keyPrefix: `preview_${startOrder}_${endOrder}`,
+        },
+        {
+          agent: "Planner",
+          tool: "queue_pipeline_run",
+          reason: "创建写作流水线任务",
+          input: { novelId: plannerInput.novelId, startOrder, endOrder },
+          keyPrefix: `queue_${startOrder}_${endOrder}`,
+        },
+      ];
     },
   },
   {
@@ -135,13 +167,15 @@ export const chapterWorkflowDefinitions: WorkflowDefinition[] = [
         ];
       }
       if (intent.chapterSelectors.chapterId) {
-        return [{
-          agent: "Planner",
-          tool: "get_chapter_content",
-          reason: "读取待改写章节正文",
-          input: { novelId: plannerInput.novelId, chapterId: intent.chapterSelectors.chapterId },
-          keyPrefix: "rewrite_read_by_id",
-        }];
+        return [
+          {
+            agent: "Planner",
+            tool: "get_chapter_content",
+            reason: "读取待改写章节正文",
+            input: { novelId: plannerInput.novelId, chapterId: intent.chapterSelectors.chapterId },
+            keyPrefix: "rewrite_read_by_id",
+          },
+        ];
       }
       return [];
     },
@@ -152,26 +186,37 @@ export const chapterWorkflowDefinitions: WorkflowDefinition[] = [
     kind: "workflow",
     resolve: ({ intent, plannerInput }) => {
       const order = resolveChapterOrder(intent);
-      if (!plannerInput.novelId || (!intent.chapterSelectors.chapterId && order == null) || !intent.content) {
+      if (
+        !plannerInput.novelId ||
+        (!intent.chapterSelectors.chapterId && order == null) ||
+        !intent.content
+      ) {
         return [];
       }
-      return [{
-        agent: "Writer",
-        tool: "get_chapter_content",
-        reason: "读取草稿对应的原稿版本",
-        input: intent.chapterSelectors.chapterId
-          ? { novelId: plannerInput.novelId, chapterId: intent.chapterSelectors.chapterId }
-          : { novelId: plannerInput.novelId, chapterOrder: order },
-        keyPrefix: "save_draft_read",
-      }, {
-        agent: "Writer",
-        tool: "save_chapter_draft",
-        reason: "保存章节草稿",
-        input: intent.chapterSelectors.chapterId
-          ? { novelId: plannerInput.novelId, chapterId: intent.chapterSelectors.chapterId, content: intent.content }
-          : { novelId: plannerInput.novelId, chapterOrder: order, content: intent.content },
-        keyPrefix: "save_draft",
-      }];
+      return [
+        {
+          agent: "Writer",
+          tool: "get_chapter_content",
+          reason: "读取草稿对应的原稿版本",
+          input: intent.chapterSelectors.chapterId
+            ? { novelId: plannerInput.novelId, chapterId: intent.chapterSelectors.chapterId }
+            : { novelId: plannerInput.novelId, chapterOrder: order },
+          keyPrefix: "save_draft_read",
+        },
+        {
+          agent: "Writer",
+          tool: "save_chapter_draft",
+          reason: "保存章节草稿",
+          input: intent.chapterSelectors.chapterId
+            ? {
+                novelId: plannerInput.novelId,
+                chapterId: intent.chapterSelectors.chapterId,
+                content: intent.content,
+              }
+            : { novelId: plannerInput.novelId, chapterOrder: order, content: intent.content },
+          keyPrefix: "save_draft",
+        },
+      ];
     },
   },
   {
@@ -184,34 +229,47 @@ export const chapterWorkflowDefinitions: WorkflowDefinition[] = [
       }
       const range = intent.chapterSelectors.range
         ? {
-          startOrder: Math.min(intent.chapterSelectors.range.startOrder, intent.chapterSelectors.range.endOrder),
-          endOrder: Math.max(intent.chapterSelectors.range.startOrder, intent.chapterSelectors.range.endOrder),
-        }
+            startOrder: Math.min(
+              intent.chapterSelectors.range.startOrder,
+              intent.chapterSelectors.range.endOrder,
+            ),
+            endOrder: Math.max(
+              intent.chapterSelectors.range.startOrder,
+              intent.chapterSelectors.range.endOrder,
+            ),
+          }
         : null;
       const normalizedOrders = (intent.chapterSelectors.orders ?? [])
         .filter((order) => Number.isFinite(order))
         .map((order) => Math.max(1, Math.trunc(order)))
         .filter((order, index, list) => list.indexOf(order) === index)
         .sort((left, right) => left - right);
-      const resolvedRange = range
-        ?? (normalizedOrders.length > 0
-          ? { startOrder: normalizedOrders[0], endOrder: normalizedOrders[normalizedOrders.length - 1] }
+      const resolvedRange =
+        range ??
+        (normalizedOrders.length > 0
+          ? {
+              startOrder: normalizedOrders[0],
+              endOrder: normalizedOrders[normalizedOrders.length - 1],
+            }
           : null);
       const startOrder = resolvedRange?.startOrder ?? 1;
       const endOrder = resolvedRange?.endOrder ?? startOrder;
-      return [{
-        agent: "Planner",
-        tool: "preview_pipeline_run",
-        reason: "预览写作范围",
-        input: { novelId: plannerInput.novelId, startOrder, endOrder },
-        keyPrefix: `preview_${startOrder}_${endOrder}`,
-      }, {
-        agent: "Planner",
-        tool: "queue_pipeline_run",
-        reason: "创建写作流水线任务",
-        input: { novelId: plannerInput.novelId, startOrder, endOrder },
-        keyPrefix: `queue_${startOrder}_${endOrder}`,
-      }];
+      return [
+        {
+          agent: "Planner",
+          tool: "preview_pipeline_run",
+          reason: "预览写作范围",
+          input: { novelId: plannerInput.novelId, startOrder, endOrder },
+          keyPrefix: `preview_${startOrder}_${endOrder}`,
+        },
+        {
+          agent: "Planner",
+          tool: "queue_pipeline_run",
+          reason: "创建写作流水线任务",
+          input: { novelId: plannerInput.novelId, startOrder, endOrder },
+          keyPrefix: `queue_${startOrder}_${endOrder}`,
+        },
+      ];
     },
   },
 ];

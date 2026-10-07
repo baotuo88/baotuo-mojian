@@ -25,14 +25,20 @@ export function cancelAgentExecution(runId: string): void {
   }
 }
 
-export async function runWithAgentExecution<T>(runId: string, runner: () => Promise<T>): Promise<T> {
+export async function runWithAgentExecution<T>(
+  runId: string,
+  runner: () => Promise<T>,
+): Promise<T> {
   const controller = new AbortController();
   const unregister = registerAgentExecution(runId, controller);
   try {
-    return await runWithExecutionScope({ signal: controller.signal, fence: { kind: "agent", runId } }, async () => {
-      throwIfExecutionAborted();
-      return runner();
-    });
+    return await runWithExecutionScope(
+      { signal: controller.signal, fence: { kind: "agent", runId } },
+      async () => {
+        throwIfExecutionAborted();
+        return runner();
+      },
+    );
   } finally {
     controller.abort(new ExecutionStoppedError("本次任务执行已结束。"));
     unregister();

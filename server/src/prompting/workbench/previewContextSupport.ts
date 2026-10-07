@@ -83,7 +83,7 @@ export function previewListBlock(
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : null;
 }
 
@@ -107,9 +107,7 @@ export function readString(value: unknown): string {
 }
 
 export function readStringList(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.map((item) => readString(item)).filter(Boolean)
-    : [];
+  return Array.isArray(value) ? value.map((item) => readString(item)).filter(Boolean) : [];
 }
 
 export function readJsonStringList(value: string | null | undefined): string[] {
@@ -118,9 +116,7 @@ export function readJsonStringList(value: string | null | undefined): string[] {
   }
   try {
     const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.map((item) => readString(item)).filter(Boolean)
-      : [];
+    return Array.isArray(parsed) ? parsed.map((item) => readString(item)).filter(Boolean) : [];
   } catch {
     return [];
   }

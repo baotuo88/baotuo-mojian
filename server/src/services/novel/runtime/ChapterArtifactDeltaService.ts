@@ -1,7 +1,4 @@
-import type {
-  ContentProvenance,
-  StateChangeProposal,
-} from "@ai-novel/shared/types/canonicalState";
+import type { ContentProvenance, StateChangeProposal } from "@ai-novel/shared/types/canonicalState";
 import { createHash } from "node:crypto";
 import { runWithExecutionScope } from "../../../platform/execution";
 import { prisma } from "../../../db/prisma";
@@ -14,10 +11,7 @@ import {
 import { ragServices } from "../../rag";
 import type { RagOwnerType } from "../../rag/types";
 import type { SnapshotExtractionOutput } from "../../state/stateSnapshotExtraction";
-import {
-  resolveSnapshotChapterReference,
-  stateService,
-} from "../../state/StateService";
+import { resolveSnapshotChapterReference, stateService } from "../../state/StateService";
 import {
   clearStaleRiskSignal,
   dedupeRiskSignals,
@@ -31,10 +25,7 @@ import {
 import { characterResourceLedgerService } from "../characterResource/CharacterResourceLedgerService";
 import { characterMindService } from "../characterMind/CharacterMindService";
 import { characterResourceStaleScanService } from "../characterResource/CharacterResourceStaleScanService";
-import {
-  compactText,
-  normalizeResourceKey,
-} from "../characterResource/characterResourceShared";
+import { compactText, normalizeResourceKey } from "../characterResource/characterResourceShared";
 import { novelFactService, type NovelFactWriteItem } from "../fact/NovelFactService";
 import { extractFacts } from "../novelP0Utils";
 import { stateCommitService } from "../state/StateCommitService";
@@ -61,10 +52,12 @@ type ChapterReference = {
   title: string;
 };
 
-type ChapterArtifactDeltaResourceUpdate = ChapterArtifactDeltaOutput["characterResourceDeltas"][number];
+type ChapterArtifactDeltaResourceUpdate =
+  ChapterArtifactDeltaOutput["characterResourceDeltas"][number];
 type ChapterArtifactPayoffDelta = ChapterArtifactDeltaOutput["payoffDeltas"][number];
 type ChapterArtifactKnowledgeState = ChapterArtifactDeltaOutput["characterKnowledgeStates"][number];
-type ChapterArtifactDialogueInfluenceResolution = ChapterArtifactDeltaOutput["characterDialogueInfluenceResolutions"][number];
+type ChapterArtifactDialogueInfluenceResolution =
+  ChapterArtifactDeltaOutput["characterDialogueInfluenceResolutions"][number];
 
 type ActiveCharacterDialogueInfluence = {
   id: string;
@@ -124,18 +117,23 @@ function cleanNullableText(value: string | null | undefined): string | null {
   return compactText(value) || null;
 }
 
-function parsePayoffEvidence(value: string | null | undefined): Array<{ summary: string; chapterId?: string | null; chapterOrder?: number | null }> {
+function parsePayoffEvidence(
+  value: string | null | undefined,
+): Array<{ summary: string; chapterId?: string | null; chapterOrder?: number | null }> {
   if (!value?.trim()) {
     return [];
   }
   try {
     const parsed = JSON.parse(value) as unknown;
     return Array.isArray(parsed)
-      ? parsed.filter((item): item is { summary: string; chapterId?: string | null; chapterOrder?: number | null } => (
-          Boolean(item)
-          && typeof item === "object"
-          && typeof (item as { summary?: unknown }).summary === "string"
-        ))
+      ? parsed.filter(
+          (
+            item,
+          ): item is { summary: string; chapterId?: string | null; chapterOrder?: number | null } =>
+            Boolean(item) &&
+            typeof item === "object" &&
+            typeof (item as { summary?: unknown }).summary === "string",
+        )
       : [];
   } catch {
     return [];
@@ -198,7 +196,9 @@ function buildKnowledgeBoundaryLine(state: ChapterArtifactKnowledgeState): strin
   return [
     "【信息边界】",
     knownFacts.length > 0 ? `已知：${knownFacts.join("；")}` : "已知：无新增",
-    hiddenFacts.length > 0 ? `未知/不应超前知情：${hiddenFacts.join("；")}` : "未知/不应超前知情：无",
+    hiddenFacts.length > 0
+      ? `未知/不应超前知情：${hiddenFacts.join("；")}`
+      : "未知/不应超前知情：无",
   ].join("");
 }
 
@@ -224,49 +224,78 @@ function normalizeLedgerKey(title: string, fallback: string): string {
   return base || fallback;
 }
 
-function stringifyChapterResourceText(items: Awaited<ReturnType<typeof characterResourceLedgerService.listResources>>): string {
-  return items.slice(0, 20).map((item) => [
-    `- ${item.name}`,
-    `holder=${item.holderCharacterName ?? "未知"}`,
-    `status=${item.status}`,
-    `function=${item.narrativeFunction}`,
-    item.summary,
-  ].filter(Boolean).join(" | ")).join("\n");
+function stringifyChapterResourceText(
+  items: Awaited<ReturnType<typeof characterResourceLedgerService.listResources>>,
+): string {
+  return items
+    .slice(0, 20)
+    .map((item) =>
+      [
+        `- ${item.name}`,
+        `holder=${item.holderCharacterName ?? "未知"}`,
+        `status=${item.status}`,
+        `function=${item.narrativeFunction}`,
+        item.summary,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    )
+    .join("\n");
 }
 
-function stringifyPayoffText(items: Array<{
-  ledgerKey: string;
-  title: string;
-  currentStatus: string;
-  summary: string;
-  targetStartChapterOrder: number | null;
-  targetEndChapterOrder: number | null;
-  lastTouchedChapterOrder: number | null;
-}>): string {
-  return items.slice(0, 20).map((item) => [
-    `- ${item.ledgerKey} | ${item.title}`,
-    `status=${item.currentStatus}`,
-    item.targetStartChapterOrder || item.targetEndChapterOrder
-      ? `target=${item.targetStartChapterOrder ?? "?"}-${item.targetEndChapterOrder ?? "?"}`
-      : "",
-    item.lastTouchedChapterOrder ? `lastTouched=${item.lastTouchedChapterOrder}` : "",
-    item.summary,
-  ].filter(Boolean).join(" | ")).join("\n");
+function stringifyPayoffText(
+  items: Array<{
+    ledgerKey: string;
+    title: string;
+    currentStatus: string;
+    summary: string;
+    targetStartChapterOrder: number | null;
+    targetEndChapterOrder: number | null;
+    lastTouchedChapterOrder: number | null;
+  }>,
+): string {
+  return items
+    .slice(0, 20)
+    .map((item) =>
+      [
+        `- ${item.ledgerKey} | ${item.title}`,
+        `status=${item.currentStatus}`,
+        item.targetStartChapterOrder || item.targetEndChapterOrder
+          ? `target=${item.targetStartChapterOrder ?? "?"}-${item.targetEndChapterOrder ?? "?"}`
+          : "",
+        item.lastTouchedChapterOrder ? `lastTouched=${item.lastTouchedChapterOrder}` : "",
+        item.summary,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    )
+    .join("\n");
 }
 
-function stringifyActiveCharacterDialogueInfluenceText(items: ActiveCharacterDialogueInfluence[]): string {
-  return items.slice(0, 8).map((item) => [
-    `- influenceId=${item.id}`,
-    `角色=${item.characterName}`,
-    `对话沉淀=${item.summary}`,
-    `窗口=${item.targetStartChapterOrder}-${item.targetEndChapterOrder}`,
-    `行动倾向=${item.behaviorGuidance}`,
-    item.emotionalGuidance ? `情绪倾向=${item.emotionalGuidance}` : "",
-    item.relationTension ? `关系张力=${item.relationTension}` : "",
-  ].filter(Boolean).join(" | ")).join("\n");
+function stringifyActiveCharacterDialogueInfluenceText(
+  items: ActiveCharacterDialogueInfluence[],
+): string {
+  return items
+    .slice(0, 8)
+    .map((item) =>
+      [
+        `- influenceId=${item.id}`,
+        `角色=${item.characterName}`,
+        `对话沉淀=${item.summary}`,
+        `窗口=${item.targetStartChapterOrder}-${item.targetEndChapterOrder}`,
+        `行动倾向=${item.behaviorGuidance}`,
+        item.emotionalGuidance ? `情绪倾向=${item.emotionalGuidance}` : "",
+        item.relationTension ? `关系张力=${item.relationTension}` : "",
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    )
+    .join("\n");
 }
 
-function stringifyPreviousState(snapshot: Awaited<ReturnType<typeof stateService.getLatestSnapshotBeforeChapter>>): string {
+function stringifyPreviousState(
+  snapshot: Awaited<ReturnType<typeof stateService.getLatestSnapshotBeforeChapter>>,
+): string {
   if (!snapshot) {
     return "";
   }
@@ -286,84 +315,111 @@ function stringifyPreviousState(snapshot: Awaited<ReturnType<typeof stateService
     .slice(0, 6);
   return [
     snapshot.summary ? `摘要：${snapshot.summary}` : "",
-    characterLines.length > 0 ? `角色：\n${characterLines.map((item) => `- ${item}`).join("\n")}` : "",
-    relationLines.length > 0 ? `关系：\n${relationLines.map((item) => `- ${item}`).join("\n")}` : "",
+    characterLines.length > 0
+      ? `角色：\n${characterLines.map((item) => `- ${item}`).join("\n")}`
+      : "",
+    relationLines.length > 0
+      ? `关系：\n${relationLines.map((item) => `- ${item}`).join("\n")}`
+      : "",
     infoLines.length > 0 ? `信息：\n${infoLines.map((item) => `- ${item}`).join("\n")}` : "",
-    foreshadowLines.length > 0 ? `伏笔：\n${foreshadowLines.map((item) => `- ${item}`).join("\n")}` : "",
-  ].filter(Boolean).join("\n\n");
+    foreshadowLines.length > 0
+      ? `伏笔：\n${foreshadowLines.map((item) => `- ${item}`).join("\n")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export class ChapterArtifactDeltaService {
-  async syncChapterArtifacts(input: ChapterArtifactDeltaSyncInput): Promise<ChapterArtifactDeltaSyncResult> {
-    return runWithExecutionScope({
-      fence: { kind: "chapter_content", novelId: input.novelId, chapterId: input.chapterId, content: input.content },
-    }, () => this.syncCurrentChapterArtifacts(input));
+  async syncChapterArtifacts(
+    input: ChapterArtifactDeltaSyncInput,
+  ): Promise<ChapterArtifactDeltaSyncResult> {
+    return runWithExecutionScope(
+      {
+        fence: {
+          kind: "chapter_content",
+          novelId: input.novelId,
+          chapterId: input.chapterId,
+          content: input.content,
+        },
+      },
+      () => this.syncCurrentChapterArtifacts(input),
+    );
   }
 
-  private async syncCurrentChapterArtifacts(input: ChapterArtifactDeltaSyncInput): Promise<ChapterArtifactDeltaSyncResult> {
+  private async syncCurrentChapterArtifacts(
+    input: ChapterArtifactDeltaSyncInput,
+  ): Promise<ChapterArtifactDeltaSyncResult> {
     const content = compactText(input.content);
     if (!content) {
       throw new Error("章节正文为空，无法提取资产 delta。");
     }
 
-    const [novel, chapter, chapters, characters, existingResources, payoffRows] = await Promise.all([
-      prisma.novel.findUnique({
-        where: { id: input.novelId },
-        select: { title: true },
-      }),
-      prisma.chapter.findFirst({
-        where: { id: input.chapterId, novelId: input.novelId },
-        select: { id: true, order: true, title: true, expectation: true, taskSheet: true },
-      }),
-      prisma.chapter.findMany({
-        where: { novelId: input.novelId },
-        select: { id: true, order: true, title: true },
-        orderBy: { order: "asc" },
-      }),
-      prisma.character.findMany({
-        where: { novelId: input.novelId },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          name: true,
-          role: true,
-          castRole: true,
-          currentGoal: true,
-          currentState: true,
-        },
-      }),
-      characterResourceLedgerService.listResources(input.novelId).catch(() => []),
-      prisma.payoffLedgerItem.findMany({
-        where: { novelId: input.novelId },
-        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-        select: {
-          ledgerKey: true,
-          title: true,
-          currentStatus: true,
-          scopeType: true,
-          summary: true,
-          targetStartChapterOrder: true,
-          targetEndChapterOrder: true,
-          lastTouchedChapterOrder: true,
-        },
-        take: 30,
-      }),
-    ]);
+    const [novel, chapter, chapters, characters, existingResources, payoffRows] = await Promise.all(
+      [
+        prisma.novel.findUnique({
+          where: { id: input.novelId },
+          select: { title: true },
+        }),
+        prisma.chapter.findFirst({
+          where: { id: input.chapterId, novelId: input.novelId },
+          select: { id: true, order: true, title: true, expectation: true, taskSheet: true },
+        }),
+        prisma.chapter.findMany({
+          where: { novelId: input.novelId },
+          select: { id: true, order: true, title: true },
+          orderBy: { order: "asc" },
+        }),
+        prisma.character.findMany({
+          where: { novelId: input.novelId },
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            name: true,
+            role: true,
+            castRole: true,
+            currentGoal: true,
+            currentState: true,
+          },
+        }),
+        characterResourceLedgerService.listResources(input.novelId).catch(() => []),
+        prisma.payoffLedgerItem.findMany({
+          where: { novelId: input.novelId },
+          orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+          select: {
+            ledgerKey: true,
+            title: true,
+            currentStatus: true,
+            scopeType: true,
+            summary: true,
+            targetStartChapterOrder: true,
+            targetEndChapterOrder: true,
+            lastTouchedChapterOrder: true,
+          },
+          take: 30,
+        }),
+      ],
+    );
 
     if (!novel || !chapter) {
       throw new Error("小说或章节不存在，无法提取资产 delta。");
     }
 
-    const characterDialogueInfluenceExpiredCount = await this.expirePastCharacterDialogueInfluences({
-      novelId: input.novelId,
-      chapterOrder: chapter.order,
-    }).catch(() => 0);
+    const characterDialogueInfluenceExpiredCount = await this.expirePastCharacterDialogueInfluences(
+      {
+        novelId: input.novelId,
+        chapterOrder: chapter.order,
+      },
+    ).catch(() => 0);
     const activeCharacterDialogueInfluences = await this.listActiveCharacterDialogueInfluences({
       novelId: input.novelId,
       chapterOrder: chapter.order,
     }).catch(() => []);
 
-    const previousSnapshot = await stateService.getLatestSnapshotBeforeChapter(input.novelId, chapter.order);
+    const previousSnapshot = await stateService.getLatestSnapshotBeforeChapter(
+      input.novelId,
+      chapter.order,
+    );
     const contentHash = buildContentHash(content);
     const result = await runStructuredPrompt({
       asset: chapterArtifactDeltaPrompt,
@@ -385,7 +441,9 @@ export class ChapterArtifactDeltaService {
           targetStartChapterOrder: item.targetStartChapterOrder,
           targetEndChapterOrder: item.targetEndChapterOrder,
         })),
-        activeCharacterDialogueInfluenceText: stringifyActiveCharacterDialogueInfluenceText(activeCharacterDialogueInfluences),
+        activeCharacterDialogueInfluenceText: stringifyActiveCharacterDialogueInfluenceText(
+          activeCharacterDialogueInfluences,
+        ),
         chapterContent: content,
       },
       options: {
@@ -409,27 +467,29 @@ export class ChapterArtifactDeltaService {
       content,
       output,
     });
-    const stateSnapshotId = output.syncPlan.stateSnapshot === "skip"
-      ? null
-      : await this.persistStateSnapshot({
-        novelId: input.novelId,
-        chapterId: input.chapterId,
-        output,
-      });
+    const stateSnapshotId =
+      output.syncPlan.stateSnapshot === "skip"
+        ? null
+        : await this.persistStateSnapshot({
+            novelId: input.novelId,
+            chapterId: input.chapterId,
+            output,
+          });
 
-    const resourceProposals = output.syncPlan.characterResources === "skip"
-      ? []
-      : this.toCharacterResourceProposals({
-        novelId: input.novelId,
-        chapterId: input.chapterId,
-        chapterOrder: chapter.order,
-        sourceType,
-        sourceStage,
-        contentHash,
-        sourceQuality,
-        characters,
-        updates: output.characterResourceDeltas,
-      });
+    const resourceProposals =
+      output.syncPlan.characterResources === "skip"
+        ? []
+        : this.toCharacterResourceProposals({
+            novelId: input.novelId,
+            chapterId: input.chapterId,
+            chapterOrder: chapter.order,
+            sourceType,
+            sourceStage,
+            contentHash,
+            sourceQuality,
+            characters,
+            updates: output.characterResourceDeltas,
+          });
 
     const stateCommitResult = await stateCommitService.proposeAndCommit({
       novelId: input.novelId,
@@ -440,55 +500,63 @@ export class ChapterArtifactDeltaService {
       contentProvenance: sourceQuality,
       proposals: resourceProposals,
     });
-    const staleMarkedCount = await characterResourceStaleScanService.scanAfterChapter({
-      novelId: input.novelId,
-      chapterId: input.chapterId,
-      chapterOrder: chapter.order,
-    }).catch(() => 0);
+    const staleMarkedCount = await characterResourceStaleScanService
+      .scanAfterChapter({
+        novelId: input.novelId,
+        chapterId: input.chapterId,
+        chapterOrder: chapter.order,
+      })
+      .catch(() => 0);
 
-    const [payoffDeltaCount, characterDynamicsCount, characterKnowledgeStateCount, characterMindSnapshotCount, characterDialogueInfluenceAppliedCount] = await Promise.all([
+    const [
+      payoffDeltaCount,
+      characterDynamicsCount,
+      characterKnowledgeStateCount,
+      characterMindSnapshotCount,
+      characterDialogueInfluenceAppliedCount,
+    ] = await Promise.all([
       output.syncPlan.payoffLedger === "skip"
         ? Promise.resolve(0)
         : this.applyPayoffDeltas({
-          novelId: input.novelId,
-          chapterId: input.chapterId,
-          chapterOrder: chapter.order,
-          chapterTitle: chapter.title,
-          chapters,
-          output,
-          stateSnapshotId,
-        }),
+            novelId: input.novelId,
+            chapterId: input.chapterId,
+            chapterOrder: chapter.order,
+            chapterTitle: chapter.title,
+            chapters,
+            output,
+            stateSnapshotId,
+          }),
       output.syncPlan.characterDynamics === "skip"
         ? Promise.resolve(0)
         : this.applyCharacterDynamics({
-          novelId: input.novelId,
-          chapterId: input.chapterId,
-          chapterOrder: chapter.order,
-          characters,
-          output,
-        }),
+            novelId: input.novelId,
+            chapterId: input.chapterId,
+            chapterOrder: chapter.order,
+            characters,
+            output,
+          }),
       output.characterKnowledgeStates.length === 0
         ? Promise.resolve(0)
         : this.applyKnowledgeStates({
-          characters,
-          output,
-        }),
+            characters,
+            output,
+          }),
       output.characterMindDeltas.length === 0
         ? Promise.resolve(0)
         : characterMindService.applyChapterMindDeltas({
-          novelId: input.novelId,
-          chapterId: input.chapterId,
-          deltas: output.characterMindDeltas,
-        }),
+            novelId: input.novelId,
+            chapterId: input.chapterId,
+            deltas: output.characterMindDeltas,
+          }),
       output.characterDialogueInfluenceResolutions.length === 0
         ? Promise.resolve(0)
         : this.applyCharacterDialogueInfluenceResolutions({
-          novelId: input.novelId,
-          chapterId: input.chapterId,
-          chapterOrder: chapter.order,
-          activeInfluences: activeCharacterDialogueInfluences,
-          resolutions: output.characterDialogueInfluenceResolutions,
-        }).catch(() => 0),
+            novelId: input.novelId,
+            chapterId: input.chapterId,
+            chapterOrder: chapter.order,
+            activeInfluences: activeCharacterDialogueInfluences,
+            resolutions: output.characterDialogueInfluenceResolutions,
+          }).catch(() => 0),
     ]);
 
     return {
@@ -505,7 +573,8 @@ export class ChapterArtifactDeltaService {
       canonicalCommittedCount: stateCommitResult.committed.length,
       concreteFactCount,
       staleMarkedCount,
-      requiresFullReconcile: output.requiresFullReconcile || output.syncPlan.payoffLedger === "full_reconcile",
+      requiresFullReconcile:
+        output.requiresFullReconcile || output.syncPlan.payoffLedger === "full_reconcile",
     };
   }
 
@@ -570,45 +639,54 @@ export class ChapterArtifactDeltaService {
     resolutions: ChapterArtifactDialogueInfluenceResolution[];
   }): Promise<number> {
     const activeInfluenceIds = new Set(input.activeInfluences.map((influence) => influence.id));
-    const appliedResolutions = input.resolutions.filter((resolution) => (
-      resolution.status === "applied"
-      && resolution.evidence.length > 0
-      && activeInfluenceIds.has(resolution.influenceId)
-    ));
+    const appliedResolutions = input.resolutions.filter(
+      (resolution) =>
+        resolution.status === "applied" &&
+        resolution.evidence.length > 0 &&
+        activeInfluenceIds.has(resolution.influenceId),
+    );
     if (appliedResolutions.length === 0) {
       return 0;
     }
 
     const resolvedAt = new Date();
-    const results = await Promise.all(appliedResolutions.map((resolution) => (
-      prisma.characterDialogueInfluence.updateMany({
-        where: {
-          id: resolution.influenceId,
-          novelId: input.novelId,
-          status: "active",
-          targetStartChapterOrder: { lte: input.chapterOrder },
-          targetEndChapterOrder: { gte: input.chapterOrder },
-        },
-        data: {
-          status: "applied",
-          appliedAt: resolvedAt,
-          resolvedChapterId: input.chapterId,
-          resolutionEvidenceJson: JSON.stringify(uniqueTextItems(resolution.evidence, 3)),
-        },
-      })
-    )));
+    const results = await Promise.all(
+      appliedResolutions.map((resolution) =>
+        prisma.characterDialogueInfluence.updateMany({
+          where: {
+            id: resolution.influenceId,
+            novelId: input.novelId,
+            status: "active",
+            targetStartChapterOrder: { lte: input.chapterOrder },
+            targetEndChapterOrder: { gte: input.chapterOrder },
+          },
+          data: {
+            status: "applied",
+            appliedAt: resolvedAt,
+            resolvedChapterId: input.chapterId,
+            resolutionEvidenceJson: JSON.stringify(uniqueTextItems(resolution.evidence, 3)),
+          },
+        }),
+      ),
+    );
     return results.reduce((count, result) => count + result.count, 0);
   }
 
   private buildCharacterRosterText(characters: CharacterLookupItem[]): string {
-    return characters.map((character) => [
-      `- ${character.id}`,
-      character.name,
-      character.role,
-      character.castRole ? `cast=${character.castRole}` : "",
-      character.currentGoal ? `goal=${character.currentGoal}` : "",
-      character.currentState ? `state=${character.currentState}` : "",
-    ].filter(Boolean).join(" | ")).join("\n");
+    return characters
+      .map((character) =>
+        [
+          `- ${character.id}`,
+          character.name,
+          character.role,
+          character.castRole ? `cast=${character.castRole}` : "",
+          character.currentGoal ? `goal=${character.currentGoal}` : "",
+          character.currentState ? `state=${character.currentState}` : "",
+        ]
+          .filter(Boolean)
+          .join(" | "),
+      )
+      .join("\n");
   }
 
   private async persistChapterSummaryAndFacts(input: {
@@ -694,7 +772,8 @@ export class ChapterArtifactDeltaService {
         trustScore: typeof item.trustScore === "number" ? item.trustScore : undefined,
         intimacyScore: typeof item.intimacyScore === "number" ? item.intimacyScore : undefined,
         conflictScore: typeof item.conflictScore === "number" ? item.conflictScore : undefined,
-        dependencyScore: typeof item.dependencyScore === "number" ? item.dependencyScore : undefined,
+        dependencyScore:
+          typeof item.dependencyScore === "number" ? item.dependencyScore : undefined,
         summary: cleanOptionalText(item.summary),
       })),
       informationStates: state.informationStates.map((item) => ({
@@ -735,13 +814,17 @@ export class ChapterArtifactDeltaService {
   }): StateChangeProposal[] {
     return input.updates.map((update) => {
       const holderCharacter = resolveCharacter(input.characters, update.holderCharacterName);
-      const previousHolderCharacter = resolveCharacter(input.characters, update.previousHolderCharacterName);
+      const previousHolderCharacter = resolveCharacter(
+        input.characters,
+        update.previousHolderCharacterName,
+      );
       const knownByCharacterIds = update.knownByCharacterNames
         .map((name) => resolveCharacter(input.characters, name)?.id)
         .filter((id): id is string => Boolean(id));
-      const ownerCharacter = update.ownerType === "character"
-        ? resolveCharacter(input.characters, update.ownerName) ?? holderCharacter
-        : null;
+      const ownerCharacter =
+        update.ownerType === "character"
+          ? (resolveCharacter(input.characters, update.ownerName) ?? holderCharacter)
+          : null;
       const resourceKey = normalizeResourceKey({
         name: update.resourceName,
         holderCharacterId: holderCharacter?.id,
@@ -819,10 +902,16 @@ export class ChapterArtifactDeltaService {
             updatedAt: true,
           },
         });
-        const ledgerKey = resolvePayoffLedgerSyncLedgerKey({
-          ...item,
-          ledgerKey: normalizeLedgerKey(item.ledgerKey, normalizeLedgerKey(item.title, `chapter_${input.chapterOrder}_payoff`)),
-        }, identityRows);
+        const ledgerKey = resolvePayoffLedgerSyncLedgerKey(
+          {
+            ...item,
+            ledgerKey: normalizeLedgerKey(
+              item.ledgerKey,
+              normalizeLedgerKey(item.title, `chapter_${input.chapterOrder}_payoff`),
+            ),
+          },
+          identityRows,
+        );
         const previous = await tx.payoffLedgerItem.findUnique({
           where: {
             novelId_ledgerKey: {
@@ -835,22 +924,31 @@ export class ChapterArtifactDeltaService {
         const normalizedChapterRefs = normalizePayoffLedgerPromptChapterRefs({
           item: {
             ...item,
-            sourceRefs: item.sourceRefs.length > 0
-              ? item.sourceRefs
-              : [{
-                kind: "chapter_payoff_ref" as const,
-                refId: null,
-                refLabel: `第${input.chapterOrder}章《${input.chapterTitle}》`,
-                chapterId: input.chapterId,
-                chapterOrder: input.chapterOrder,
-                volumeId: null,
-                volumeSortOrder: null,
-              }],
+            sourceRefs:
+              item.sourceRefs.length > 0
+                ? item.sourceRefs
+                : [
+                    {
+                      kind: "chapter_payoff_ref" as const,
+                      refId: null,
+                      refLabel: `第${input.chapterOrder}章《${input.chapterTitle}》`,
+                      chapterId: input.chapterId,
+                      chapterOrder: input.chapterOrder,
+                      volumeId: null,
+                      volumeSortOrder: null,
+                    },
+                  ],
             evidence: [
               ...parsePayoffEvidence(previous?.evidenceJson),
               ...(item.evidence.length > 0
                 ? item.evidence
-                : [{ summary: item.summary, chapterId: input.chapterId, chapterOrder: input.chapterOrder }]),
+                : [
+                    {
+                      summary: item.summary,
+                      chapterId: input.chapterId,
+                      chapterOrder: input.chapterOrder,
+                    },
+                  ]),
             ],
           },
           previous,
@@ -863,11 +961,15 @@ export class ChapterArtifactDeltaService {
         const lastTouchedChapterId = normalizedChapterRefs.lastTouchedChapterId ?? input.chapterId;
         const sourceRefs = normalizedChapterRefs.sourceRefs;
         const evidence = normalizedChapterRefs.evidence;
-        const riskSignals = clearStaleRiskSignal(dedupeRiskSignals(item.riskSignals.map((signal) => ({
-          code: signal.code,
-          severity: signal.severity,
-          summary: signal.summary,
-        }))));
+        const riskSignals = clearStaleRiskSignal(
+          dedupeRiskSignals(
+            item.riskSignals.map((signal) => ({
+              code: signal.code,
+              severity: signal.severity,
+              summary: signal.summary,
+            })),
+          ),
+        );
         await tx.payoffLedgerItem.upsert({
           where: {
             novelId_ledgerKey: {
@@ -904,7 +1006,8 @@ export class ChapterArtifactDeltaService {
             currentStatus: item.currentStatus,
             targetStartChapterOrder: item.targetStartChapterOrder ?? null,
             targetEndChapterOrder: item.targetEndChapterOrder ?? null,
-            firstSeenChapterOrder: item.firstSeenChapterOrder ?? previous?.firstSeenChapterOrder ?? input.chapterOrder,
+            firstSeenChapterOrder:
+              item.firstSeenChapterOrder ?? previous?.firstSeenChapterOrder ?? input.chapterOrder,
             lastTouchedChapterOrder: item.lastTouchedChapterOrder ?? input.chapterOrder,
             lastTouchedChapterId,
             setupChapterId,
@@ -939,7 +1042,9 @@ export class ChapterArtifactDeltaService {
     characters: CharacterLookupItem[];
     output: ChapterArtifactDeltaOutput;
   }): Promise<number> {
-    const characterByName = new Map(input.characters.map((item) => [normalizeName(item.name), item]));
+    const characterByName = new Map(
+      input.characters.map((item) => [normalizeName(item.name), item]),
+    );
     const [currentVolume, relations] = await Promise.all([
       prisma.volumePlan.findFirst({
         where: {
@@ -959,10 +1064,12 @@ export class ChapterArtifactDeltaService {
         },
       }),
     ]);
-    const relationByPair = new Map(relations.map((relation) => [
-      `${relation.sourceCharacterId}:${relation.targetCharacterId}`,
-      relation,
-    ]));
+    const relationByPair = new Map(
+      relations.map((relation) => [
+        `${relation.sourceCharacterId}:${relation.targetCharacterId}`,
+        relation,
+      ]),
+    );
 
     let writeCount = 0;
     await prisma.$transaction(async (tx) => {
@@ -1076,7 +1183,9 @@ export class ChapterArtifactDeltaService {
     characters: CharacterLookupItem[];
     output: ChapterArtifactDeltaOutput;
   }): Promise<number> {
-    const characterByName = new Map(input.characters.map((item) => [normalizeName(item.name), item]));
+    const characterByName = new Map(
+      input.characters.map((item) => [normalizeName(item.name), item]),
+    );
     const updates = input.output.characterKnowledgeStates
       .map((state) => {
         const character = characterByName.get(normalizeName(state.characterName));
@@ -1098,22 +1207,29 @@ export class ChapterArtifactDeltaService {
     for (const update of updates) {
       let applied = false;
       for (let attempt = 0; attempt < 4; attempt++) {
-        const result = await withSqliteRetry(() => prisma.$transaction(async (tx) => {
-          // The roster predates this chapter's state commit. Merge against the
-          // current row, and retry if a concurrent writer wins after this read.
-          const character = await tx.character.findUnique({
-            where: { id: update.characterId },
-            select: { currentState: true },
-          });
-          if (!character) return "unchanged";
-          const currentState = mergeKnowledgeBoundaryState(character.currentState, update.boundaryLine);
-          if (currentState === character.currentState) return "unchanged";
-          const changed = await tx.character.updateMany({
-            where: { id: update.characterId, currentState: character.currentState },
-            data: { currentState },
-          });
-          return changed.count === 1 ? "updated" : "retry";
-        }), { label: "chapterArtifactDelta.knowledgeState" });
+        const result = await withSqliteRetry(
+          () =>
+            prisma.$transaction(async (tx) => {
+              // The roster predates this chapter's state commit. Merge against the
+              // current row, and retry if a concurrent writer wins after this read.
+              const character = await tx.character.findUnique({
+                where: { id: update.characterId },
+                select: { currentState: true },
+              });
+              if (!character) return "unchanged";
+              const currentState = mergeKnowledgeBoundaryState(
+                character.currentState,
+                update.boundaryLine,
+              );
+              if (currentState === character.currentState) return "unchanged";
+              const changed = await tx.character.updateMany({
+                where: { id: update.characterId, currentState: character.currentState },
+                data: { currentState },
+              });
+              return changed.count === 1 ? "updated" : "retry";
+            }),
+          { label: "chapterArtifactDelta.knowledgeState" },
+        );
         if (result === "retry") continue;
         if (result === "updated") appliedCount++;
         applied = true;

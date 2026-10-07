@@ -94,7 +94,13 @@ export interface ChapterInput {
   content?: string;
   expectedContent?: string | null;
   expectation?: string;
-  chapterStatus?: "unplanned" | "pending_generation" | "generating" | "pending_review" | "needs_repair" | "completed";
+  chapterStatus?:
+    | "unplanned"
+    | "pending_generation"
+    | "generating"
+    | "pending_review"
+    | "needs_repair"
+    | "completed";
   targetWordCount?: number | null;
   conflictLevel?: number | null;
   revealLevel?: number | null;
@@ -191,11 +197,23 @@ export interface PipelineRunOptions extends LLMGenerateOptions {
   autoRepair?: boolean;
   skipCompleted?: boolean;
   qualityThreshold?: number;
-  repairMode?: "detect_only" | "light_repair" | "heavy_repair" | "continuity_only" | "character_only" | "ending_only";
+  repairMode?:
+    | "detect_only"
+    | "light_repair"
+    | "heavy_repair"
+    | "continuity_only"
+    | "character_only"
+    | "ending_only";
   artifactSyncMode?: ArtifactSyncMode;
 }
 
-export type PipelineBackgroundSyncKind = "artifact_delta" | "character_dynamics" | "state_snapshot" | "payoff_ledger" | "character_resources" | "canonical_state";
+export type PipelineBackgroundSyncKind =
+  | "artifact_delta"
+  | "character_dynamics"
+  | "state_snapshot"
+  | "payoff_ledger"
+  | "character_resources"
+  | "canonical_state";
 export type ArtifactSyncMode = "adaptive" | "deferred" | "strict";
 
 export type PipelineBackgroundSyncStatus = "running" | "failed";
@@ -224,7 +242,13 @@ export interface PipelinePayload extends LLMGenerateOptions {
   autoRepair?: boolean;
   skipCompleted?: boolean;
   qualityThreshold?: number;
-  repairMode?: "detect_only" | "light_repair" | "heavy_repair" | "continuity_only" | "character_only" | "ending_only";
+  repairMode?:
+    | "detect_only"
+    | "light_repair"
+    | "heavy_repair"
+    | "continuity_only"
+    | "character_only"
+    | "ending_only";
   artifactSyncMode?: ArtifactSyncMode;
   qualityAlertDetails?: string[];
   replanAlertDetails?: string[];
@@ -250,7 +274,13 @@ export interface ReviewOptions extends LLMGenerateOptions {
 export interface RepairOptions extends LLMGenerateOptions {
   reviewIssues?: ReviewIssue[];
   auditIssueIds?: string[];
-  repairMode?: "detect_only" | "light_repair" | "heavy_repair" | "continuity_only" | "character_only" | "ending_only";
+  repairMode?:
+    | "detect_only"
+    | "light_repair"
+    | "heavy_repair"
+    | "continuity_only"
+    | "character_only"
+    | "ending_only";
 }
 
 export interface HookGenerateOptions extends LLMGenerateOptions {
@@ -276,99 +306,101 @@ const CONTINUATION_ANALYSIS_SECTION_KEYS: BookAnalysisSectionKey[] = [
   "market_highlights",
 ];
 
-const CONTINUATION_ANALYSIS_SECTION_KEY_SET = new Set<BookAnalysisSectionKey>(CONTINUATION_ANALYSIS_SECTION_KEYS);
+const CONTINUATION_ANALYSIS_SECTION_KEY_SET = new Set<BookAnalysisSectionKey>(
+  CONTINUATION_ANALYSIS_SECTION_KEYS,
+);
 export const DEFAULT_ESTIMATED_CHAPTER_COUNT = 80;
 
-export function normalizeNovelOutput<T extends {
-  continuationBookAnalysisSections?: string | null;
-  commercialTagsJson?: string | null;
-  bookContract?: {
-    id: string;
-    novelId: string;
-    readingPromise: string;
-    protagonistFantasy: string;
-    coreSellingPoint: string;
-    chapter3Payoff: string;
-    chapter10Payoff: string;
-    chapter30Payoff: string;
-    escalationLadder: string;
-    relationshipMainline: string;
-    absoluteRedLinesJson: string;
-    createdAt: Date | string;
-    updatedAt: Date | string;
-  } | null;
-  primaryStoryMode?: {
-    id: string;
-    name: string;
-    description?: string | null;
-    template?: string | null;
-    parentId?: string | null;
-    profileJson?: string | null;
-    createdAt: Date | string;
-    updatedAt: Date | string;
-  } | null;
-  secondaryStoryMode?: {
-    id: string;
-    name: string;
-    description?: string | null;
-    template?: string | null;
-    parentId?: string | null;
-    profileJson?: string | null;
-    createdAt: Date | string;
-    updatedAt: Date | string;
-  } | null;
-}>(
+export function normalizeNovelOutput<
+  T extends {
+    continuationBookAnalysisSections?: string | null;
+    commercialTagsJson?: string | null;
+    bookContract?: {
+      id: string;
+      novelId: string;
+      readingPromise: string;
+      protagonistFantasy: string;
+      coreSellingPoint: string;
+      chapter3Payoff: string;
+      chapter10Payoff: string;
+      chapter30Payoff: string;
+      escalationLadder: string;
+      relationshipMainline: string;
+      absoluteRedLinesJson: string;
+      createdAt: Date | string;
+      updatedAt: Date | string;
+    } | null;
+    primaryStoryMode?: {
+      id: string;
+      name: string;
+      description?: string | null;
+      template?: string | null;
+      parentId?: string | null;
+      profileJson?: string | null;
+      createdAt: Date | string;
+      updatedAt: Date | string;
+    } | null;
+    secondaryStoryMode?: {
+      id: string;
+      name: string;
+      description?: string | null;
+      template?: string | null;
+      parentId?: string | null;
+      profileJson?: string | null;
+      createdAt: Date | string;
+      updatedAt: Date | string;
+    } | null;
+  },
+>(
   novel: T,
 ): Omit<T, "continuationBookAnalysisSections" | "commercialTagsJson"> & {
   continuationBookAnalysisSections: BookAnalysisSectionKey[] | null;
   commercialTags: string[];
 } {
-  const {
-    continuationBookAnalysisSections,
-    commercialTagsJson,
-    ...rest
-  } = novel;
+  const { continuationBookAnalysisSections, commercialTagsJson, ...rest } = novel;
   return {
     ...rest,
-    continuationBookAnalysisSections: parseContinuationBookAnalysisSections(continuationBookAnalysisSections),
+    continuationBookAnalysisSections: parseContinuationBookAnalysisSections(
+      continuationBookAnalysisSections,
+    ),
     commercialTags: parseCommercialTagsJson(commercialTagsJson),
     ...(rest.bookContract !== undefined
       ? {
-        bookContract: rest.bookContract
-          ? (() => {
-            const {
-              absoluteRedLinesJson,
-              createdAt,
-              updatedAt,
-              ...bookContractRest
-            } = rest.bookContract;
-            return {
-              ...bookContractRest,
-              absoluteRedLines: (() => {
-              try {
-                const parsed = JSON.parse(absoluteRedLinesJson) as unknown;
-                return Array.isArray(parsed)
-                  ? parsed.filter((item): item is string => typeof item === "string")
-                  : [];
-              } catch {
-                return [];
-              }
-              })(),
-              createdAt: new Date(createdAt).toISOString(),
-              updatedAt: new Date(updatedAt).toISOString(),
-            };
-          })()
-          : null,
-      }
+          bookContract: rest.bookContract
+            ? (() => {
+                const { absoluteRedLinesJson, createdAt, updatedAt, ...bookContractRest } =
+                  rest.bookContract;
+                return {
+                  ...bookContractRest,
+                  absoluteRedLines: (() => {
+                    try {
+                      const parsed = JSON.parse(absoluteRedLinesJson) as unknown;
+                      return Array.isArray(parsed)
+                        ? parsed.filter((item): item is string => typeof item === "string")
+                        : [];
+                    } catch {
+                      return [];
+                    }
+                  })(),
+                  createdAt: new Date(createdAt).toISOString(),
+                  updatedAt: new Date(updatedAt).toISOString(),
+                };
+              })()
+            : null,
+        }
       : {}),
     ...(rest.primaryStoryMode !== undefined
       ? {
-          primaryStoryMode: rest.primaryStoryMode ? normalizeStoryModeOutput(rest.primaryStoryMode) : null,
+          primaryStoryMode: rest.primaryStoryMode
+            ? normalizeStoryModeOutput(rest.primaryStoryMode)
+            : null,
         }
       : {}),
     ...(rest.secondaryStoryMode !== undefined
       ? {
-          secondaryStoryMode: rest.secondaryStoryMode ? normalizeStoryModeOutput(rest.secondaryStoryMode) : null,
+          secondaryStoryMode: rest.secondaryStoryMode
+            ? normalizeStoryModeOutput(rest.secondaryStoryMode)
+            : null,
         }
       : {}),
   };
@@ -403,15 +435,17 @@ export function toText(content: unknown): string {
     return content;
   }
   if (Array.isArray(content)) {
-    return content.map((item) => {
-      if (typeof item === "string") {
-        return item;
-      }
-      if (item && typeof item === "object" && "text" in item && typeof item.text === "string") {
-        return item.text;
-      }
-      return "";
-    }).join("");
+    return content
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+        if (item && typeof item === "object" && "text" in item && typeof item.text === "string") {
+          return item.text;
+        }
+        return "";
+      })
+      .join("");
   }
   return JSON.stringify(content ?? "");
 }
@@ -453,13 +487,18 @@ export function normalizeScore(value: Partial<QualityScore>): QualityScore {
   const pacing = clamp(value.pacing ?? 0);
   const voice = clamp(value.voice ?? 0);
   const engagement = clamp(value.engagement ?? 0);
-  const overall = clamp(value.overall ?? (coherence + repetition + pacing + voice + engagement) / 5);
+  const overall = clamp(
+    value.overall ?? (coherence + repetition + pacing + voice + engagement) / 5,
+  );
   return { coherence, repetition, pacing, voice, engagement, overall };
 }
 
 export function ruleScore(content: string): QualityScore {
   const text = content.replace(/\s+/g, " ").trim();
-  const sentences = text.split(/[。！"?]/).map((item) => item.trim()).filter(Boolean);
+  const sentences = text
+    .split(/[。！"?]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
   const unique = new Set(sentences);
   const repeatRatio = sentences.length > 0 ? 1 - unique.size / sentences.length : 0;
   const coherence = text.length >= 1800 ? 85 : text.length >= 1200 ? 75 : 60;
@@ -472,9 +511,11 @@ export function ruleScore(content: string): QualityScore {
 }
 
 export function isPass(score: QualityScore): boolean {
-  return score.coherence >= QUALITY_THRESHOLD.coherence
-    && score.repetition >= QUALITY_THRESHOLD.repetition
-    && score.engagement >= QUALITY_THRESHOLD.engagement;
+  return (
+    score.coherence >= QUALITY_THRESHOLD.coherence &&
+    score.repetition >= QUALITY_THRESHOLD.repetition &&
+    score.engagement >= QUALITY_THRESHOLD.engagement
+  );
 }
 
 export function briefSummary(
@@ -506,9 +547,18 @@ export function briefSummary(
     return result;
   };
 
-  const plotEvents = pickUnique(extractedFacts.filter((item) => item.category === "plot").map((item) => item.content), 2);
-  const characterStates = pickUnique(extractedFacts.filter((item) => item.category === "character").map((item) => item.content), 2);
-  const worldFacts = pickUnique(extractedFacts.filter((item) => item.category === "world").map((item) => item.content), 1);
+  const plotEvents = pickUnique(
+    extractedFacts.filter((item) => item.category === "plot").map((item) => item.content),
+    2,
+  );
+  const characterStates = pickUnique(
+    extractedFacts.filter((item) => item.category === "character").map((item) => item.content),
+    2,
+  );
+  const worldFacts = pickUnique(
+    extractedFacts.filter((item) => item.category === "world").map((item) => item.content),
+    1,
+  );
 
   const blocks: string[] = [];
   if (plotEvents.length > 0) {
@@ -524,7 +574,10 @@ export function briefSummary(
     return blocks.join("\n");
   }
 
-  const sentences = text.split(/[。！"?]/).map((item) => item.trim()).filter(Boolean);
+  const sentences = text
+    .split(/[。！"?]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
   if (sentences.length === 0) {
     return text.length <= 220 ? text : `${text.slice(0, 220)}...`;
   }
@@ -537,8 +590,14 @@ export function briefSummary(
   return text.length <= 220 ? text : `${text.slice(0, 220)}...`;
 }
 
-export function extractFacts(content: string): Array<{ category: "plot" | "character" | "world"; content: string }> {
-  const lines = content.split(/[\n。！"?]/).map((item) => item.trim()).filter((item) => item.length >= 8).slice(0, 6);
+export function extractFacts(
+  content: string,
+): Array<{ category: "plot" | "character" | "world"; content: string }> {
+  const lines = content
+    .split(/[\n。！"?]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 8)
+    .slice(0, 6);
   return lines.map((line) => {
     if (/世界|地理|宗门|王朝|大陆|规则/.test(line)) {
       return { category: "world" as const, content: line };
@@ -550,7 +609,11 @@ export function extractFacts(content: string): Array<{ category: "plot" | "chara
   });
 }
 
-export function extractCharacterEventLines(content: string, characterName: string, limit = 3): string[] {
+export function extractCharacterEventLines(
+  content: string,
+  characterName: string,
+  limit = 3,
+): string[] {
   if (!characterName.trim()) {
     return [];
   }
@@ -579,7 +642,9 @@ export function normalizeBeatOrder(value: unknown, fallback: number): number {
   return Math.max(1, Math.floor(raw));
 }
 
-export function parseContinuationBookAnalysisSections(raw: string | null | undefined): BookAnalysisSectionKey[] | null {
+export function parseContinuationBookAnalysisSections(
+  raw: string | null | undefined,
+): BookAnalysisSectionKey[] | null {
   if (!raw?.trim()) {
     return null;
   }
@@ -590,7 +655,9 @@ export function parseContinuationBookAnalysisSections(raw: string | null | undef
     }
     const keys = parsed
       .map((item) => (typeof item === "string" ? item : ""))
-      .filter((item): item is BookAnalysisSectionKey => CONTINUATION_ANALYSIS_SECTION_KEY_SET.has(item as BookAnalysisSectionKey));
+      .filter((item): item is BookAnalysisSectionKey =>
+        CONTINUATION_ANALYSIS_SECTION_KEY_SET.has(item as BookAnalysisSectionKey),
+      );
     if (keys.length === 0) {
       return null;
     }
@@ -621,7 +688,9 @@ export function normalizeOptionalTextForCreate(value: string | null | undefined)
   return normalized || null;
 }
 
-export function normalizeOptionalTextForUpdate(value: string | null | undefined): string | null | undefined {
+export function normalizeOptionalTextForUpdate(
+  value: string | null | undefined,
+): string | null | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -667,7 +736,11 @@ export function countCharacterMentions(content: string, names: string[]): number
   return uniqueNames.filter((name) => normalized.includes(name.replace(/\s+/g, ""))).length;
 }
 
-export function estimateAffectedChapterCount(content: string, chapterTotal: number, changedLines: number): number {
+export function estimateAffectedChapterCount(
+  content: string,
+  chapterTotal: number,
+  changedLines: number,
+): number {
   const explicitMatches = content.match(/第?\s*\d+\s*章/g) ?? [];
   if (explicitMatches.length > 0) {
     return Math.min(chapterTotal, explicitMatches.length);

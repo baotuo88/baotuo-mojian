@@ -69,7 +69,10 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function extractErrorCode(error: unknown): AgentToolErrorCode {
-  if ((error as AgentToolError)?.name === "AgentToolError" && typeof (error as AgentToolError).code === "string") {
+  if (
+    (error as AgentToolError)?.name === "AgentToolError" &&
+    typeof (error as AgentToolError).code === "string"
+  ) {
     return (error as AgentToolError).code;
   }
   return "INTERNAL";
@@ -89,9 +92,10 @@ export function summarizeOutput(tool: string, output: Record<string, unknown>): 
   }
   if (tool === "create_novel") {
     const title = typeof output.title === "string" ? output.title : "";
-    const stage = typeof (output.setup as Record<string, unknown> | undefined)?.stage === "string"
-      ? String((output.setup as Record<string, unknown>).stage)
-      : "";
+    const stage =
+      typeof (output.setup as Record<string, unknown> | undefined)?.stage === "string"
+        ? String((output.setup as Record<string, unknown>).stage)
+        : "";
     if (title && stage === "ready_for_production") {
       return `已创建小说《${title}》，初始化已完成。`;
     }
@@ -99,9 +103,10 @@ export function summarizeOutput(tool: string, output: Record<string, unknown>): 
   }
   if (tool === "select_novel_workspace") {
     const title = typeof output.title === "string" ? output.title : "";
-    const stage = typeof (output.setup as Record<string, unknown> | undefined)?.stage === "string"
-      ? String((output.setup as Record<string, unknown>).stage)
-      : "";
+    const stage =
+      typeof (output.setup as Record<string, unknown> | undefined)?.stage === "string"
+        ? String((output.setup as Record<string, unknown>).stage)
+        : "";
     if (title && stage !== "ready_for_production") {
       return `已切换到小说《${title}》，当前继续初始化。`;
     }
@@ -119,7 +124,8 @@ export function summarizeOutput(tool: string, output: Record<string, unknown>): 
     return "已完成世界观绑定。";
   }
   if (tool === "unbind_world_from_novel") {
-    const previousWorldName = typeof output.previousWorldName === "string" ? output.previousWorldName.trim() : "";
+    const previousWorldName =
+      typeof output.previousWorldName === "string" ? output.previousWorldName.trim() : "";
     const novelTitle = typeof output.novelTitle === "string" ? output.novelTitle.trim() : "";
     if (previousWorldName && novelTitle) {
       return `已将世界观《${previousWorldName}》从小说《${novelTitle}》解绑。`;
@@ -152,13 +158,13 @@ export function summarizeOutput(tool: string, output: Record<string, unknown>): 
     return typeof output.summary === "string" ? output.summary : `${tool} 执行完成。`;
   }
   if (
-    tool === "analyze_director_workspace"
-    || tool === "get_director_run_status"
-    || tool === "explain_director_next_action"
-    || tool === "evaluate_manual_edit_impact"
-    || tool === "run_director_next_step"
-    || tool === "run_director_until_gate"
-    || tool === "switch_director_policy"
+    tool === "analyze_director_workspace" ||
+    tool === "get_director_run_status" ||
+    tool === "explain_director_next_action" ||
+    tool === "evaluate_manual_edit_impact" ||
+    tool === "run_director_next_step" ||
+    tool === "run_director_until_gate" ||
+    tool === "switch_director_policy"
   ) {
     return typeof output.summary === "string" ? output.summary : `${tool} 执行完成。`;
   }
@@ -181,17 +187,21 @@ export function summarizeOutput(tool: string, output: Record<string, unknown>): 
     const items = Array.isArray(output.items) ? output.items : [];
     return `已读取 ${items.length} 个章节元信息。`;
   }
-  if (tool === "get_chapter_by_order" || tool === "get_chapter_content_by_order" || tool === "get_chapter_content") {
+  if (
+    tool === "get_chapter_by_order" ||
+    tool === "get_chapter_content_by_order" ||
+    tool === "get_chapter_content"
+  ) {
     const order = typeof output.order === "number" ? output.order : null;
     const title = typeof output.title === "string" ? output.title.trim() : "";
-    return order != null ? `已读取第${order}章${title ? `《${title}》` : ""}。` : "已读取章节内容。";
+    return order != null
+      ? `已读取第${order}章${title ? `《${title}》` : ""}。`
+      : "已读取章节内容。";
   }
   if (tool === "summarize_chapter_range") {
     const start = typeof output.startOrder === "number" ? output.startOrder : null;
     const end = typeof output.endOrder === "number" ? output.endOrder : null;
-    return start != null && end != null
-      ? `已总结第${start}到第${end}章。`
-      : "已完成章节范围总结。";
+    return start != null && end != null ? `已总结第${start}到第${end}章。` : "已完成章节范围总结。";
   }
   if (tool === "search_knowledge") {
     const hitCount = typeof output.hitCount === "number" ? output.hitCount : 0;
@@ -202,34 +212,51 @@ export function summarizeOutput(tool: string, output: Record<string, unknown>): 
     return `已读取 ${items.length} 个拆书任务。`;
   }
   if (tool === "get_book_analysis_detail") {
-    return typeof output.title === "string" ? `已读取拆书详情：${output.title}。` : "已读取拆书详情。";
+    return typeof output.title === "string"
+      ? `已读取拆书详情：${output.title}。`
+      : "已读取拆书详情。";
   }
-  if (tool === "get_book_analysis_failure_reason" || tool === "get_index_failure_reason" || tool === "get_task_failure_reason" || tool === "get_run_failure_reason") {
-    return typeof output.failureSummary === "string" ? output.failureSummary : `${tool} 已返回诊断信息。`;
+  if (
+    tool === "get_book_analysis_failure_reason" ||
+    tool === "get_index_failure_reason" ||
+    tool === "get_task_failure_reason" ||
+    tool === "get_run_failure_reason"
+  ) {
+    return typeof output.failureSummary === "string"
+      ? output.failureSummary
+      : `${tool} 已返回诊断信息。`;
   }
   if (tool === "list_knowledge_documents") {
     const items = Array.isArray(output.items) ? output.items : [];
     return `已读取 ${items.length} 个知识文档。`;
   }
   if (tool === "get_knowledge_document_detail") {
-    return typeof output.title === "string" ? `已读取知识文档《${output.title}》。` : "已读取知识文档详情。";
+    return typeof output.title === "string"
+      ? `已读取知识文档《${output.title}》。`
+      : "已读取知识文档详情。";
   }
   if (tool === "list_worlds") {
     const items = Array.isArray(output.items) ? output.items : [];
     return `已读取 ${items.length} 个世界观。`;
   }
   if (tool === "get_world_detail") {
-    return typeof output.name === "string" ? `已读取世界观《${output.name}》。` : "已读取世界观详情。";
+    return typeof output.name === "string"
+      ? `已读取世界观《${output.name}》。`
+      : "已读取世界观详情。";
   }
   if (tool === "explain_world_conflict" || tool === "explain_generation_blocker") {
-    return typeof output.failureSummary === "string" ? output.failureSummary : `${tool} 已返回冲突/阻塞说明。`;
+    return typeof output.failureSummary === "string"
+      ? output.failureSummary
+      : `${tool} 已返回冲突/阻塞说明。`;
   }
   if (tool === "list_writing_formulas") {
     const items = Array.isArray(output.items) ? output.items : [];
     return `已读取 ${items.length} 条写作公式。`;
   }
   if (tool === "get_writing_formula_detail") {
-    return typeof output.name === "string" ? `已读取写作公式《${output.name}》。` : "已读取写作公式详情。";
+    return typeof output.name === "string"
+      ? `已读取写作公式《${output.name}》。`
+      : "已读取写作公式详情。";
   }
   if (tool === "explain_formula_match") {
     return typeof output.summary === "string" ? output.summary : "已完成写作公式适配分析。";
@@ -239,14 +266,18 @@ export function summarizeOutput(tool: string, output: Record<string, unknown>): 
     return `已读取 ${items.length} 个基础角色模板。`;
   }
   if (tool === "get_base_character_detail") {
-    return typeof output.name === "string" ? `已读取角色模板《${output.name}》。` : "已读取角色模板详情。";
+    return typeof output.name === "string"
+      ? `已读取角色模板《${output.name}》。`
+      : "已读取角色模板详情。";
   }
   if (tool === "list_tasks") {
     const items = Array.isArray(output.items) ? output.items : [];
     return `已读取 ${items.length} 个系统任务。`;
   }
   if (tool === "get_task_detail") {
-    return typeof output.title === "string" ? `已读取任务详情：${output.title}。` : "已读取任务详情。";
+    return typeof output.title === "string"
+      ? `已读取任务详情：${output.title}。`
+      : "已读取任务详情。";
   }
   if (tool === "retry_task" || tool === "cancel_task") {
     return typeof output.summary === "string" ? output.summary : `${tool} 执行完成。`;
@@ -267,7 +298,10 @@ export function summarizeFailure(tool: string, error: unknown): string {
   return `${tool} 执行失败：${error instanceof Error ? error.message : "unknown error"}`;
 }
 
-export function buildFinalMessage(results: ToolExecutionResult[], waitingForApproval: boolean): string {
+export function buildFinalMessage(
+  results: ToolExecutionResult[],
+  waitingForApproval: boolean,
+): string {
   const lines: string[] = [];
   if (results.length > 0) {
     lines.push("已完成以下步骤：");
@@ -286,12 +320,14 @@ export function buildFinalMessage(results: ToolExecutionResult[], waitingForAppr
 }
 
 function isWriteTool(tool: ToolCall["tool"]): boolean {
-  return tool === "save_chapter_draft"
-    || tool === "apply_chapter_patch"
-    || tool === "queue_pipeline_run"
-    || tool === "run_director_next_step"
-    || tool === "run_director_until_gate"
-    || tool === "switch_director_policy";
+  return (
+    tool === "save_chapter_draft" ||
+    tool === "apply_chapter_patch" ||
+    tool === "queue_pipeline_run" ||
+    tool === "run_director_next_step" ||
+    tool === "run_director_until_gate" ||
+    tool === "switch_director_policy"
+  );
 }
 
 export function shouldUseDryRunPreview(toolCall: ToolCall): boolean {
@@ -309,15 +345,23 @@ function isStructuredIntent(value: unknown): value is StructuredIntent {
   if (!isRecord(value)) {
     return false;
   }
-  return typeof value.goal === "string"
-    && typeof value.intent === "string"
-    && typeof value.confidence === "number"
-    && isRecord(value.chapterSelectors);
+  return (
+    typeof value.goal === "string" &&
+    typeof value.intent === "string" &&
+    typeof value.confidence === "number" &&
+    isRecord(value.chapterSelectors)
+  );
 }
 
-export function parseApprovalPayload(payloadJson: string | null | undefined): SerializedContinuationPayload | null {
+export function parseApprovalPayload(
+  payloadJson: string | null | undefined,
+): SerializedContinuationPayload | null {
   const raw = asObject(payloadJson);
-  if (!Array.isArray(raw.plannedActions) || typeof raw.goal !== "string" || !isRecord(raw.context)) {
+  if (
+    !Array.isArray(raw.plannedActions) ||
+    typeof raw.goal !== "string" ||
+    !isRecord(raw.context)
+  ) {
     return null;
   }
   const contextRecord = raw.context;
@@ -325,18 +369,28 @@ export function parseApprovalPayload(payloadJson: string | null | undefined): Se
     contextMode: contextRecord.contextMode === "novel" ? "novel" : "global",
     novelId: typeof contextRecord.novelId === "string" ? contextRecord.novelId : undefined,
     worldId: typeof contextRecord.worldId === "string" ? contextRecord.worldId : undefined,
-    provider: typeof contextRecord.provider === "string"
-      ? contextRecord.provider as AgentRunStartInput["provider"]
-      : undefined,
+    provider:
+      typeof contextRecord.provider === "string"
+        ? (contextRecord.provider as AgentRunStartInput["provider"])
+        : undefined,
     model: typeof contextRecord.model === "string" ? contextRecord.model : undefined,
-    temperature: typeof contextRecord.temperature === "number" ? contextRecord.temperature : undefined,
+    temperature:
+      typeof contextRecord.temperature === "number" ? contextRecord.temperature : undefined,
     maxTokens: typeof contextRecord.maxTokens === "number" ? contextRecord.maxTokens : undefined,
   };
   const source = contextRecord.chapterDraftSource;
-  if (isRecord(source) && typeof source.novelId === "string" && typeof source.chapterId === "string"
-    && typeof source.chapterOrder === "number" && (typeof source.expectedContent === "string" || source.expectedContent === null)) {
+  if (
+    isRecord(source) &&
+    typeof source.novelId === "string" &&
+    typeof source.chapterId === "string" &&
+    typeof source.chapterOrder === "number" &&
+    (typeof source.expectedContent === "string" || source.expectedContent === null)
+  ) {
     context.chapterDraftSource = {
-      novelId: source.novelId, chapterId: source.chapterId, chapterOrder: source.chapterOrder, expectedContent: source.expectedContent,
+      novelId: source.novelId,
+      chapterId: source.chapterId,
+      chapterOrder: source.chapterOrder,
+      expectedContent: source.expectedContent,
     };
   }
   const plannedActions: PlannedAction[] = raw.plannedActions
@@ -348,7 +402,8 @@ export function parseApprovalPayload(payloadJson: string | null | undefined): Se
         .map((call) => ({
           tool: call.tool as ToolCall["tool"],
           reason: typeof call.reason === "string" ? call.reason : "工具调用",
-          idempotencyKey: typeof call.idempotencyKey === "string" ? call.idempotencyKey : `k_${Date.now()}`,
+          idempotencyKey:
+            typeof call.idempotencyKey === "string" ? call.idempotencyKey : `k_${Date.now()}`,
           input: isRecord(call.input) ? call.input : {},
           dryRun: call.dryRun === true,
           approvalSatisfied: call.approvalSatisfied === true,
@@ -385,45 +440,60 @@ export function buildAlternativePathFromRejectedApproval(
   }
 
   if (firstCall.tool === "apply_chapter_patch") {
-    const novelId = typeof firstCall.input.novelId === "string" ? firstCall.input.novelId : undefined;
-    const chapterId = typeof firstCall.input.chapterId === "string" ? firstCall.input.chapterId : undefined;
+    const novelId =
+      typeof firstCall.input.novelId === "string" ? firstCall.input.novelId : undefined;
+    const chapterId =
+      typeof firstCall.input.chapterId === "string" ? firstCall.input.chapterId : undefined;
     const content = typeof firstCall.input.content === "string" ? firstCall.input.content : "";
     if (novelId && chapterId && content.trim()) {
-      return [{
-        agent: "Writer",
-        reasoning: "审批拒绝后展示修改预览。",
-        calls: [{
-          tool: "diff_chapter_patch",
-          reason: `查看未应用的修改。${note ? `备注: ${note}` : ""}`.trim(),
-          idempotencyKey: `rejected_patch_preview_${chapterId}_${Date.now()}`,
-          input: {
-            ...firstCall.input,
-            novelId, chapterId, content,
-          },
-        }],
-      }];
+      return [
+        {
+          agent: "Writer",
+          reasoning: "审批拒绝后展示修改预览。",
+          calls: [
+            {
+              tool: "diff_chapter_patch",
+              reason: `查看未应用的修改。${note ? `备注: ${note}` : ""}`.trim(),
+              idempotencyKey: `rejected_patch_preview_${chapterId}_${Date.now()}`,
+              input: {
+                ...firstCall.input,
+                novelId,
+                chapterId,
+                content,
+              },
+            },
+          ],
+        },
+      ];
     }
   }
 
   if (firstCall.tool === "queue_pipeline_run") {
-    const novelId = typeof firstCall.input.novelId === "string" ? firstCall.input.novelId : undefined;
-    const startOrder = typeof firstCall.input.startOrder === "number" ? firstCall.input.startOrder : undefined;
-    const endOrder = typeof firstCall.input.endOrder === "number" ? firstCall.input.endOrder : undefined;
+    const novelId =
+      typeof firstCall.input.novelId === "string" ? firstCall.input.novelId : undefined;
+    const startOrder =
+      typeof firstCall.input.startOrder === "number" ? firstCall.input.startOrder : undefined;
+    const endOrder =
+      typeof firstCall.input.endOrder === "number" ? firstCall.input.endOrder : undefined;
     if (novelId && typeof startOrder === "number" && typeof endOrder === "number") {
-      return [{
-        agent: "Planner",
-        reasoning: "审批拒绝后保留预览，不实际启动流水线。",
-        calls: [{
-          tool: "preview_pipeline_run",
-          reason: "审批拒绝，改为范围预览。",
-          idempotencyKey: `fallback_preview_${startOrder}_${endOrder}_${Date.now()}`,
-          input: {
-            novelId,
-            startOrder,
-            endOrder,
-          },
-        }],
-      }];
+      return [
+        {
+          agent: "Planner",
+          reasoning: "审批拒绝后保留预览，不实际启动流水线。",
+          calls: [
+            {
+              tool: "preview_pipeline_run",
+              reason: "审批拒绝，改为范围预览。",
+              idempotencyKey: `fallback_preview_${startOrder}_${endOrder}_${Date.now()}`,
+              input: {
+                novelId,
+                startOrder,
+                endOrder,
+              },
+            },
+          ],
+        },
+      ];
     }
   }
 
@@ -452,10 +522,12 @@ export function parseRunMetadata(metadataJson: string | null | undefined): RunMe
   }
   if (Array.isArray(raw.messages)) {
     metadata.messages = raw.messages
-      .filter((item): item is { role: "user" | "assistant" | "system"; content: string } =>
-        isRecord(item)
-        && (item.role === "user" || item.role === "assistant" || item.role === "system")
-        && typeof item.content === "string")
+      .filter(
+        (item): item is { role: "user" | "assistant" | "system"; content: string } =>
+          isRecord(item) &&
+          (item.role === "user" || item.role === "assistant" || item.role === "system") &&
+          typeof item.content === "string",
+      )
       .slice(-30);
   }
   if (typeof raw.parentRunId === "string") {

@@ -1,8 +1,10 @@
 # 项目开发 Wiki
 
-本目录用于沉淀长期项目知识，帮助未来开发者和 AI Agent 理解项目为什么这样设计，以及后续应该如何维护。
+本目录用于沉淀长期项目知识，帮助未来开发者和 AI
+Agent 理解项目为什么这样设计，以及后续应该如何维护。
 
-Wiki 不记录单次提交改了什么，也不替代 release notes。它只记录跨阶段仍然有用的架构规则、工作流边界、运行协议、调试经验和产品设计依据。
+Wiki 不记录单次提交改了什么，也不替代 release
+notes。它只记录跨阶段仍然有用的架构规则、工作流边界、运行协议、调试经验和产品设计依据。
 
 ## 使用方式
 
@@ -60,6 +62,8 @@ Wiki 不记录单次提交改了什么，也不替代 release notes。它只记�
 
 - [重复故障模式与排查路径](./debugging/recurring-failure-modes.md)
 - [服务端测试进程隔离](./debugging/server-test-process-isolation.md)
+- [格式检查与历史债务边界](./debugging/format-check-baseline.md)
+- [依赖安全检查与发布判断](./debugging/dependency-security-and-release.md)
 - [日志保留与轮转规则](./debugging/log-retention.md)
 - [LLM 限速器内存泄漏与淘汰机制](./debugging/llm-request-limiter-memory-leak.md)
 - [角色连续性与硬事实排查](./debugging/character-continuity-hard-facts.md)

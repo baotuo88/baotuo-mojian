@@ -46,37 +46,54 @@ function sleep(ms: number): Promise<void> {
 }
 
 export class NovelDirectorConfirmRuntime {
-  constructor(private readonly deps: {
-    workflowService: NovelWorkflowService;
-    novelContextService: NovelContextService;
-    directorRuntime: DirectorRuntimeService;
-    runtimeOrchestrator: NovelDirectorRuntimeOrchestrator;
-    pipelineRuntime: NovelDirectorPipelineRuntime;
-    buildDirectorSeedPayload: (
-      input: DirectorConfirmRequest,
-      novelId: string | null,
-      extra?: Record<string, unknown>,
-    ) => Record<string, unknown>;
-    enrichDirectorStyleContext: (input: DirectorConfirmRequest) => Promise<DirectorConfirmRequest>;
-    ensurePrimaryNovelStyleBinding: (novelId: string, styleProfileId: string | null | undefined) => Promise<void>;
-    withWorkflowTaskUsage: <T>(workflowTaskId: string | null | undefined, runner: () => Promise<T>) => Promise<T>;
-    scheduleBackgroundRun: (taskId: string, runner: () => Promise<void>) => void;
-    runBackgroundRun: (taskId: string, runner: () => Promise<void>) => Promise<void>;
-    resolveRiskPolicy: (novelId: string) => Promise<DirectorRiskPolicy>;
-  }) {}
+  constructor(
+    private readonly deps: {
+      workflowService: NovelWorkflowService;
+      novelContextService: NovelContextService;
+      directorRuntime: DirectorRuntimeService;
+      runtimeOrchestrator: NovelDirectorRuntimeOrchestrator;
+      pipelineRuntime: NovelDirectorPipelineRuntime;
+      buildDirectorSeedPayload: (
+        input: DirectorConfirmRequest,
+        novelId: string | null,
+        extra?: Record<string, unknown>,
+      ) => Record<string, unknown>;
+      enrichDirectorStyleContext: (
+        input: DirectorConfirmRequest,
+      ) => Promise<DirectorConfirmRequest>;
+      ensurePrimaryNovelStyleBinding: (
+        novelId: string,
+        styleProfileId: string | null | undefined,
+      ) => Promise<void>;
+      withWorkflowTaskUsage: <T>(
+        workflowTaskId: string | null | undefined,
+        runner: () => Promise<T>,
+      ) => Promise<T>;
+      scheduleBackgroundRun: (taskId: string, runner: () => Promise<void>) => void;
+      runBackgroundRun: (taskId: string, runner: () => Promise<void>) => Promise<void>;
+      resolveRiskPolicy: (novelId: string) => Promise<DirectorRiskPolicy>;
+    },
+  ) {}
 
-  async confirmCandidate(input: DirectorConfirmRequest, options: {
-    awaitBackgroundRun?: boolean;
-  } = {}): Promise<DirectorConfirmApiResponse> {
+  async confirmCandidate(
+    input: DirectorConfirmRequest,
+    options: {
+      awaitBackgroundRun?: boolean;
+    } = {},
+  ): Promise<DirectorConfirmApiResponse> {
     const resolvedInput = applyDirectorRunModeContract({
-      ...await this.deps.enrichDirectorStyleContext(input),
+      ...(await this.deps.enrichDirectorStyleContext(input)),
       runMode: "full_book_autopilot" as const,
       startupPreparation: input.startupPreparation ?? DEFAULT_DIRECTOR_STARTUP_PREPARATION,
-      completionProfile: input.completionProfile
-        ?? buildDirectorCompletionProfile(input.estimatedChapterCount ?? input.candidate.targetChapterCount),
+      completionProfile:
+        input.completionProfile ??
+        buildDirectorCompletionProfile(
+          input.estimatedChapterCount ?? input.candidate.targetChapterCount,
+        ),
     });
     const runMode = "full_book_autopilot" as const;
-    const title = resolvedInput.candidate.workingTitle.trim() || resolvedInput.title?.trim() || "未命名项目";
+    const title =
+      resolvedInput.candidate.workingTitle.trim() || resolvedInput.title?.trim() || "未命名项目";
     const description = resolvedInput.description?.trim() || resolvedInput.candidate.logline.trim();
     const bookSpec = toBookSpec(
       resolvedInput.candidate,
@@ -111,17 +128,23 @@ export class NovelDirectorConfirmRuntime {
     }
 
     if (!attachedNovelId) {
-      const novelCreationClaim = await this.deps.workflowService.claimAutoDirectorNovelCreation(workflowTask.id, {
-        itemLabel: "正在创建小说项目",
-        progress: DIRECTOR_PROGRESS.novelCreate,
-      });
+      const novelCreationClaim = await this.deps.workflowService.claimAutoDirectorNovelCreation(
+        workflowTask.id,
+        {
+          itemLabel: "正在创建小说项目",
+          progress: DIRECTOR_PROGRESS.novelCreate,
+        },
+      );
       if (novelCreationClaim.status !== "claimed") {
-        const existingTask = novelCreationClaim.status === "attached"
-          ? novelCreationClaim.task
-          : await this.waitForExistingConfirmedNovel(workflowTask.id);
+        const existingTask =
+          novelCreationClaim.status === "attached"
+            ? novelCreationClaim.task
+            : await this.waitForExistingConfirmedNovel(workflowTask.id);
         if (!existingTask?.novelId) {
           if (existingTask?.status === "failed" || existingTask?.status === "cancelled") {
-            throw new Error(existingTask.lastError?.trim() || "当前导演建书流程已中断，请重新尝试。");
+            throw new Error(
+              existingTask.lastError?.trim() || "当前导演建书流程已中断，请重新尝试。",
+            );
           }
           throw new Error("当前导演方案正在创建小说，请勿重复提交。");
         }
@@ -134,7 +157,10 @@ export class NovelDirectorConfirmRuntime {
           summary: "自动导演复用已创建的小说项目并进入统一运行时。",
         });
         if (!options.awaitBackgroundRun) {
-          await this.deps.ensurePrimaryNovelStyleBinding(attachedNovelId, resolvedInput.styleProfileId);
+          await this.deps.ensurePrimaryNovelStyleBinding(
+            attachedNovelId,
+            resolvedInput.styleProfileId,
+          );
           return this.buildExistingConfirmResponse(existingTask, resolvedInput, bookSpec);
         }
       }
@@ -146,12 +172,13 @@ export class NovelDirectorConfirmRuntime {
           context: resolvedInput,
           title,
           description,
-          suggest: (suggestInput) => novelFramingSuggestionService.suggest({
-            ...suggestInput,
-            provider: resolvedInput.provider,
-            model: resolvedInput.model,
-            temperature: resolvedInput.temperature,
-          }),
+          suggest: (suggestInput) =>
+            novelFramingSuggestionService.suggest({
+              ...suggestInput,
+              provider: resolvedInput.provider,
+              model: resolvedInput.model,
+              temperature: resolvedInput.temperature,
+            }),
         });
         const directorInput: DirectorConfirmRequest = {
           ...resolvedInput,
@@ -167,8 +194,12 @@ export class NovelDirectorConfirmRuntime {
           first30ChapterPromise: resolvedBookFraming.first30ChapterPromise,
           commercialTags: resolvedBookFraming.commercialTags,
           genreId: directorInput.genreId || directorInput.candidate.productionFoundation?.genre.id,
-          primaryStoryModeId: directorInput.primaryStoryModeId || directorInput.candidate.productionFoundation?.primaryStoryMode.id,
-          secondaryStoryModeId: directorInput.secondaryStoryModeId || directorInput.candidate.productionFoundation?.secondaryStoryMode?.id,
+          primaryStoryModeId:
+            directorInput.primaryStoryModeId ||
+            directorInput.candidate.productionFoundation?.primaryStoryMode.id,
+          secondaryStoryModeId:
+            directorInput.secondaryStoryModeId ||
+            directorInput.candidate.productionFoundation?.secondaryStoryMode?.id,
           writingMode: directorInput.writingMode,
           projectMode: directorInput.projectMode,
           narrativePov: directorInput.narrativePov,
@@ -186,96 +217,115 @@ export class NovelDirectorConfirmRuntime {
           primaryStoryModeId: foundation.primaryStoryModeId,
           secondaryStoryModeId: foundation.secondaryStoryModeId,
         };
-        const selectedPlatform = resolvedDirectorInput.writingPlatformPreference && resolvedDirectorInput.writingPlatformPreference !== "ai_recommend"
-          ? resolvedDirectorInput.writingPlatformPreference
-          : resolvedDirectorInput.candidate.recommendedWritingPlatform
-            ? resolvedDirectorInput.candidate.recommendedWritingPlatform
-            : (await runStructuredPrompt({
-            asset: writingPlatformRecommendationPrompt,
-            promptInput: {
-              narrativeForm: "long_novel",
-              title,
-              description,
-              targetAudience: resolvedBookFraming.targetAudience,
-              bookSellingPoint: resolvedBookFraming.bookSellingPoint,
-              styleTone: resolvedDirectorInput.styleTone,
-              originalIdea: resolvedDirectorInput.idea,
-            },
-            options: {
-              taskId: workflowTask.id,
-              entrypoint: "auto_director",
-              stage: "writing_platform_recommend",
-              temperature: 0.25,
-            },
-            })).output.platform;
-        const platformSnapshot = await writingPlatformProfileService.snapshot(selectedPlatform, "long_novel");
+        const selectedPlatform =
+          resolvedDirectorInput.writingPlatformPreference &&
+          resolvedDirectorInput.writingPlatformPreference !== "ai_recommend"
+            ? resolvedDirectorInput.writingPlatformPreference
+            : resolvedDirectorInput.candidate.recommendedWritingPlatform
+              ? resolvedDirectorInput.candidate.recommendedWritingPlatform
+              : (
+                  await runStructuredPrompt({
+                    asset: writingPlatformRecommendationPrompt,
+                    promptInput: {
+                      narrativeForm: "long_novel",
+                      title,
+                      description,
+                      targetAudience: resolvedBookFraming.targetAudience,
+                      bookSellingPoint: resolvedBookFraming.bookSellingPoint,
+                      styleTone: resolvedDirectorInput.styleTone,
+                      originalIdea: resolvedDirectorInput.idea,
+                    },
+                    options: {
+                      taskId: workflowTask.id,
+                      entrypoint: "auto_director",
+                      stage: "writing_platform_recommend",
+                      temperature: 0.25,
+                    },
+                  })
+                ).output.platform;
+        const platformSnapshot = await writingPlatformProfileService.snapshot(
+          selectedPlatform,
+          "long_novel",
+        );
 
         const novelCreateModule = getDirectorConfirmNovelCreateStepModule();
         // The project can already be attached when a command fails between
         // creation and execution setup. Reuse it while completing required setup.
-        const createdNovel = attachedNovelId ? { id: attachedNovelId } : await this.deps.runtimeOrchestrator.runStepModule({
-          module: novelCreateModule,
-          taskId: workflowTask.id,
-          targetId: workflowTask.id,
-          runner: async () => {
-            await this.deps.workflowService.markTaskRunning(workflowTask.id, {
-              stage: "auto_director",
-              itemKey: "novel_create",
-              itemLabel: "正在创建小说项目",
-              progress: DIRECTOR_PROGRESS.novelCreate,
+        const createdNovel = attachedNovelId
+          ? { id: attachedNovelId }
+          : await this.deps.runtimeOrchestrator.runStepModule({
+              module: novelCreateModule,
+              taskId: workflowTask.id,
+              targetId: workflowTask.id,
+              runner: async () => {
+                await this.deps.workflowService.markTaskRunning(workflowTask.id, {
+                  stage: "auto_director",
+                  itemKey: "novel_create",
+                  itemLabel: "正在创建小说项目",
+                  progress: DIRECTOR_PROGRESS.novelCreate,
+                });
+                const novel = await this.deps.novelContextService.createNovel({
+                  title,
+                  description,
+                  targetAudience: resolvedBookFraming.targetAudience,
+                  bookSellingPoint: resolvedBookFraming.bookSellingPoint,
+                  competingFeel: resolvedBookFraming.competingFeel,
+                  first30ChapterPromise: resolvedBookFraming.first30ChapterPromise,
+                  commercialTags: resolvedBookFraming.commercialTags,
+                  genreId: resolvedDirectorInput.genreId,
+                  primaryStoryModeId: resolvedDirectorInput.primaryStoryModeId,
+                  secondaryStoryModeId: resolvedDirectorInput.secondaryStoryModeId,
+                  worldId: resolvedInput.worldId?.trim() || undefined,
+                  writingMode: resolvedInput.writingMode,
+                  projectMode: resolvedInput.projectMode,
+                  narrativePov: resolvedInput.narrativePov,
+                  pacePreference: resolvedInput.pacePreference,
+                  styleTone: resolvedInput.styleTone?.trim() || undefined,
+                  emotionIntensity: resolvedInput.emotionIntensity,
+                  aiFreedom: resolvedInput.aiFreedom,
+                  postGenerationStyleReviewEnabled: resolvedInput.postGenerationStyleReviewEnabled,
+                  defaultChapterLength: resolvedInput.defaultChapterLength,
+                  estimatedChapterCount:
+                    resolvedInput.estimatedChapterCount ?? bookSpec.targetChapterCount,
+                  projectStatus: resolvedInput.projectStatus,
+                  storylineStatus: resolvedInput.storylineStatus,
+                  outlineStatus: resolvedInput.outlineStatus,
+                  resourceReadyScore: resolvedInput.resourceReadyScore,
+                  sourceNovelId: resolvedInput.sourceNovelId ?? undefined,
+                  sourceKnowledgeDocumentId: resolvedInput.sourceKnowledgeDocumentId ?? undefined,
+                  continuationBookAnalysisId: resolvedInput.continuationBookAnalysisId ?? undefined,
+                  continuationBookAnalysisSections:
+                    resolvedInput.continuationBookAnalysisSections ?? undefined,
+                });
+                await this.deps.workflowService.attachNovelToTask(
+                  workflowTask.id,
+                  novel.id,
+                  "project_setup",
+                );
+                return novel;
+              },
+              collectArtifacts: async (novel) => {
+                if (!novel?.id) {
+                  return [];
+                }
+                const analysis = await this.deps.directorRuntime
+                  .analyzeWorkspace({
+                    novelId: novel.id,
+                    workflowTaskId: workflowTask.id,
+                    includeAiInterpretation: false,
+                  })
+                  .catch(() => null);
+                return analysis?.inventory.artifacts ?? [];
+              },
             });
-            const novel = await this.deps.novelContextService.createNovel({
-              title,
-              description,
-              targetAudience: resolvedBookFraming.targetAudience,
-              bookSellingPoint: resolvedBookFraming.bookSellingPoint,
-              competingFeel: resolvedBookFraming.competingFeel,
-              first30ChapterPromise: resolvedBookFraming.first30ChapterPromise,
-              commercialTags: resolvedBookFraming.commercialTags,
-              genreId: resolvedDirectorInput.genreId,
-              primaryStoryModeId: resolvedDirectorInput.primaryStoryModeId,
-              secondaryStoryModeId: resolvedDirectorInput.secondaryStoryModeId,
-              worldId: resolvedInput.worldId?.trim() || undefined,
-              writingMode: resolvedInput.writingMode,
-              projectMode: resolvedInput.projectMode,
-              narrativePov: resolvedInput.narrativePov,
-              pacePreference: resolvedInput.pacePreference,
-              styleTone: resolvedInput.styleTone?.trim() || undefined,
-              emotionIntensity: resolvedInput.emotionIntensity,
-              aiFreedom: resolvedInput.aiFreedom,
-              postGenerationStyleReviewEnabled: resolvedInput.postGenerationStyleReviewEnabled,
-              defaultChapterLength: resolvedInput.defaultChapterLength,
-              estimatedChapterCount: resolvedInput.estimatedChapterCount ?? bookSpec.targetChapterCount,
-              projectStatus: resolvedInput.projectStatus,
-              storylineStatus: resolvedInput.storylineStatus,
-              outlineStatus: resolvedInput.outlineStatus,
-              resourceReadyScore: resolvedInput.resourceReadyScore,
-              sourceNovelId: resolvedInput.sourceNovelId ?? undefined,
-              sourceKnowledgeDocumentId: resolvedInput.sourceKnowledgeDocumentId ?? undefined,
-              continuationBookAnalysisId: resolvedInput.continuationBookAnalysisId ?? undefined,
-              continuationBookAnalysisSections: resolvedInput.continuationBookAnalysisSections ?? undefined,
-            });
-            await this.deps.workflowService.attachNovelToTask(workflowTask.id, novel.id, "project_setup");
-            return novel;
-          },
-          collectArtifacts: async (novel) => {
-            if (!novel?.id) {
-              return [];
-            }
-            const analysis = await this.deps.directorRuntime.analyzeWorkspace({
-              novelId: novel.id,
-              workflowTaskId: workflowTask.id,
-              includeAiInterpretation: false,
-            }).catch(() => null);
-            return analysis?.inventory.artifacts ?? [];
-          },
-        });
         if (!createdNovel?.id) {
           throw new Error("自动导演建书节点没有返回小说项目。");
         }
         const executionDirectorInput: DirectorConfirmRequest = {
           ...resolvedDirectorInput,
-          riskPolicy: resolvedDirectorInput.riskPolicy ?? await this.deps.resolveRiskPolicy(createdNovel.id),
+          riskPolicy:
+            resolvedDirectorInput.riskPolicy ??
+            (await this.deps.resolveRiskPolicy(createdNovel.id)),
         };
         await prisma.novel.update({
           where: { id: createdNovel.id },
@@ -285,7 +335,10 @@ export class NovelDirectorConfirmRuntime {
             writingPlatformSnapshotJson: JSON.stringify(platformSnapshot),
           },
         });
-        await this.deps.ensurePrimaryNovelStyleBinding(createdNovel.id, resolvedInput.styleProfileId);
+        await this.deps.ensurePrimaryNovelStyleBinding(
+          createdNovel.id,
+          resolvedInput.styleProfileId,
+        );
         const directorSession = buildDirectorSessionState({
           runMode,
           phase: "story_macro",
@@ -337,7 +390,9 @@ export class NovelDirectorConfirmRuntime {
         } else {
           this.deps.scheduleBackgroundRun(workflowTask.id, runPipeline);
         }
-        const novel = await this.deps.novelContextService.getNovelById(createdNovel.id) as unknown as DirectorConfirmApiResponse["novel"];
+        const novel = (await this.deps.novelContextService.getNovelById(
+          createdNovel.id,
+        )) as unknown as DirectorConfirmApiResponse["novel"];
         const seededPlanDigests = {
           book: null,
           arcs: [],
@@ -376,8 +431,13 @@ export class NovelDirectorConfirmRuntime {
 
   private async releaseUnfinishedCreationClaim(taskId: string): Promise<void> {
     const task = await this.deps.workflowService.getTaskByIdWithoutHealing(taskId);
-    if (!task || task.novelId || task.currentItemKey !== "novel_create"
-      || task.status !== "running" || task.cancelRequestedAt) {
+    if (
+      !task ||
+      task.novelId ||
+      task.currentItemKey !== "novel_create" ||
+      task.status !== "running" ||
+      task.cancelRequestedAt
+    ) {
       return;
     }
     // Command backoff keeps the task running. Release only the unfinished
@@ -408,21 +468,27 @@ export class NovelDirectorConfirmRuntime {
     if (!task?.novelId) {
       throw new Error("自动导演确认链缺少已创建的小说项目。");
     }
-    const novel = await this.deps.novelContextService.getNovelById(task.novelId) as unknown as DirectorConfirmApiResponse["novel"];
+    const novel = (await this.deps.novelContextService.getNovelById(
+      task.novelId,
+    )) as unknown as DirectorConfirmApiResponse["novel"];
     if (!novel) {
       throw new Error("自动导演确认链未能读取已创建的小说项目。");
     }
     const seedPayload = parseSeedPayload<DirectorWorkflowSeedPayload>(task.seedPayloadJson) ?? {};
-    const directorSession = seedPayload.directorSession ?? buildDirectorSessionState({
-      runMode: normalizeDirectorRunMode(input.runMode),
-      phase: "story_macro",
-      isBackgroundRunning: true,
-    });
-    const resumeTarget = parseResumeTarget(task.resumeTargetJson) ?? buildNovelEditResumeTarget({
-      novelId: task.novelId,
-      taskId: task.id,
-      stage: "story_macro",
-    });
+    const directorSession =
+      seedPayload.directorSession ??
+      buildDirectorSessionState({
+        runMode: normalizeDirectorRunMode(input.runMode),
+        phase: "story_macro",
+        isBackgroundRunning: true,
+      });
+    const resumeTarget =
+      parseResumeTarget(task.resumeTargetJson) ??
+      buildNovelEditResumeTarget({
+        novelId: task.novelId,
+        taskId: task.id,
+        stage: "story_macro",
+      });
     const seededPlanDigests = {
       book: null,
       arcs: [],

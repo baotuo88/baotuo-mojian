@@ -3,7 +3,9 @@ const assert = require("node:assert/strict");
 
 const { PromptWorkbenchService } = require("../dist/prompting/PromptWorkbenchService.js");
 const { ContextBroker } = require("../dist/prompting/context/ContextBroker.js");
-const { createDefaultContextResolverRegistry } = require("../dist/prompting/context/defaultContextRegistry.js");
+const {
+  createDefaultContextResolverRegistry,
+} = require("../dist/prompting/context/defaultContextRegistry.js");
 const {
   promptTemplateOverrideService,
 } = require("../dist/prompting/templates/PromptTemplateOverrideService.js");
@@ -71,14 +73,19 @@ test("prompt workbench catalog exposes registered prompts without override execu
   assert.ok(planner.description.includes("意图"));
   assert.equal(planner.shortDescription, "规划意图理解");
   assert.equal(planner.outputType, "structured");
-  assert.ok(planner.contextRequirements.some((requirement) => requirement.group === "creative_hub.bindings"));
+  assert.ok(
+    planner.contextRequirements.some(
+      (requirement) => requirement.group === "creative_hub.bindings",
+    ),
+  );
   assert.equal(planner.mode, "structured");
   assert.equal(planner.capabilities.hasOutputSchema, true);
   assert.equal(planner.capabilities.hasPostValidate, true);
   assert.ok(planner.lockedFields.includes("outputSchema"));
   assert.ok(planner.lockedFields.includes("approvalBoundary"));
 
-  const chapterWriter = service.listCatalog({ keyword: "novel.chapter.writer" })
+  const chapterWriter = service
+    .listCatalog({ keyword: "novel.chapter.writer" })
     .find((item) => item.key === "novel.chapter.writer@v7");
   assert.ok(chapterWriter);
   assert.equal(chapterWriter.slotSupported, true);
@@ -89,8 +96,14 @@ test("prompt workbench catalog exposes registered prompts without override execu
   assert.ok(chapterWriter.lockedFields.includes("contextPolicy"));
 
   const completeCatalog = service.listCatalog();
-  assert.equal(completeCatalog.some((item) => item.shortDescription === "内部提示词"), false);
-  assert.equal(completeCatalog.every((item) => item.shortDescription.length <= 12), true);
+  assert.equal(
+    completeCatalog.some((item) => item.shortDescription === "内部提示词"),
+    false,
+  );
+  assert.equal(
+    completeCatalog.every((item) => item.shortDescription.length <= 12),
+    true,
+  );
 });
 
 test("prompt workbench catalog lists slot-supported prompts first", () => {
@@ -107,7 +120,9 @@ test("prompt workbench catalog lists slot-supported prompts first", () => {
 });
 
 test("payoff decision is managed and previews the same chapter contract used for writing", async () => {
-  const { buildChapterPayoffDecisionContextBlocks } = require("../dist/prompting/prompts/payoff/chapterPayoffDecision.prompts.js");
+  const {
+    buildChapterPayoffDecisionContextBlocks,
+  } = require("../dist/prompting/prompts/payoff/chapterPayoffDecision.prompts.js");
   const service = new PromptWorkbenchService();
   const catalog = service.listCatalog({ keyword: "novel.chapter.payoff_decision" });
   assert.equal(catalog[0].key, "novel.chapter.payoff_decision@v1");
@@ -116,7 +131,14 @@ test("payoff decision is managed and previews the same chapter contract used for
   const promptInput = {
     chapter: { id: "ch4", order: 4, title: "阶段反击", taskSheet: "本章交付首次反击成果" },
     plan: null,
-    payoffs: [{ ledgerKey: "first-win", title: "首次反击", summary: "取得可使用的权限", currentStatus: "overdue" }],
+    payoffs: [
+      {
+        ledgerKey: "first-win",
+        title: "首次反击",
+        summary: "取得可使用的权限",
+        currentStatus: "overdue",
+      },
+    ],
     protectedSecrets: ["保留幕后身份"],
     forbiddenEvents: [],
     previousChaptersSummary: ["第三章取得反击线索"],
@@ -124,7 +146,10 @@ test("payoff decision is managed and previews the same chapter contract used for
   const preview = await service.preview({
     promptKey: catalog[0].key,
     promptInput,
-    executionContext: { entrypoint: "prompt_workbench", metadata: { extraContextBlocks: buildChapterPayoffDecisionContextBlocks(promptInput) } },
+    executionContext: {
+      entrypoint: "prompt_workbench",
+      metadata: { extraContextBlocks: buildChapterPayoffDecisionContextBlocks(promptInput) },
+    },
   });
   assert.deepEqual(preview.diagnostics.missingRequiredGroups, []);
   assert.ok(preview.messages.some((message) => message.content.includes("本章交付首次反击成果")));
@@ -157,7 +182,7 @@ test("context broker resolves creative hub bindings and supplied recent messages
   assert.deepEqual(result.missingRequiredGroups, []);
   assert.ok(result.selectedBlockIds.includes("creative_hub.bindings"));
   assert.ok(result.selectedBlockIds.includes("creative_hub.recent_messages"));
-  assert.ok(result.blocks.some((block) => block.content.includes("\"novelId\": \"novel-1\"")));
+  assert.ok(result.blocks.some((block) => block.content.includes('"novelId": "novel-1"')));
   assert.ok(result.blocks.some((block) => block.content.includes("Prepare the next chapter.")));
 });
 
@@ -174,9 +199,7 @@ test("prompt preview renders base prompt messages with resolved context but does
         novelId: "novel-1",
       },
     },
-    contextRequirements: [
-      { group: "creative_hub.bindings", required: true, priority: 100 },
-    ],
+    contextRequirements: [{ group: "creative_hub.bindings", required: true, priority: 100 }],
     maxContextTokens: 2000,
   });
 
@@ -250,7 +273,11 @@ test("prompt preview renders audit prompts with complete workbench sample input"
   });
 
   assert.equal(preview.prompt.key, "audit.chapter.full@v2");
-  assert.ok(preview.messages.some((message) => message.content.includes("审校范围：plot, character, continuity")));
+  assert.ok(
+    preview.messages.some((message) =>
+      message.content.includes("审校范围：plot, character, continuity"),
+    ),
+  );
   assert.deepEqual(preview.diagnostics.missingRequiredGroups, []);
   assert.ok(preview.context.selectedBlockIds.includes("chapter_boundary"));
   assert.ok(preview.context.selectedBlockIds.includes("structure_obligations"));
@@ -316,16 +343,21 @@ test("prompt preview prefers selected novel chapter context over audit sample co
   assert.deepEqual(preview.diagnostics.missingRequiredGroups, []);
   assert.ok(preview.context.selectedBlockIds.includes("chapter_boundary"));
   assert.ok(preview.context.selectedBlockIds.includes("structure_obligations"));
-  assert.ok(preview.context.blocks.some((block) => (
-    block.id === "chapter_boundary"
-    && block.content.includes("主角正在审查测试书籍的异常日志")
-  )));
-  assert.ok(preview.context.blocks.some((block) => (
-    block.id === "world_rules"
-    && block.content.includes("代码提交与现实犯罪互相映照")
-  )));
+  assert.ok(
+    preview.context.blocks.some(
+      (block) =>
+        block.id === "chapter_boundary" && block.content.includes("主角正在审查测试书籍的异常日志"),
+    ),
+  );
+  assert.ok(
+    preview.context.blocks.some(
+      (block) => block.id === "world_rules" && block.content.includes("代码提交与现实犯罪互相映照"),
+    ),
+  );
   assert.ok(preview.messages.some((message) => message.content.includes("当代码开始杀人")));
-  assert.ok(preview.diagnostics.notes.some((note) => note.includes("使用《当代码开始杀人》第 3 章")));
+  assert.ok(
+    preview.diagnostics.notes.some((note) => note.includes("使用《当代码开始杀人》第 3 章")),
+  );
 });
 
 test("prompt preview assembles selected novel chapter write context for chapter writer", async () => {
@@ -438,19 +470,25 @@ test("prompt preview assembles selected novel chapter write context for chapter 
       `expected preview context group ${group}`,
     );
   }
-  assert.ok(preview.context.blocks.some((block) => (
-    block.group === "book_contract"
-    && block.content.includes("当代码开始杀人")
-  )));
-  assert.ok(preview.context.blocks.some((block) => (
-    block.group === "character_hard_facts"
-    && block.content.includes("林序")
-    && block.content.includes("不得突然掌握幕后真凶身份")
-  )));
-  assert.ok(preview.context.blocks.some((block) => (
-    block.group === "chapter_mission"
-    && block.content.includes("确认代码提交与命案有关")
-  )));
+  assert.ok(
+    preview.context.blocks.some(
+      (block) => block.group === "book_contract" && block.content.includes("当代码开始杀人"),
+    ),
+  );
+  assert.ok(
+    preview.context.blocks.some(
+      (block) =>
+        block.group === "character_hard_facts" &&
+        block.content.includes("林序") &&
+        block.content.includes("不得突然掌握幕后真凶身份"),
+    ),
+  );
+  assert.ok(
+    preview.context.blocks.some(
+      (block) =>
+        block.group === "chapter_mission" && block.content.includes("确认代码提交与命案有关"),
+    ),
+  );
   assert.ok(preview.diagnostics.notes.some((note) => note.includes("正文写作预览上下文")));
 });
 
@@ -473,31 +511,33 @@ test("prompt preview renders unsaved advanced template draft without reading act
         emotionIntensity: "高压克制",
         styleTone: "自然、紧凑",
         estimatedChapterCount: 60,
-        characters: [{
-          id: "char-1",
-          name: "林序",
-          role: "主角",
-          gender: "male",
-          personality: "谨慎",
-          background: "工程师",
-          development: "主动追查",
-          identityLabel: "程序员",
-          factionLabel: "调查方",
-          stanceLabel: "追查真相",
-          powerLevel: "普通人",
-          realm: null,
-          currentLocation: "机房外",
-          availability: "可出场",
-          prohibitionsJson: JSON.stringify(["不得知道幕后真凶"]),
-          currentState: "发现异常日志",
-          currentGoal: "确认风险来源",
-          appearance: "",
-          physique: null,
-          attireStyle: "",
-          signatureDetail: "",
-          voiceTexture: "",
-          presenceImpression: "",
-        }],
+        characters: [
+          {
+            id: "char-1",
+            name: "林序",
+            role: "主角",
+            gender: "male",
+            personality: "谨慎",
+            background: "工程师",
+            development: "主动追查",
+            identityLabel: "程序员",
+            factionLabel: "调查方",
+            stanceLabel: "追查真相",
+            powerLevel: "普通人",
+            realm: null,
+            currentLocation: "机房外",
+            availability: "可出场",
+            prohibitionsJson: JSON.stringify(["不得知道幕后真凶"]),
+            currentState: "发现异常日志",
+            currentGoal: "确认风险来源",
+            appearance: "",
+            physique: null,
+            attireStyle: "",
+            signatureDetail: "",
+            voiceTexture: "",
+            presenceImpression: "",
+          },
+        ],
       }),
     },
     chapter: {
@@ -513,12 +553,14 @@ test("prompt preview renders unsaved advanced template draft without reading act
         mustAvoid: "不得直接揭露幕后真凶。",
         taskSheet: "发现异常日志，并在结尾形成追查压力。",
         sceneCards: JSON.stringify({
-          scenes: [{
-            title: "机房外",
-            purpose: "确认异常日志。",
-            mustAdvance: ["确认日志与现实风险有关"],
-            mustPreserve: ["主角不知道幕后真凶"],
-          }],
+          scenes: [
+            {
+              title: "机房外",
+              purpose: "确认异常日志。",
+              mustAdvance: ["确认日志与现实风险有关"],
+              mustPreserve: ["主角不知道幕后真凶"],
+            },
+          ],
         }),
         hook: "下一章从监控被篡改开始。",
       }),
@@ -547,7 +589,10 @@ test("prompt preview renders unsaved advanced template draft without reading act
         kind: "chat",
         messages: [
           { role: "system", content: "DRAFT SYSTEM {{slot.writer.tonePreference}}" },
-          { role: "human", content: "DRAFT HUMAN {{input.chapterTitle}}\n{{context.chapter_mission}}" },
+          {
+            role: "human",
+            content: "DRAFT HUMAN {{input.chapterTitle}}\n{{context.chapter_mission}}",
+          },
         ],
       },
     });
@@ -557,7 +602,9 @@ test("prompt preview renders unsaved advanced template draft without reading act
     assert.ok(preview.messages.some((message) => message.content.includes("性别=male")));
     assert.ok(preview.diagnostics.template);
     assert.equal(preview.diagnostics.template.mode, "draft");
-    assert.ok(preview.diagnostics.template.diagnostics.fallbackRequiredGroups.includes("book_contract"));
+    assert.ok(
+      preview.diagnostics.template.diagnostics.fallbackRequiredGroups.includes("book_contract"),
+    );
   } finally {
     promptTemplateOverrideService.getActiveCustomTemplate = originalGetActiveCustomTemplate;
   }

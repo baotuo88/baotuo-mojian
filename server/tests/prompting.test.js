@@ -8,9 +8,7 @@ const {
 const {
   promptSlotOverrideService,
 } = require("../dist/prompting/slots/PromptSlotOverrideService.js");
-const {
-  NOVEL_PROMPT_BUDGETS,
-} = require("../dist/prompting/prompts/novel/promptBudgetProfiles.js");
+const { NOVEL_PROMPT_BUDGETS } = require("../dist/prompting/prompts/novel/promptBudgetProfiles.js");
 const {
   runTextPrompt,
   runStructuredPrompt,
@@ -23,12 +21,8 @@ const {
   getPromptQualitySnapshot,
   resetPromptQualityTelemetryForTests,
 } = require("../dist/prompting/core/promptQualityTelemetry.js");
-const {
-  selectContextBlocks,
-} = require("../dist/prompting/core/contextSelection.js");
-const {
-  getRegisteredPromptAsset,
-} = require("../dist/prompting/registry.js");
+const { selectContextBlocks } = require("../dist/prompting/core/contextSelection.js");
+const { getRegisteredPromptAsset } = require("../dist/prompting/registry.js");
 const {
   resolveWorkflow,
   listWorkflowDefinitions,
@@ -36,9 +30,7 @@ const {
 const {
   plannerChapterPlanPrompt,
 } = require("../dist/prompting/prompts/planner/plannerPlan.prompts.js");
-const {
-  genreTreePrompt,
-} = require("../dist/prompting/prompts/genre/genre.prompts.js");
+const { genreTreePrompt } = require("../dist/prompting/prompts/genre/genre.prompts.js");
 const {
   titleGenerationPrompt,
 } = require("../dist/prompting/prompts/helper/titleGeneration.prompt.js");
@@ -48,12 +40,8 @@ const {
   styleProfileExtractionPrompt,
   styleProfileFromBookAnalysisPrompt,
 } = require("../dist/prompting/prompts/style/style.prompts.js");
-const {
-  chapterWriterPrompt,
-} = require("../dist/prompting/prompts/novel/chapterWriter.prompts.js");
-const {
-  compilePromptTemplate,
-} = require("../dist/prompting/templates/templateCompiler.js");
+const { chapterWriterPrompt } = require("../dist/prompting/prompts/novel/chapterWriter.prompts.js");
+const { compilePromptTemplate } = require("../dist/prompting/templates/templateCompiler.js");
 const {
   promptTemplateOverrideService,
 } = require("../dist/prompting/templates/PromptTemplateOverrideService.js");
@@ -130,13 +118,15 @@ function buildWriterRequiredContextBlocks() {
     "participant_subset",
     "local_state",
     "style_contract",
-  ].map((group, index) => createContextBlock({
-    id: `${group}-test`,
-    group,
-    priority: 100 - index,
-    required: true,
-    content: `${group} 测试内容`,
-  }));
+  ].map((group, index) =>
+    createContextBlock({
+      id: `${group}-test`,
+      group,
+      priority: 100 - index,
+      required: true,
+      content: `${group} 测试内容`,
+    }),
+  );
 }
 
 function getSinglePromptQualityEntry() {
@@ -220,36 +210,45 @@ test("prompt registry exposes versioned planning assets", () => {
 
 test("chapter artifact delta prompt captures summary facts and knowledge boundaries", () => {
   const parsed = chapterArtifactDeltaOutputSchema.parse({
-    summary: "程秩在本章拿到后门铜钥匙，并确认库房后门可以作为下一步潜入路线。读者知道钥匙用途，但程秩仍不知道库房内的守卫布置，相关线索被推进到待兑现状态。",
-    concreteFacts: [{
-      text: "程秩已拿到后门铜钥匙",
-      category: "completed",
-    }],
+    summary:
+      "程秩在本章拿到后门铜钥匙，并确认库房后门可以作为下一步潜入路线。读者知道钥匙用途，但程秩仍不知道库房内的守卫布置，相关线索被推进到待兑现状态。",
+    concreteFacts: [
+      {
+        text: "程秩已拿到后门铜钥匙",
+        category: "completed",
+      },
+    ],
     stateDeltas: {},
-    characterKnowledgeStates: [{
-      characterName: "程秩",
-      knownFacts: ["后门铜钥匙可以打开库房后门"],
-      hiddenFacts: ["库房内的守卫布置"],
-    }],
-    characterMindDeltas: [{
-      characterName: "程秩",
-      currentInterpretation: "他认为钥匙让潜入成为可行方案，但仍低估守卫布置。",
-      privateIntent: "抢在赵管事察觉前验证后门。",
-      activePlan: "先观察换岗时间，再利用钥匙进入库房。",
-      emotionalStance: "紧张中带着主动争取的笃定。",
-      actionTendency: "会先隐瞒线索、独自试探。",
-      decisionTrigger: "若守卫异常增多，会转而寻找同盟。",
-      beliefs: ["钥匙能提供一次隐蔽进入机会"],
-      misbeliefs: ["赵管事尚未察觉钥匙失踪"],
-      evidence: ["程秩把后门铜钥匙收进袖中，并决定先观察换岗。"],
-      confidence: 0.78,
-    }],
-    characterDialogueInfluenceResolutions: [{
-      influenceId: "dialogue-influence-1",
-      status: "applied",
-      evidence: ["程秩先观察换岗，确认退路后才进入库房。"],
-      confidence: 0.8,
-    }],
+    characterKnowledgeStates: [
+      {
+        characterName: "程秩",
+        knownFacts: ["后门铜钥匙可以打开库房后门"],
+        hiddenFacts: ["库房内的守卫布置"],
+      },
+    ],
+    characterMindDeltas: [
+      {
+        characterName: "程秩",
+        currentInterpretation: "他认为钥匙让潜入成为可行方案，但仍低估守卫布置。",
+        privateIntent: "抢在赵管事察觉前验证后门。",
+        activePlan: "先观察换岗时间，再利用钥匙进入库房。",
+        emotionalStance: "紧张中带着主动争取的笃定。",
+        actionTendency: "会先隐瞒线索、独自试探。",
+        decisionTrigger: "若守卫异常增多，会转而寻找同盟。",
+        beliefs: ["钥匙能提供一次隐蔽进入机会"],
+        misbeliefs: ["赵管事尚未察觉钥匙失踪"],
+        evidence: ["程秩把后门铜钥匙收进袖中，并决定先观察换岗。"],
+        confidence: 0.78,
+      },
+    ],
+    characterDialogueInfluenceResolutions: [
+      {
+        influenceId: "dialogue-influence-1",
+        status: "applied",
+        evidence: ["程秩先观察换岗，确认退路后才进入库房。"],
+        confidence: 0.8,
+      },
+    ],
     syncPlan: {
       stateSnapshot: "write",
       characterResources: "skip",
@@ -276,7 +275,8 @@ test("chapter artifact delta prompt captures summary facts and knowledge boundar
     existingResourceText: "",
     existingPayoffText: "",
     existingPayoffItems: [],
-    activeCharacterDialogueInfluenceText: "- influenceId=dialogue-influence-1 | 角色=程秩 | 行动倾向=先确认退路再进入库房",
+    activeCharacterDialogueInfluenceText:
+      "- influenceId=dialogue-influence-1 | 角色=程秩 | 行动倾向=先确认退路再进入库房",
     chapterContent: "程秩拿到后门铜钥匙，但还不知道库房内的守卫布置。",
   });
   const systemText = String(messages[0].content);
@@ -289,35 +289,54 @@ test("chapter artifact delta prompt captures summary facts and knowledge boundar
 
 test("character mind snapshot prompt keeps subjective reasoning evidence-backed", () => {
   const output = characterMindSnapshotResponseSchema.parse({
-    snapshots: [{
-      characterName: "程秩",
-      currentInterpretation: "他认为后门钥匙能带来一次先手，但不确定守卫是否已经换岗。",
-      privateIntent: "不让赵管事先发现自己的行动。",
-      activePlan: "观察换岗后从后门试探进入。",
-      emotionalStance: "紧张但愿意冒险。",
-      actionTendency: "优先独自试探，再决定是否求助。",
-      decisionTrigger: "若守卫数量异常，就暂缓进入。",
-      beliefs: ["钥匙能打开库房后门"],
-      misbeliefs: ["赵管事尚未察觉钥匙失踪"],
-      evidence: ["程秩把后门铜钥匙收进袖中。"],
-      confidence: 0.78,
-    }],
+    snapshots: [
+      {
+        characterName: "程秩",
+        currentInterpretation: "他认为后门钥匙能带来一次先手，但不确定守卫是否已经换岗。",
+        privateIntent: "不让赵管事先发现自己的行动。",
+        activePlan: "观察换岗后从后门试探进入。",
+        emotionalStance: "紧张但愿意冒险。",
+        actionTendency: "优先独自试探，再决定是否求助。",
+        decisionTrigger: "若守卫数量异常，就暂缓进入。",
+        beliefs: ["钥匙能打开库房后门"],
+        misbeliefs: ["赵管事尚未察觉钥匙失踪"],
+        evidence: ["程秩把后门铜钥匙收进袖中。"],
+        confidence: 0.78,
+      },
+    ],
   });
   assert.equal(output.snapshots[0].evidence.length, 1);
-  assert.throws(() => characterMindSnapshotResponseSchema.parse({
-    snapshots: [{ ...output.snapshots[0], evidence: [] }],
-  }));
+  assert.throws(() =>
+    characterMindSnapshotResponseSchema.parse({
+      snapshots: [{ ...output.snapshots[0], evidence: [] }],
+    }),
+  );
 
-  const messages = characterMindSnapshotPrompt.render({ mode: "refresh" }, {
-    blocks: [
-      createContextBlock({ id: "roster", group: "character_mind_roster", priority: 100, required: true, content: "程秩" }),
-      createContextBlock({ id: "facts", group: "character_mind_facts", priority: 99, required: true, content: "程秩拿到后门铜钥匙。" }),
-    ],
-    selectedBlockIds: ["roster", "facts"],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const messages = characterMindSnapshotPrompt.render(
+    { mode: "refresh" },
+    {
+      blocks: [
+        createContextBlock({
+          id: "roster",
+          group: "character_mind_roster",
+          priority: 100,
+          required: true,
+          content: "程秩",
+        }),
+        createContextBlock({
+          id: "facts",
+          group: "character_mind_facts",
+          priority: 99,
+          required: true,
+          content: "程秩拿到后门铜钥匙。",
+        }),
+      ],
+      selectedBlockIds: ["roster", "facts"],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
   assert.match(String(messages[0].content), /主观推断/);
   assert.match(String(messages[0].content), /不得新增角色、身份、资源、事件、关系或秘密/);
 
@@ -333,38 +352,50 @@ test("character mind snapshot prompt keeps subjective reasoning evidence-backed"
 
 test("character influence prompt produces evidence-backed soft guidance", () => {
   const output = characterInfluenceOptionsResponseSchema.parse({
-    proposals: [{
-      title: "先验证盟友",
-      directionSummary: "先用小代价试探盟友，再决定是否交出线索。",
-      recommendationReason: "延续角色当前谨慎与信息缺口。",
-      isRecommended: true,
-      behaviorGuidance: "安排一次可撤回的试探，再决定是否合作。",
-      emotionalGuidance: "克制中保持戒备。",
-      relationTension: "盟友需要证明自己。",
-      readerPayoff: "读者看到信任在压力下逐步建立。",
-      risk: "试探过久会拖慢当下冲突。",
-      observableSignals: ["提出可验证的交换条件"],
-      evidence: ["程秩刚隐瞒了钥匙的真正用途。"],
-      confidence: 0.82,
-    }],
+    proposals: [
+      {
+        title: "先验证盟友",
+        directionSummary: "先用小代价试探盟友，再决定是否交出线索。",
+        recommendationReason: "延续角色当前谨慎与信息缺口。",
+        isRecommended: true,
+        behaviorGuidance: "安排一次可撤回的试探，再决定是否合作。",
+        emotionalGuidance: "克制中保持戒备。",
+        relationTension: "盟友需要证明自己。",
+        readerPayoff: "读者看到信任在压力下逐步建立。",
+        risk: "试探过久会拖慢当下冲突。",
+        observableSignals: ["提出可验证的交换条件"],
+        evidence: ["程秩刚隐瞒了钥匙的真正用途。"],
+        confidence: 0.82,
+      },
+    ],
   });
   assert.equal(output.proposals[0].evidence.length, 1);
-  assert.throws(() => characterInfluenceOptionsResponseSchema.parse({
-    proposals: [{ ...output.proposals[0], evidence: [] }],
-  }));
-
-  const messages = characterInfluenceOptionsPrompt.render({ mode: "refine" }, {
-    blocks: buildCharacterInfluenceContextBlocks({
-      target: "目标角色：程秩",
-      mind: "他仍怀疑盟友。",
-      facts: "程秩尚未交出钥匙。",
-      authorIntent: "希望他先克制试探。",
+  assert.throws(() =>
+    characterInfluenceOptionsResponseSchema.parse({
+      proposals: [{ ...output.proposals[0], evidence: [] }],
     }),
-    selectedBlockIds: ["character_influence_target", "character_influence_mind", "character_influence_facts", "character_influence_author_intent"],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  );
+
+  const messages = characterInfluenceOptionsPrompt.render(
+    { mode: "refine" },
+    {
+      blocks: buildCharacterInfluenceContextBlocks({
+        target: "目标角色：程秩",
+        mind: "他仍怀疑盟友。",
+        facts: "程秩尚未交出钥匙。",
+        authorIntent: "希望他先克制试探。",
+      }),
+      selectedBlockIds: [
+        "character_influence_target",
+        "character_influence_mind",
+        "character_influence_facts",
+        "character_influence_author_intent",
+      ],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
   const systemText = String(messages[0].content);
   assert.match(systemText, /严禁新增或改写身份、阵营、资源、地点、已发生事件/);
   assert.match(systemText, /软性角色行为倾向/);
@@ -383,24 +414,34 @@ test("character dialogue prompt preserves character agency and only extracts evi
     },
   });
   assert.equal(output.influenceDraft.evidence.length, 1);
-  assert.throws(() => characterDialogueTurnResponseSchema.parse({
-    ...output,
-    influenceDraft: { ...output.influenceDraft, evidence: [] },
-  }));
-
-  const messages = characterDialogueTurnPrompt.render({ mode: "turn" }, {
-    blocks: buildCharacterDialogueContextBlocks({
-      target: "目标角色：程秩",
-      mind: "他仍怀疑任何主动靠近的人。",
-      facts: "程秩尚未交出后门钥匙，也不知道库房守卫布置。",
-      authorMessage: "把钥匙交给盟友吧。",
-      history: "作者：你为什么不信他？\n程秩：因为他知道得太多。",
+  assert.throws(() =>
+    characterDialogueTurnResponseSchema.parse({
+      ...output,
+      influenceDraft: { ...output.influenceDraft, evidence: [] },
     }),
-    selectedBlockIds: ["character_dialogue_target", "character_dialogue_mind", "character_dialogue_facts", "character_dialogue_author_message"],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  );
+
+  const messages = characterDialogueTurnPrompt.render(
+    { mode: "turn" },
+    {
+      blocks: buildCharacterDialogueContextBlocks({
+        target: "目标角色：程秩",
+        mind: "他仍怀疑任何主动靠近的人。",
+        facts: "程秩尚未交出后门钥匙，也不知道库房守卫布置。",
+        authorMessage: "把钥匙交给盟友吧。",
+        history: "作者：你为什么不信他？\n程秩：因为他知道得太多。",
+      }),
+      selectedBlockIds: [
+        "character_dialogue_target",
+        "character_dialogue_mind",
+        "character_dialogue_facts",
+        "character_dialogue_author_message",
+      ],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
   const systemText = String(messages[0].content);
   assert.match(systemText, /可以拒绝、隐瞒、误解、反问/);
   assert.match(systemText, /不是客观事实/);
@@ -421,37 +462,40 @@ test("character cast prompt hardens real-name constraints and required gender ou
   const asset = getRegisteredPromptAsset("novel.character.castOptions", "v2");
   assert.ok(asset);
 
-  const messages = asset.render({
-    optionCount: 3,
-  }, {
-    blocks: [
-      createContextBlock({
-        id: "idea",
-        group: "idea_seed",
-        priority: 100,
-        required: true,
-        content: "打工人刘雪婷穿越到秦朝成为太监，最后发现自己竟然就是赵高。",
-      }),
-      createContextBlock({
-        id: "anchor",
-        group: "protagonist_anchor",
-        priority: 99,
-        required: true,
-        content: "主角当前身份：秦朝内廷太监。隐藏身份：赵高。",
-      }),
-      createContextBlock({
-        id: "policy",
-        group: "output_policy",
-        priority: 100,
-        required: true,
-        content: "name 不能写成功能位，每个角色都必须输出 gender。",
-      }),
-    ],
-    selectedBlockIds: ["idea", "anchor", "policy"],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const messages = asset.render(
+    {
+      optionCount: 3,
+    },
+    {
+      blocks: [
+        createContextBlock({
+          id: "idea",
+          group: "idea_seed",
+          priority: 100,
+          required: true,
+          content: "打工人刘雪婷穿越到秦朝成为太监，最后发现自己竟然就是赵高。",
+        }),
+        createContextBlock({
+          id: "anchor",
+          group: "protagonist_anchor",
+          priority: 99,
+          required: true,
+          content: "主角当前身份：秦朝内廷太监。隐藏身份：赵高。",
+        }),
+        createContextBlock({
+          id: "policy",
+          group: "output_policy",
+          priority: 100,
+          required: true,
+          content: "name 不能写成功能位，每个角色都必须输出 gender。",
+        }),
+      ],
+      selectedBlockIds: ["idea", "anchor", "policy"],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
   assert.equal(messages.length, 2);
   assert.match(String(messages[0].content), /绝对禁止把功能词写进 name/);
@@ -469,52 +513,55 @@ test("volume strategy prompt renders volume count guidance and fixed-count const
     hardPlannedVolumeRange: { min: 2, max: 4 },
   });
 
-  const messages = asset.render({
-    volumeCountGuidance: {
-      chapterBudget: 500,
-      targetChapterRange: { min: 40, ideal: 55, max: 70 },
-      allowedVolumeCountRange: { min: 1, max: 24 },
-      decisionVolumeCountRange: { min: 8, max: 13 },
-      volumeScaleProfile: "epic",
-      volumeCountRationale: "大长篇需要更多卷级回报节点。",
-      recommendedVolumeCount: 10,
-      systemRecommendedVolumeCount: 9,
-      hardPlannedVolumeRange: { min: 2, max: 4 },
-      userPreferredVolumeCount: 10,
-      respectedExistingVolumeCount: null,
+  const messages = asset.render(
+    {
+      volumeCountGuidance: {
+        chapterBudget: 500,
+        targetChapterRange: { min: 40, ideal: 55, max: 70 },
+        allowedVolumeCountRange: { min: 1, max: 24 },
+        decisionVolumeCountRange: { min: 8, max: 13 },
+        volumeScaleProfile: "epic",
+        volumeCountRationale: "大长篇需要更多卷级回报节点。",
+        recommendedVolumeCount: 10,
+        systemRecommendedVolumeCount: 9,
+        hardPlannedVolumeRange: { min: 2, max: 4 },
+        userPreferredVolumeCount: 10,
+        respectedExistingVolumeCount: null,
+      },
     },
-  }, {
-    blocks: [
-      createContextBlock({
-        id: "book-contract",
-        group: "book_contract",
-        priority: 100,
-        required: true,
-        content: "book contract: 长篇历史权谋穿越文，必须持续提供阶段性升级与身份反差回报。",
-      }),
-      createContextBlock({
-        id: "guidance",
-        group: "volume_count_guidance",
-        priority: 99,
-        required: true,
-        content: [
-          "chapter budget: 500",
-          "allowed volume count range: 1-24",
-          "decision volume count range: 8-13",
-          "volume scale profile: epic",
-          "volume count rationale: 大长篇需要更多卷级回报节点。",
-          "system recommended volume count: 9",
-          "active recommended volume count: 10",
-          "hard planned volume range: 2-4",
-          "user preferred volume count: 10",
-        ].join("\n"),
-      }),
-    ],
-    selectedBlockIds: ["book-contract", "guidance"],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+    {
+      blocks: [
+        createContextBlock({
+          id: "book-contract",
+          group: "book_contract",
+          priority: 100,
+          required: true,
+          content: "book contract: 长篇历史权谋穿越文，必须持续提供阶段性升级与身份反差回报。",
+        }),
+        createContextBlock({
+          id: "guidance",
+          group: "volume_count_guidance",
+          priority: 99,
+          required: true,
+          content: [
+            "chapter budget: 500",
+            "allowed volume count range: 1-24",
+            "decision volume count range: 8-13",
+            "volume scale profile: epic",
+            "volume count rationale: 大长篇需要更多卷级回报节点。",
+            "system recommended volume count: 9",
+            "active recommended volume count: 10",
+            "hard planned volume range: 2-4",
+            "user preferred volume count: 10",
+          ].join("\n"),
+        }),
+      ],
+      selectedBlockIds: ["book-contract", "guidance"],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
   assert.equal(messages.length, 2);
   assert.match(String(messages[0].content), /recommendedVolumeCount 必须严格等于 10/);
@@ -528,35 +575,47 @@ test("volume strategy prompt renders volume count guidance and fixed-count const
 test("registered volume strategy prompt uses the shared 24-volume ceiling", () => {
   const asset = getRegisteredPromptAsset("novel.volume.strategy", "v2");
   assert.ok(asset);
-  const messages = asset.render({}, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const messages = asset.render(
+    {},
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
-  assert.match(String(messages[0].content), /recommendedVolumeCount 必须落在结构建议区间 1-24 之间/);
+  assert.match(
+    String(messages[0].content),
+    /recommendedVolumeCount 必须落在结构建议区间 1-24 之间/,
+  );
 });
 
 test("volume skeleton prompt protects compact and long-form volume structures", () => {
-  const compactMessages = createVolumeSkeletonPrompt(3).render({}, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const compactMessages = createVolumeSkeletonPrompt(3).render(
+    {},
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
   assert.match(String(compactMessages[0].content), /3-4 卷/);
   assert.match(String(compactMessages[0].content), /三幕式或四段式结构/);
 
-  const longMessages = createVolumeSkeletonPrompt(12).render({}, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const longMessages = createVolumeSkeletonPrompt(12).render(
+    {},
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
   assert.match(String(longMessages[0].content), /12 卷以上/);
   assert.match(String(longMessages[0].content), /卖点轮换、压力源轮换和阶段兑现密度/);
 });
@@ -575,13 +634,15 @@ test("workspace diagnosis prompt requires english recommendedAction enum values"
     nextChapterBridge: "为下一章系统触发做铺垫",
     activePlotThreads: ["系统伏笔", "生存压力"],
     paragraphs: [{ index: 12, text: "主角在院中继续做杂活。" }],
-    openIssues: [{
-      severity: "medium",
-      auditType: "plot",
-      code: "pacing_slow",
-      evidence: "静态描写偏多。",
-      fixSuggestion: "压缩重复劳动描写。",
-    }],
+    openIssues: [
+      {
+        severity: "medium",
+        auditType: "plot",
+        code: "pacing_slow",
+        evidence: "静态描写偏多。",
+        fixSuggestion: "压缩重复劳动描写。",
+      },
+    ],
   });
 
   assert.match(String(messages[0].content), /recommendedAction 只能输出英文枚举值/);
@@ -623,39 +684,51 @@ test("character dynamics prompts harden plannedChapterOrders and confidence outp
     chapterContent: "赵高第一次被要求处理脏活。",
   });
 
-  assert.match(String(volumeMessages[0].content), /plannedChapterOrders 如果填写，必须是正整数数组/);
+  assert.match(
+    String(volumeMessages[0].content),
+    /plannedChapterOrders 如果填写，必须是正整数数组/,
+  );
   assert.match(String(volumeMessages[0].content), /绝不能输出 null、\[null\] 或字符串数组/);
   assert.match(String(volumeMessages[0].content), /不要输出 confidence/);
 
-  assert.match(String(chapterMessages[0].content), /confidence 是可选字段；如果填写，必须是 0-1 数字/);
-  assert.match(String(chapterMessages[0].content), /不要输出 5、10、80、百分数、中文等级或字符串化置信度/);
+  assert.match(
+    String(chapterMessages[0].content),
+    /confidence 是可选字段；如果填写，必须是 0-1 数字/,
+  );
+  assert.match(
+    String(chapterMessages[0].content),
+    /不要输出 5、10、80、百分数、中文等级或字符串化置信度/,
+  );
   assert.match(String(chapterMessages[0].content), /"confidence":0.8/);
 });
 
 test("chapter writer prompt does not expose scene contract controls", () => {
-  const messages = chapterWriterPrompt.render({
-    novelTitle: "测试小说",
-    chapterOrder: 1,
-    chapterTitle: "起势",
-    mode: "draft",
-    targetWordCount: 3000,
-    minWordCount: 2550,
-    maxWordCount: 3450,
-  }, {
-    blocks: [
-      createContextBlock({
-        id: "chapter-mission",
-        group: "chapter_mission",
-        priority: 100,
-        required: true,
-        content: "本章职责：完成第一次有效求生，并留下更大的外部压力。",
-      }),
-    ],
-    selectedBlockIds: ["chapter-mission"],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const messages = chapterWriterPrompt.render(
+    {
+      novelTitle: "测试小说",
+      chapterOrder: 1,
+      chapterTitle: "起势",
+      mode: "draft",
+      targetWordCount: 3000,
+      minWordCount: 2550,
+      maxWordCount: 3450,
+    },
+    {
+      blocks: [
+        createContextBlock({
+          id: "chapter-mission",
+          group: "chapter_mission",
+          priority: 100,
+          required: true,
+          content: "本章职责：完成第一次有效求生，并留下更大的外部压力。",
+        }),
+      ],
+      selectedBlockIds: ["chapter-mission"],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
   const systemContent = String(messages[0].content);
   const humanContent = String(messages[1].content);
@@ -722,7 +795,10 @@ test("writer guard strips forbidden context groups before prompt execution", () 
     }),
   ]);
 
-  assert.deepEqual(sanitized.allowedBlocks.map((block) => block.id), ["chapter_mission"]);
+  assert.deepEqual(
+    sanitized.allowedBlocks.map((block) => block.id),
+    ["chapter_mission"],
+  );
   assert.deepEqual(sanitized.removedBlockIds, ["full-outline", "anti-copy"]);
 });
 
@@ -730,40 +806,46 @@ test("chapter writer prompt carries explicit target length and continuation inst
   const asset = getRegisteredPromptAsset(chapterWriterPrompt.id, chapterWriterPrompt.version);
   assert.ok(asset);
 
-  const draftMessages = asset.render({
-    novelTitle: "霜轨档案",
-    chapterOrder: 4,
-    chapterTitle: "旧街反压",
-    mode: "draft",
-    targetWordCount: 3000,
-    minWordCount: 2550,
-    maxWordCount: 3450,
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const draftMessages = asset.render(
+    {
+      novelTitle: "霜轨档案",
+      chapterOrder: 4,
+      chapterTitle: "旧街反压",
+      mode: "draft",
+      targetWordCount: 3000,
+      minWordCount: 2550,
+      maxWordCount: 3450,
+    },
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
   assert.match(String(draftMessages[0].content), /本章目标长度：约 3000 字/);
   assert.match(String(draftMessages[0].content), /2550-3450/);
 
-  const continueMessages = asset.render({
-    novelTitle: "霜轨档案",
-    chapterOrder: 4,
-    chapterTitle: "旧街反压",
-    mode: "continue",
-    targetWordCount: 3000,
-    minWordCount: 2550,
-    maxWordCount: 3450,
-    missingWordGap: 900,
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const continueMessages = asset.render(
+    {
+      novelTitle: "霜轨档案",
+      chapterOrder: 4,
+      chapterTitle: "旧街反压",
+      mode: "continue",
+      targetWordCount: 3000,
+      minWordCount: 2550,
+      maxWordCount: 3450,
+      missingWordGap: 900,
+    },
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
   assert.match(String(continueMessages[0].content), /不得重写章节开头/);
   assert.match(String(continueMessages[0].content), /至少缺少约 900 字/);
   assert.match(String(continueMessages[1].content), /任务模式：补写当前章节/);
@@ -935,10 +1017,7 @@ test("compression log separates summarized blocks from dropped blocks", () => {
     id: "long_optional",
     group: "rag_context",
     priority: 90,
-    content: [
-      "H",
-      "A".repeat(120),
-    ].join("\n"),
+    content: ["H", "A".repeat(120)].join("\n"),
   });
   const nonSummarizableBlock = createContextBlock({
     id: "raw_dump",
@@ -948,11 +1027,10 @@ test("compression log separates summarized blocks from dropped blocks", () => {
     content: "B".repeat(120),
   });
 
-  const log = buildCompressionLog([
-    requiredBlock,
-    summarizableBlock,
-    nonSummarizableBlock,
-  ], requiredBlock.estimatedTokens + 6);
+  const log = buildCompressionLog(
+    [requiredBlock, summarizableBlock, nonSummarizableBlock],
+    requiredBlock.estimatedTokens + 6,
+  );
 
   assert.deepEqual(log.summarized, ["long_optional"]);
   assert.deepEqual(log.dropped, ["raw_dump"]);
@@ -960,55 +1038,64 @@ test("compression log separates summarized blocks from dropped blocks", () => {
 });
 
 test("workflow registry holds execution-first intents when collaboration is still required", () => {
-  const resolution = resolveWorkflow({
-    goal: "先一起打磨这本书，再决定要不要启动整本生成",
-    intent: "produce_novel",
-    confidence: 0.72,
-    requiresNovelContext: false,
-    interactionMode: "co_create",
-    assistantResponse: "offer_options",
-    shouldAskFollowup: true,
-    missingInfo: ["主线承诺"],
-    novelTitle: "信号轨道",
-    chapterSelectors: {},
-  }, {
-    goal: "先一起打磨这本书，再决定要不要启动整本生成",
-    messages: [],
-    contextMode: "global",
-  });
+  const resolution = resolveWorkflow(
+    {
+      goal: "先一起打磨这本书，再决定要不要启动整本生成",
+      intent: "produce_novel",
+      confidence: 0.72,
+      requiresNovelContext: false,
+      interactionMode: "co_create",
+      assistantResponse: "offer_options",
+      shouldAskFollowup: true,
+      missingInfo: ["主线承诺"],
+      novelTitle: "信号轨道",
+      chapterSelectors: {},
+    },
+    {
+      goal: "先一起打磨这本书，再决定要不要启动整本生成",
+      messages: [],
+      contextMode: "global",
+    },
+  );
 
   assert.equal(resolution.holdForCollaboration, true);
   assert.deepEqual(resolution.actions, []);
 });
 
 test("workflow registry expands produce_novel into the fixed production chain", () => {
-  const resolution = resolveWorkflow({
-    goal: "创建一本 18 章小说并启动整本生成",
-    intent: "produce_novel",
-    confidence: 0.95,
-    requiresNovelContext: false,
-    novelTitle: "信号轨道",
-    description: "一支打捞小队追逐木星附近漂流的档案站。",
-    targetChapterCount: 18,
-    chapterSelectors: {},
-  }, {
-    goal: "创建一本 18 章小说并启动整本生成",
-    messages: [],
-    contextMode: "global",
-  });
+  const resolution = resolveWorkflow(
+    {
+      goal: "创建一本 18 章小说并启动整本生成",
+      intent: "produce_novel",
+      confidence: 0.95,
+      requiresNovelContext: false,
+      novelTitle: "信号轨道",
+      description: "一支打捞小队追逐木星附近漂流的档案站。",
+      targetChapterCount: 18,
+      chapterSelectors: {},
+    },
+    {
+      goal: "创建一本 18 章小说并启动整本生成",
+      messages: [],
+      contextMode: "global",
+    },
+  );
 
-  assert.deepEqual(resolution.actions.map((action) => action.tool), [
-    "create_novel",
-    "generate_world_for_novel",
-    "bind_world_to_novel",
-    "generate_novel_characters",
-    "generate_story_bible",
-    "generate_novel_outline",
-    "generate_structured_outline",
-    "sync_chapters_from_structured_outline",
-    "preview_pipeline_run",
-    "queue_pipeline_run",
-  ]);
+  assert.deepEqual(
+    resolution.actions.map((action) => action.tool),
+    [
+      "create_novel",
+      "generate_world_for_novel",
+      "bind_world_to_novel",
+      "generate_novel_characters",
+      "generate_story_bible",
+      "generate_novel_outline",
+      "generate_structured_outline",
+      "sync_chapters_from_structured_outline",
+      "preview_pipeline_run",
+      "queue_pipeline_run",
+    ],
+  );
   assert.equal(resolution.actions[0].input.title, "信号轨道");
   assert.equal(resolution.actions[6].input.targetChapterCount, 18);
 });
@@ -1032,41 +1119,50 @@ test("workflow registry split keeps key workflow domains registered", () => {
 });
 
 test("planner chapter prompt post validator rejects structurally unusable chapter plans", () => {
-  assert.throws(() => plannerChapterPlanPrompt.postValidate({
-    title: "第 3 章",
-    objective: "",
-    participants: [],
-    reveals: [],
-    riskNotes: [],
-    hookTarget: "",
-    planRole: null,
-    phaseLabel: "",
-    mustAdvance: [],
-    mustPreserve: [],
-    scenes: [],
-  }, {
-    scopeLabel: "章节规划",
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  }));
+  assert.throws(() =>
+    plannerChapterPlanPrompt.postValidate(
+      {
+        title: "第 3 章",
+        objective: "",
+        participants: [],
+        reveals: [],
+        riskNotes: [],
+        hookTarget: "",
+        planRole: null,
+        phaseLabel: "",
+        mustAdvance: [],
+        mustPreserve: [],
+        scenes: [],
+      },
+      {
+        scopeLabel: "章节规划",
+      },
+      {
+        blocks: [],
+        selectedBlockIds: [],
+        droppedBlockIds: [],
+        summarizedBlockIds: [],
+        estimatedInputTokens: 0,
+      },
+    ),
+  );
 });
 
 test("genre prompt render hardens retry instructions and forced JSON mode", () => {
-  const messages = genreTreePrompt.render({
-    prompt: "都市异能，主角从底层逆袭",
-    retry: true,
-    forceJson: true,
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const messages = genreTreePrompt.render(
+    {
+      prompt: "都市异能，主角从底层逆袭",
+      retry: true,
+      forceJson: true,
+    },
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
   assert.equal(messages.length, 2);
   assert.match(String(messages[0].content), /只能返回一个 JSON 对象/);
@@ -1075,26 +1171,29 @@ test("genre prompt render hardens retry instructions and forced JSON mode", () =
 });
 
 test("title prompt render includes retry reason for regeneration attempts", () => {
-  const messages = titleGenerationPrompt.render({
-    context: {
-      mode: "brief",
-      count: 8,
-      brief: "赛博修仙，主角靠因果算法登仙",
-      referenceTitle: "",
-      novelTitle: "",
-      currentTitle: "",
-      genreName: "仙侠",
-      genreDescription: "赛博与修仙融合",
+  const messages = titleGenerationPrompt.render(
+    {
+      context: {
+        mode: "brief",
+        count: 8,
+        brief: "赛博修仙，主角靠因果算法登仙",
+        referenceTitle: "",
+        novelTitle: "",
+        currentTitle: "",
+        genreName: "仙侠",
+        genreDescription: "赛博与修仙融合",
+      },
+      forceJson: true,
+      retryReason: "标题风格分布过窄",
     },
-    forceJson: true,
-    retryReason: "标题风格分布过窄",
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
   assert.equal(messages.length, 2);
   assert.match(String(messages[0].content), /标题风格分布过窄/);
@@ -1103,33 +1202,36 @@ test("title prompt render includes retry reason for regeneration attempts", () =
 });
 
 test("story mode child prompt render includes parent and sibling grounding", () => {
-  const messages = storyModeChildPrompt.render({
-    prompt: "",
-    count: 3,
-    parentName: "种田流",
-    parentDescription: "围绕稳定经营、资源积累和生活改善展开。",
-    parentTemplate: "起步困境 -> 小规模经营 -> 阶段扩张 -> 稳定兑现",
-    parentProfile: {
-      coreDrive: "通过持续经营和阶段性改善推动连载体验。",
-      readerReward: "看到生活逐步变好和资源持续积累。",
-      progressionUnits: ["经营节点", "关系升温"],
-      allowedConflictForms: ["经营压力", "邻里摩擦"],
-      forbiddenConflictForms: ["无缘无故的极端生死战"],
-      conflictCeiling: "medium",
-      resolutionStyle: "用经营成果和关系修复化解问题。",
-      chapterUnit: "一章解决一个经营或关系小问题。",
-      volumeReward: "完成一轮生活升级或产业升级。",
-      mandatorySignals: ["稳定改善", "可见积累"],
-      antiSignals: ["长期脱离经营主线", "冲突烈度失控"],
+  const messages = storyModeChildPrompt.render(
+    {
+      prompt: "",
+      count: 3,
+      parentName: "种田流",
+      parentDescription: "围绕稳定经营、资源积累和生活改善展开。",
+      parentTemplate: "起步困境 -> 小规模经营 -> 阶段扩张 -> 稳定兑现",
+      parentProfile: {
+        coreDrive: "通过持续经营和阶段性改善推动连载体验。",
+        readerReward: "看到生活逐步变好和资源持续积累。",
+        progressionUnits: ["经营节点", "关系升温"],
+        allowedConflictForms: ["经营压力", "邻里摩擦"],
+        forbiddenConflictForms: ["无缘无故的极端生死战"],
+        conflictCeiling: "medium",
+        resolutionStyle: "用经营成果和关系修复化解问题。",
+        chapterUnit: "一章解决一个经营或关系小问题。",
+        volumeReward: "完成一轮生活升级或产业升级。",
+        mandatorySignals: ["稳定改善", "可见积累"],
+        antiSignals: ["长期脱离经营主线", "冲突烈度失控"],
+      },
+      existingSiblingNames: ["基建种田流", "日常治愈种田流"],
     },
-    existingSiblingNames: ["基建种田流", "日常治愈种田流"],
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
   assert.equal(messages.length, 2);
   assert.match(String(messages[0].content), /必须精确生成 3 个子类节点/);
@@ -1140,47 +1242,52 @@ test("story mode child prompt render includes parent and sibling grounding", () 
 });
 
 test("story mode child prompt post validator rejects duplicate sibling names and grandchildren", () => {
-  assert.throws(() => storyModeChildPrompt.postValidate([
-    {
-      name: "基建种田流",
-      description: "描述",
-      template: "模板",
-      profile: {
-        coreDrive: "推进",
-        readerReward: "奖励",
-        progressionUnits: ["推进单元"],
-        allowedConflictForms: ["允许冲突"],
-        forbiddenConflictForms: ["禁止冲突"],
-        conflictCeiling: "medium",
-        resolutionStyle: "化解方式",
-        chapterUnit: "章节单位",
-        volumeReward: "卷奖励",
-        mandatorySignals: ["必备信号"],
-        antiSignals: ["反信号"],
+  assert.throws(() =>
+    storyModeChildPrompt.postValidate(
+      [
+        {
+          name: "基建种田流",
+          description: "描述",
+          template: "模板",
+          profile: {
+            coreDrive: "推进",
+            readerReward: "奖励",
+            progressionUnits: ["推进单元"],
+            allowedConflictForms: ["允许冲突"],
+            forbiddenConflictForms: ["禁止冲突"],
+            conflictCeiling: "medium",
+            resolutionStyle: "化解方式",
+            chapterUnit: "章节单位",
+            volumeReward: "卷奖励",
+            mandatorySignals: ["必备信号"],
+            antiSignals: ["反信号"],
+          },
+          children: [{ name: "孙级节点" }],
+        },
+      ],
+      {
+        prompt: "补一个偏经营执行的子类",
+        count: 1,
+        parentName: "种田流",
+        parentDescription: "围绕经营展开。",
+        parentTemplate: "",
+        parentProfile: {
+          coreDrive: "通过经营推进。",
+          readerReward: "看经营改善。",
+          progressionUnits: ["经营节点"],
+          allowedConflictForms: ["经营摩擦"],
+          forbiddenConflictForms: ["极端大战"],
+          conflictCeiling: "medium",
+          resolutionStyle: "经营修复。",
+          chapterUnit: "一章一个小目标。",
+          volumeReward: "一卷一次升级。",
+          mandatorySignals: ["持续改善"],
+          antiSignals: ["脱离经营主线"],
+        },
+        existingSiblingNames: ["基建种田流"],
       },
-      children: [{ name: "孙级节点" }],
-    },
-  ], {
-    prompt: "补一个偏经营执行的子类",
-    count: 1,
-    parentName: "种田流",
-    parentDescription: "围绕经营展开。",
-    parentTemplate: "",
-    parentProfile: {
-      coreDrive: "通过经营推进。",
-      readerReward: "看经营改善。",
-      progressionUnits: ["经营节点"],
-      allowedConflictForms: ["经营摩擦"],
-      forbiddenConflictForms: ["极端大战"],
-      conflictCeiling: "medium",
-      resolutionStyle: "经营修复。",
-      chapterUnit: "一章一个小目标。",
-      volumeReward: "一卷一次升级。",
-      mandatorySignals: ["持续改善"],
-      antiSignals: ["脱离经营主线"],
-    },
-    existingSiblingNames: ["基建种田流"],
-  }));
+    ),
+  );
 });
 
 test("story mode expansion prompt uses the library summary to find distinct additions", () => {
@@ -1209,163 +1316,240 @@ test("story mode expansion prompt uses the library summary to find distinct addi
   const rendered = messages.map((message) => String(message.content)).join("\n");
   assert.match(rendered, /当前推进模式库摘要/);
   assert.match(rendered, /增长|探索/);
-  assert.throws(() => storyModeExpansionPrompt.postValidate([{
-    name: "升级成长",
-    description: "重复",
-    template: "重复",
-    profile: {
-      coreDrive: "重复", readerReward: "重复", progressionUnits: ["重复"], allowedConflictForms: ["重复"], forbiddenConflictForms: ["重复"], conflictCeiling: "medium", resolutionStyle: "重复", chapterUnit: "重复", volumeReward: "重复", mandatorySignals: ["重复"], antiSignals: ["重复"],
-    },
-    children: [],
-  }, {
-    name: "探索远征",
-    description: "探索不同区域",
-    template: "探索并兑现地图资源",
-    profile: {
-      coreDrive: "探索", readerReward: "发现", progressionUnits: ["区域"], allowedConflictForms: ["未知威胁"], forbiddenConflictForms: ["无意义内耗"], conflictCeiling: "high", resolutionStyle: "发现与突破", chapterUnit: "新区域", volumeReward: "地图推进", mandatorySignals: ["新发现"], antiSignals: ["重复地图"],
-    },
-    children: [],
-  }], {
-    count: 2,
-    parentName: "成长冒险",
-    parentDescription: "", parentTemplate: "", parentProfile: {
-      coreDrive: "升级", readerReward: "成长", progressionUnits: ["挑战"], allowedConflictForms: ["挑战"], forbiddenConflictForms: ["无"], conflictCeiling: "high", resolutionStyle: "突破", chapterUnit: "挑战", volumeReward: "成长", mandatorySignals: ["成长"], antiSignals: ["重复"],
-    }, existingSiblingNames: ["升级成长"], librarySummary: "", prompt: "",
-  }));
+  assert.throws(() =>
+    storyModeExpansionPrompt.postValidate(
+      [
+        {
+          name: "升级成长",
+          description: "重复",
+          template: "重复",
+          profile: {
+            coreDrive: "重复",
+            readerReward: "重复",
+            progressionUnits: ["重复"],
+            allowedConflictForms: ["重复"],
+            forbiddenConflictForms: ["重复"],
+            conflictCeiling: "medium",
+            resolutionStyle: "重复",
+            chapterUnit: "重复",
+            volumeReward: "重复",
+            mandatorySignals: ["重复"],
+            antiSignals: ["重复"],
+          },
+          children: [],
+        },
+        {
+          name: "探索远征",
+          description: "探索不同区域",
+          template: "探索并兑现地图资源",
+          profile: {
+            coreDrive: "探索",
+            readerReward: "发现",
+            progressionUnits: ["区域"],
+            allowedConflictForms: ["未知威胁"],
+            forbiddenConflictForms: ["无意义内耗"],
+            conflictCeiling: "high",
+            resolutionStyle: "发现与突破",
+            chapterUnit: "新区域",
+            volumeReward: "地图推进",
+            mandatorySignals: ["新发现"],
+            antiSignals: ["重复地图"],
+          },
+          children: [],
+        },
+      ],
+      {
+        count: 2,
+        parentName: "成长冒险",
+        parentDescription: "",
+        parentTemplate: "",
+        parentProfile: {
+          coreDrive: "升级",
+          readerReward: "成长",
+          progressionUnits: ["挑战"],
+          allowedConflictForms: ["挑战"],
+          forbiddenConflictForms: ["无"],
+          conflictCeiling: "high",
+          resolutionStyle: "突破",
+          chapterUnit: "挑战",
+          volumeReward: "成长",
+          mandatorySignals: ["成长"],
+          antiSignals: ["重复"],
+        },
+        existingSiblingNames: ["升级成长"],
+        librarySummary: "",
+        prompt: "",
+      },
+    ),
+  );
 });
 
-test.skip("book analysis source note prompt enforces grounded Chinese extraction", { skip: "Prompt text snapshot is pending migration to prompt asset contract assertions." }, () => {
-  const messages = bookAnalysisSourceNotePrompt.render({
-    segmentLabel: "片段 1",
-    segmentContent: "主角在雨夜第一次见到反派组织的信使。",
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+test.skip(
+  "book analysis source note prompt enforces grounded Chinese extraction",
+  { skip: "Prompt text snapshot is pending migration to prompt asset contract assertions." },
+  () => {
+    const messages = bookAnalysisSourceNotePrompt.render(
+      {
+        segmentLabel: "片段 1",
+        segmentContent: "主角在雨夜第一次见到反派组织的信使。",
+      },
+      {
+        blocks: [],
+        selectedBlockIds: [],
+        droppedBlockIds: [],
+        summarizedBlockIds: [],
+        estimatedInputTokens: 0,
+      },
+    );
 
-  assert.equal(messages.length, 2);
-  assert.match(String(messages[0].content), /只提取片段里明确存在或可低风险归纳的信息/);
-  assert.match(String(messages[0].content), /禁止补写原文没有直接体现的人物动机、世界设定/);
-  assert.match(String(messages[0].content), /evidence：提供最多3条证据/);
-});
+    assert.equal(messages.length, 2);
+    assert.match(String(messages[0].content), /只提取片段里明确存在或可低风险归纳的信息/);
+    assert.match(String(messages[0].content), /禁止补写原文没有直接体现的人物动机、世界设定/);
+    assert.match(String(messages[0].content), /evidence：提供最多3条证据/);
+  },
+);
 
-test.skip("book analysis section prompt includes section-specific structuredData contract", { skip: "Prompt text snapshot is pending migration to prompt asset contract assertions." }, () => {
-  const messages = bookAnalysisSectionPrompt.render({
-    sectionKey: "overview",
-    sectionTitle: "拆书总览",
-    promptFocus: "覆盖：一句话定位、题材标签、卖点标签。",
-    notesText: "## 片段 1\n摘要：主角在底层逆袭。",
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+test.skip(
+  "book analysis section prompt includes section-specific structuredData contract",
+  { skip: "Prompt text snapshot is pending migration to prompt asset contract assertions." },
+  () => {
+    const messages = bookAnalysisSectionPrompt.render(
+      {
+        sectionKey: "overview",
+        sectionTitle: "拆书总览",
+        promptFocus: "覆盖：一句话定位、题材标签、卖点标签。",
+        notesText: "## 片段 1\n摘要：主角在底层逆袭。",
+      },
+      {
+        blocks: [],
+        selectedBlockIds: [],
+        droppedBlockIds: [],
+        summarizedBlockIds: [],
+        estimatedInputTokens: 0,
+      },
+    );
 
-  assert.equal(messages.length, 2);
-  assert.match(String(messages[0].content), /oneLinePositioning/);
-  assert.match(String(messages[0].content), /genreTags/);
-  assert.match(String(messages[0].content), /若依据不足，必须明确承认“材料不足”/);
-  assert.match(String(messages[0].content), /evidence 只保留最能支撑结论的 3-8 条证据/);
-});
+    assert.equal(messages.length, 2);
+    assert.match(String(messages[0].content), /oneLinePositioning/);
+    assert.match(String(messages[0].content), /genreTags/);
+    assert.match(String(messages[0].content), /若依据不足，必须明确承认“材料不足”/);
+    assert.match(String(messages[0].content), /evidence 只保留最能支撑结论的 3-8 条证据/);
+  },
+);
 
 test("book analysis source note prompt exposes reader and weakness signal extraction", () => {
-  const messages = bookAnalysisSourceNotePrompt.render({
-    segmentLabel: "片段 1",
-    segmentContent: "主角在雨夜第一次见到反派组织的信使。",
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const messages = bookAnalysisSourceNotePrompt.render(
+    {
+      segmentLabel: "片段 1",
+      segmentContent: "主角在雨夜第一次见到反派组织的信使。",
+    },
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
   assert.equal(messages.length, 2);
   assert.match(String(messages[0].content), /只提取片段里明确存在或可做低风险归纳的信息/);
-  assert.match(String(messages[0].content), /禁止补写原文没有直接体现的人物深层动机、隐藏因果、作者意图、整书级结论或过强市场判断/);
+  assert.match(
+    String(messages[0].content),
+    /禁止补写原文没有直接体现的人物深层动机、隐藏因果、作者意图、整书级结论或过强市场判断/,
+  );
   assert.match(String(messages[0].content), /"readerSignals": \["\.\.\."\]/);
   assert.match(String(messages[0].content), /"weaknessSignals": \["\.\.\."\]/);
   assert.match(String(messages[0].content), /evidence：提供最多 3 条证据/);
 });
 
 test("book analysis overview prompt encourages low-risk synthesis with direct section structure", () => {
-  const messages = bookAnalysisSectionPrompt.render({
-    sectionKey: "overview",
-    sectionTitle: "拆书总览",
-    promptFocus: "覆盖：一句话定位、题材标签、卖点标签、目标读者、整体优势、整体短板。",
-    notesText: "## 片段 1\n摘要：主角在底层逆袭。",
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+  const messages = bookAnalysisSectionPrompt.render(
+    {
+      sectionKey: "overview",
+      sectionTitle: "拆书总览",
+      promptFocus: "覆盖：一句话定位、题材标签、卖点标签、目标读者、整体优势、整体短板。",
+      notesText: "## 片段 1\n摘要：主角在底层逆袭。",
+    },
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
   assert.equal(messages.length, 2);
   assert.match(String(messages[0].content), /oneLinePositioning/);
   assert.match(String(messages[0].content), /genreTags/);
   assert.match(String(messages[0].content), /## 一句话定位/);
-  assert.match(String(messages[0].content), /不要写成“总体判断 \/ 重点分析 \/ 保留判断或局限说明”这种审计报告结构/);
+  assert.match(
+    String(messages[0].content),
+    /不要写成“总体判断 \/ 重点分析 \/ 保留判断或局限说明”这种审计报告结构/,
+  );
   assert.match(String(messages[0].content), /允许基于多条 notes 做低风险综合判断/);
   assert.match(String(messages[0].content), /evidence 只保留最能支撑结论的 3-8 条证据/);
 });
 
 test("world draft generation post validator requires requested dimension coverage", () => {
-  assert.throws(() => worldDraftGenerationPrompt.postValidate({
-    description: "世界概述",
-    background: "时代背景",
-    conflicts: "主要冲突",
-    cultures: "社会风貌",
-    politics: "",
-    races: "",
-    religions: "",
-    factions: "",
-  }, {
-    name: "雾潮城",
-    description: "港城蒸汽与异能并存",
-    worldType: "蒸汽异能",
-    complexity: "standard",
-    dimensions: {
-      geography: false,
-      culture: true,
-      magicSystem: false,
-      technology: false,
-      history: false,
-    },
-  }));
+  assert.throws(() =>
+    worldDraftGenerationPrompt.postValidate(
+      {
+        description: "世界概述",
+        background: "时代背景",
+        conflicts: "主要冲突",
+        cultures: "社会风貌",
+        politics: "",
+        races: "",
+        religions: "",
+        factions: "",
+      },
+      {
+        name: "雾潮城",
+        description: "港城蒸汽与异能并存",
+        worldType: "蒸汽异能",
+        complexity: "standard",
+        dimensions: {
+          geography: false,
+          culture: true,
+          magicSystem: false,
+          technology: false,
+          history: false,
+        },
+      },
+    ),
+  );
 });
 
 test("world skeleton prompt keeps large world output within a recoverable one-shot budget", () => {
-  const messages = worldSkeletonGenerationPrompt.render({
-    idea: "灵气复苏后的都市调查故事",
-    worldType: "都市异能",
-    template: "现代都市",
-    referenceContext: null,
-    blueprint: null,
-    options: {
-      preset: "epic",
-      counts: {
-        rules: 6,
-        factionGroups: 4,
-        forces: 7,
-        locations: 9,
-        conflicts: 6,
-        storyEntrySuggestions: 4,
+  const messages = worldSkeletonGenerationPrompt.render(
+    {
+      idea: "灵气复苏后的都市调查故事",
+      worldType: "都市异能",
+      template: "现代都市",
+      referenceContext: null,
+      blueprint: null,
+      options: {
+        preset: "epic",
+        counts: {
+          rules: 6,
+          factionGroups: 4,
+          forces: 7,
+          locations: 9,
+          conflicts: 6,
+          storyEntrySuggestions: 4,
+        },
       },
     },
-  }, {
-    blocks: [],
-    selectedBlockIds: [],
-    droppedBlockIds: [],
-    summarizedBlockIds: [],
-    estimatedInputTokens: 0,
-  });
+    {
+      blocks: [],
+      selectedBlockIds: [],
+      droppedBlockIds: [],
+      summarizedBlockIds: [],
+      estimatedInputTokens: 0,
+    },
+  );
 
   assert.equal(worldSkeletonGenerationPrompt.version, "v2");
   assert.equal(worldSkeletonGenerationPrompt.repairPolicy.maxAttempts, 0);
@@ -1375,15 +1559,15 @@ test("world skeleton prompt keeps large world output within a recoverable one-sh
 });
 
 test("world draft refine alternatives post validator enforces exact alternative count", () => {
-  assert.throws(() => worldDraftRefineAlternativesPrompt.postValidate([
-    { title: "方向 A", content: "内容 A" },
-  ], {
-    worldName: "雾潮城",
-    attribute: "background",
-    refinementLevel: "deep",
-    currentValue: "原始背景",
-    count: 2,
-  }));
+  assert.throws(() =>
+    worldDraftRefineAlternativesPrompt.postValidate([{ title: "方向 A", content: "内容 A" }], {
+      worldName: "雾潮城",
+      attribute: "background",
+      refinementLevel: "deep",
+      currentValue: "原始背景",
+      count: 2,
+    }),
+  );
 });
 
 test("runStructuredPrompt forwards repair policy and context telemetry", async () => {
@@ -1425,11 +1609,7 @@ test("runStructuredPrompt forwards repair policy and context telemetry", async (
           group: "core",
           priority: 100,
           required: true,
-          content: [
-            "核心设定：",
-            "压迫。",
-            "高压都市异能成长。".repeat(20),
-          ].join("\n"),
+          content: ["核心设定：", "压迫。", "高压都市异能成长。".repeat(20)].join("\n"),
         }),
         createContextBlock({
           id: "overflow-1",
@@ -1507,13 +1687,15 @@ test("runStructuredPrompt retries semantically after postValidate failure", asyn
         phaseLabel: "第一次正面推进",
         mustAdvance: ["锁定敌人动作路径"],
         mustPreserve: ["主角仍处于弱势"],
-        scenes: [{
-          title: "夜巷追踪",
-          objective: "发现异常交易",
-          conflict: "监察队阻拦调查",
-          reveal: "敌人已经提前渗透",
-          emotionBeat: "紧张升级",
-        }],
+        scenes: [
+          {
+            title: "夜巷追踪",
+            objective: "发现异常交易",
+            conflict: "监察队阻拦调查",
+            reveal: "敌人已经提前渗透",
+            emotionBeat: "紧张升级",
+          },
+        ],
       },
       repairUsed: true,
       repairAttempts: 1,
@@ -1533,8 +1715,14 @@ test("runStructuredPrompt retries semantically after postValidate failure", asyn
     assert.equal(calls[0].promptMeta.semanticRetryAttempts, 0);
     assert.equal(calls[1].promptMeta.semanticRetryUsed, true);
     assert.equal(calls[1].promptMeta.semanticRetryAttempts, 1);
-    assert.match(String(calls[1].messages[calls[1].messages.length - 1].content), /Planner output is missing objective/);
-    assert.match(String(calls[1].messages[calls[1].messages.length - 1].content), /上一次的 JSON 输出/);
+    assert.match(
+      String(calls[1].messages[calls[1].messages.length - 1].content),
+      /Planner output is missing objective/,
+    );
+    assert.match(
+      String(calls[1].messages[calls[1].messages.length - 1].content),
+      /上一次的 JSON 输出/,
+    );
     assert.equal(result.output.planRole, "progress");
     assert.equal(result.meta.invocation.repairUsed, true);
     assert.equal(result.meta.invocation.repairAttempts, 1);
@@ -1588,11 +1776,9 @@ test("streamTextPrompt buffers streamed output and resolves completion metadata"
           group: "core",
           priority: 100,
           required: true,
-          content: [
-            "核心规则：",
-            "外显。",
-            "动作先于解释，情绪必须通过行为体现。".repeat(20),
-          ].join("\n"),
+          content: ["核心规则：", "外显。", "动作先于解释，情绪必须通过行为体现。".repeat(20)].join(
+            "\n",
+          ),
         }),
         createContextBlock({
           id: "overflow-1",
@@ -1679,16 +1865,17 @@ test("prompt runner records failed executions without swallowing the original er
 
   try {
     await assert.rejects(
-      () => runTextPrompt({
-        asset: styleRewritePrompt,
-        promptInput: {
-          styleBlock: "叙事紧凑",
-          characterBlock: "动作表达情绪",
-          antiAiBlock: "禁止解释性心理描写",
-          content: "原文",
-          issuesBlock: "问题",
-        },
-      }),
+      () =>
+        runTextPrompt({
+          asset: styleRewritePrompt,
+          promptInput: {
+            styleBlock: "叙事紧凑",
+            characterBlock: "动作表达情绪",
+            antiAiBlock: "禁止解释性心理描写",
+            content: "原文",
+            issuesBlock: "问题",
+          },
+        }),
       (error) => error === originalError,
     );
     const telemetry = getSinglePromptQualityEntry();
@@ -1898,9 +2085,7 @@ test("chapter writer context text uses reader-facing labels instead of raw machi
   assert.doesNotMatch(bookContract, /Genre:/);
 
   const stateSummary = summarizeStateSnapshot({
-    characterRoster: [
-      { id: "cmqyvxq0w0044q8v1xsifezci", name: "陈默" },
-    ],
+    characterRoster: [{ id: "cmqyvxq0w0044q8v1xsifezci", name: "陈默" }],
     stateSnapshot: {
       summary: "小说：数字猎杀",
       characterStates: [
@@ -2032,7 +2217,10 @@ test("runTextPrompt uses active book-scoped advanced template for chapter writer
         kind: "chat",
         messages: [
           { role: "system", content: "CUSTOM SYSTEM {{slot.writer.tonePreference}}" },
-          { role: "human", content: "CUSTOM HUMAN {{input.chapterTitle}}\n{{context.chapter_mission}}" },
+          {
+            role: "human",
+            content: "CUSTOM HUMAN {{input.chapterTitle}}\n{{context.chapter_mission}}",
+          },
         ],
       },
     };
@@ -2084,8 +2272,8 @@ test("streamStructuredPrompt parses streamed JSON and preserves telemetry", asyn
   setPromptRunnerLLMFactoryForTests(async () => ({
     stream: async () => ({
       async *[Symbol.asyncIterator]() {
-        yield { content: "{\"name\":\"都市\"" };
-        yield { content: ",\"description\":\"异能成长\",\"children\":[]}" };
+        yield { content: '{"name":"都市"' };
+        yield { content: ',"description":"异能成长","children":[]}' };
       },
     }),
   }));
@@ -2104,11 +2292,9 @@ test("streamStructuredPrompt parses streamed JSON and preserves telemetry", asyn
           group: "core",
           priority: 100,
           required: true,
-          content: [
-            "核心设定：",
-            "成长。",
-            "都市异能成长，底层主角持续承压。".repeat(20),
-          ].join("\n"),
+          content: ["核心设定：", "成长。", "都市异能成长，底层主角持续承压。".repeat(20)].join(
+            "\n",
+          ),
         }),
         createContextBlock({
           id: "overflow-1",
@@ -2141,8 +2327,8 @@ test("streamStructuredPrompt parses top-level array outputs and ignores trailing
         yield {
           content: [
             "[",
-            "{\"name\":\"经营种田流\",\"description\":\"偏经营与资源积累\",\"template\":\"起步经营 -> 扩张增产\",\"profile\":{\"coreDrive\":\"通过持续经营推进连载\",\"readerReward\":\"看资源积累与生活改善\",\"progressionUnits\":[\"经营节点\"],\"allowedConflictForms\":[\"经营压力\"],\"forbiddenConflictForms\":[\"无缘无故的极端大战\"],\"conflictCeiling\":\"medium\",\"resolutionStyle\":\"靠经营成果化解问题\",\"chapterUnit\":\"每章解决一个经营小问题\",\"volumeReward\":\"完成一次产业升级\",\"mandatorySignals\":[\"稳定改善\"],\"antiSignals\":[\"长期脱离经营主线\"]},\"children\":[]},",
-            "{\"name\":\"人情种田流\",\"description\":\"偏邻里互动与关系经营\",\"template\":\"落地安家 -> 人情往来 -> 关系兑现\",\"profile\":{\"coreDrive\":\"通过人情关系与生活改善推进故事\",\"readerReward\":\"看关系升温与日常兑现\",\"progressionUnits\":[\"关系节点\"],\"allowedConflictForms\":[\"邻里摩擦\"],\"forbiddenConflictForms\":[\"无端灭门大战\"],\"conflictCeiling\":\"medium\",\"resolutionStyle\":\"靠关系修复与生活改善收束\",\"chapterUnit\":\"每章推进一个人情或生活小目标\",\"volumeReward\":\"形成稳定社群或生活圈\",\"mandatorySignals\":[\"生活感\",\"关系升温\"],\"antiSignals\":[\"长期偏离日常主线\"]},\"children\":[]}",
+            '{"name":"经营种田流","description":"偏经营与资源积累","template":"起步经营 -> 扩张增产","profile":{"coreDrive":"通过持续经营推进连载","readerReward":"看资源积累与生活改善","progressionUnits":["经营节点"],"allowedConflictForms":["经营压力"],"forbiddenConflictForms":["无缘无故的极端大战"],"conflictCeiling":"medium","resolutionStyle":"靠经营成果化解问题","chapterUnit":"每章解决一个经营小问题","volumeReward":"完成一次产业升级","mandatorySignals":["稳定改善"],"antiSignals":["长期脱离经营主线"]},"children":[]},',
+            '{"name":"人情种田流","description":"偏邻里互动与关系经营","template":"落地安家 -> 人情往来 -> 关系兑现","profile":{"coreDrive":"通过人情关系与生活改善推进故事","readerReward":"看关系升温与日常兑现","progressionUnits":["关系节点"],"allowedConflictForms":["邻里摩擦"],"forbiddenConflictForms":["无端灭门大战"],"conflictCeiling":"medium","resolutionStyle":"靠关系修复与生活改善收束","chapterUnit":"每章推进一个人情或生活小目标","volumeReward":"形成稳定社群或生活圈","mandatorySignals":["生活感","关系升温"],"antiSignals":["长期偏离日常主线"]},"children":[]}',
             "]\n以上为候选。",
           ].join(""),
         };
@@ -2198,8 +2384,14 @@ test("streamStructuredPrompt can recover with semantic retry after streamed outp
   setPromptRunnerLLMFactoryForTests(async () => ({
     stream: async () => ({
       async *[Symbol.asyncIterator]() {
-        yield { content: "{\"title\":\"第 3 章\",\"objective\":\"\",\"participants\":[],\"reveals\":[],\"riskNotes\":[]," };
-        yield { content: "\"hookTarget\":\"\",\"planRole\":null,\"phaseLabel\":\"\",\"mustAdvance\":[],\"mustPreserve\":[],\"scenes\":[]}" };
+        yield {
+          content:
+            '{"title":"第 3 章","objective":"","participants":[],"reveals":[],"riskNotes":[],',
+        };
+        yield {
+          content:
+            '"hookTarget":"","planRole":null,"phaseLabel":"","mustAdvance":[],"mustPreserve":[],"scenes":[]}',
+        };
       },
     }),
   }));
@@ -2217,13 +2409,15 @@ test("streamStructuredPrompt can recover with semantic retry after streamed outp
         phaseLabel: "威胁显形",
         mustAdvance: ["确认敌方布局"],
         mustPreserve: ["主角仍然缺乏资源"],
-        scenes: [{
-          title: "暗巷截获",
-          objective: "拿到敌方信号",
-          conflict: "探子准备灭口",
-          reveal: "城防内部已有内应",
-          emotionBeat: "危机升级",
-        }],
+        scenes: [
+          {
+            title: "暗巷截获",
+            objective: "拿到敌方信号",
+            conflict: "探子准备灭口",
+            reveal: "城防内部已有内应",
+            emotionBeat: "危机升级",
+          },
+        ],
       },
       repairUsed: false,
       repairAttempts: 0,
@@ -2246,7 +2440,10 @@ test("streamStructuredPrompt can recover with semantic retry after streamed outp
     assert.ok(retryCall);
     assert.equal(retryCall.promptMeta.semanticRetryUsed, true);
     assert.equal(retryCall.promptMeta.semanticRetryAttempts, 1);
-    assert.match(String(retryCall.messages[retryCall.messages.length - 1].content), /Planner output is missing objective/);
+    assert.match(
+      String(retryCall.messages[retryCall.messages.length - 1].content),
+      /Planner output is missing objective/,
+    );
     assert.equal(completed.output.planRole, "progress");
     assert.equal(completed.meta.invocation.semanticRetryUsed, true);
     assert.equal(completed.meta.invocation.semanticRetryAttempts, 1);

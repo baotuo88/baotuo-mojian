@@ -82,10 +82,9 @@ function tryParseStructuredJsonValue(source: string): { parsed: unknown } | { er
     const fixed = tryFixTruncatedJson(source);
     if (fixed === source) {
       return {
-        error: [
-          "JSON 解析失败：",
-          error instanceof Error ? error.message : String(error),
-        ].join("\n"),
+        error: ["JSON 解析失败：", error instanceof Error ? error.message : String(error)].join(
+          "\n",
+        ),
       };
     }
 
@@ -147,7 +146,7 @@ function normalizeIssuePath(path: readonly PropertyKey[]): Array<string | number
 }
 
 function cloneJsonValue<T>(value: T): T {
-  return value === undefined ? value : JSON.parse(JSON.stringify(value)) as T;
+  return value === undefined ? value : (JSON.parse(JSON.stringify(value)) as T);
 }
 
 function getValueAtPath(root: unknown, path: Array<string | number>): unknown {
@@ -194,9 +193,10 @@ function normalizeOversizedArrays<T>(
     if (issue.code !== "too_big" || !issue.message.toLowerCase().includes("array")) {
       continue;
     }
-    const maximum = typeof (issue as { maximum?: unknown }).maximum === "number"
-      ? (issue as { maximum: number }).maximum
-      : null;
+    const maximum =
+      typeof (issue as { maximum?: unknown }).maximum === "number"
+        ? (issue as { maximum: number }).maximum
+        : null;
     if (!Number.isInteger(maximum) || maximum === null || maximum < 0) {
       continue;
     }
@@ -279,7 +279,9 @@ export function logStructuredInvokeEvent(input: {
       typeof input.delayMs === "number" ? `delayMs=${input.delayMs}` : "",
       input.fallbackUsed ? "fallbackUsed=true" : "",
       input.reasoningForcedOff ? "reasoningForcedOff=true" : "",
-    ].filter(Boolean).join(" "),
+    ]
+      .filter(Boolean)
+      .join(" "),
   );
 }
 
@@ -325,11 +327,12 @@ export function wrapStructuredInvokeError(input: {
     error: input.error,
     rawContent: input.rawContent,
   });
-  const message = input.error instanceof Error
-    ? input.error.message
-    : typeof input.error === "string"
-      ? input.error
-      : `[${input.label}] Structured output failed.`;
+  const message =
+    input.error instanceof Error
+      ? input.error.message
+      : typeof input.error === "string"
+        ? input.error
+        : `[${input.label}] Structured output failed.`;
   return buildStructuredError({
     message,
     category,
@@ -399,10 +402,16 @@ export async function parseStructuredLlmRawContentDetailed<T>(
     for (let attempt = 1; attempt <= maxRepairAttempts; attempt += 1) {
       try {
         return {
-          data: await repairWithLlm<T>({
-            ...input,
-            schema: runtimeSchema,
-          }, input.rawContent, parseErrorMessage, attempt, getRepairHelpers<T>()),
+          data: await repairWithLlm<T>(
+            {
+              ...input,
+              schema: runtimeSchema,
+            },
+            input.rawContent,
+            parseErrorMessage,
+            attempt,
+            getRepairHelpers<T>(),
+          ),
           repairUsed: true,
           repairAttempts: attempt,
           diagnostics,
@@ -485,10 +494,16 @@ export async function parseStructuredLlmRawContentDetailed<T>(
   for (let attempt = 1; attempt <= maxRepairAttempts; attempt += 1) {
     try {
       return {
-        data: await repairWithLlm<T>({
-          ...input,
-          schema: runtimeSchema,
-        }, input.rawContent, `Zod 校验错误：\n${formatZodErrors(zodError)}`, attempt, getRepairHelpers<T>()),
+        data: await repairWithLlm<T>(
+          {
+            ...input,
+            schema: runtimeSchema,
+          },
+          input.rawContent,
+          `Zod 校验错误：\n${formatZodErrors(zodError)}`,
+          attempt,
+          getRepairHelpers<T>(),
+        ),
         repairUsed: true,
         repairAttempts: attempt,
         diagnostics,

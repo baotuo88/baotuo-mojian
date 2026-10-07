@@ -1,4 +1,12 @@
-import { currentStoryboard, currentVideoPrompts, isActiveBatch, isBatchStoryboardCurrent, isRecoverableBatch, latestBatchJobs, nextOutlineRange } from "./projection.ts";
+import {
+  currentStoryboard,
+  currentVideoPrompts,
+  isActiveBatch,
+  isBatchStoryboardCurrent,
+  isRecoverableBatch,
+  latestBatchJobs,
+  nextOutlineRange,
+} from "./projection.ts";
 import type { DramaEpisode, DramaProjectDetail, DramaShot, DramaVideoPrompt } from "@/api/drama";
 type NextStepKind =
   | "source"
@@ -33,8 +41,10 @@ function firstEpisodeWithoutScript(episodes: DramaEpisode[]): DramaEpisode | und
 }
 
 function firstEpisodeWithoutReview(episodes: DramaEpisode[]): DramaEpisode | undefined {
-  return episodes.find((episode) =>
-    Boolean(episode.content?.trim()) && !["reviewed", "needs_repair", "approved"].includes(episode.status)
+  return episodes.find(
+    (episode) =>
+      Boolean(episode.content?.trim()) &&
+      !["reviewed", "needs_repair", "approved"].includes(episode.status),
   );
 }
 
@@ -43,14 +53,26 @@ function firstRepairableEpisode(episodes: DramaEpisode[]): DramaEpisode | undefi
 }
 
 function firstEpisodeWithoutStoryboard(episodes: DramaEpisode[]): DramaEpisode | undefined {
-  return episodes.find((episode) => Boolean(episode.content?.trim()) && !currentStoryboard(episode)?.shots?.length);
+  return episodes.find(
+    (episode) => Boolean(episode.content?.trim()) && !currentStoryboard(episode)?.shots?.length,
+  );
 }
 
-function firstShotWithoutVideoPrompt(episodes: DramaEpisode[], videoPrompts: DramaVideoPrompt[]): {
-  episode: DramaEpisode;
-  shot: DramaShot;
-} | undefined {
-  const promptedShotIds = new Set(videoPrompts.filter(isActiveVideoPrompt).map((prompt) => prompt.shotId).filter(Boolean));
+function firstShotWithoutVideoPrompt(
+  episodes: DramaEpisode[],
+  videoPrompts: DramaVideoPrompt[],
+):
+  | {
+      episode: DramaEpisode;
+      shot: DramaShot;
+    }
+  | undefined {
+  const promptedShotIds = new Set(
+    videoPrompts
+      .filter(isActiveVideoPrompt)
+      .map((prompt) => prompt.shotId)
+      .filter(Boolean),
+  );
   for (const episode of episodes) {
     const storyboard = currentStoryboard(episode);
     if (storyboard) {
@@ -64,7 +86,9 @@ function firstShotWithoutVideoPrompt(episodes: DramaEpisode[], videoPrompts: Dra
   return undefined;
 }
 
-function firstPromptWithoutProviderTask(videoPrompts: DramaVideoPrompt[]): DramaVideoPrompt | undefined {
+function firstPromptWithoutProviderTask(
+  videoPrompts: DramaVideoPrompt[],
+): DramaVideoPrompt | undefined {
   return videoPrompts.find((prompt) => isActiveVideoPrompt(prompt) && !prompt.providerTaskId);
 }
 
@@ -72,7 +96,10 @@ function isActiveVideoPrompt(prompt: DramaVideoPrompt): boolean {
   return prompt.status !== "superseded";
 }
 
-export function buildNextStep(project: DramaProjectDetail, videoProviderConfigured = true): NextStep {
+export function buildNextStep(
+  project: DramaProjectDetail,
+  videoProviderConfigured = true,
+): NextStep {
   const episodes = [...(project.episodes ?? [])].sort((a, b) => a.order - b.order);
   const videoPrompts = currentVideoPrompts(project);
   const repairable = firstRepairableEpisode(episodes);
@@ -82,15 +109,27 @@ export function buildNextStep(project: DramaProjectDetail, videoProviderConfigur
   const shotWithoutPrompt = firstShotWithoutVideoPrompt(episodes, videoPrompts);
   const promptWithoutTask = firstPromptWithoutProviderTask(videoPrompts);
 
-  const outstandingJob = latestBatchJobs(project.batchJobs).find((job) =>
-    isActiveBatch(job) || (isRecoverableBatch(job) && isBatchStoryboardCurrent(job, episodes.find((episode) => episode.id === job.episodeId)))
+  const outstandingJob = latestBatchJobs(project.batchJobs).find(
+    (job) =>
+      isActiveBatch(job) ||
+      (isRecoverableBatch(job) &&
+        isBatchStoryboardCurrent(
+          job,
+          episodes.find((episode) => episode.id === job.episodeId),
+        )),
   );
   if (outstandingJob) {
     const episode = episodes.find((item) => item.id === outstandingJob.episodeId);
     return {
-      kind: "production", title: isActiveBatch(outstandingJob) ? "本集制作进行中" : "下一步：继续未完成的制作",
-      description: isActiveBatch(outstandingJob) ? "任务进度会自动刷新。可在制作任务中暂停，已有镜头结果会保留。" : "查看制作任务，确认生成费用后继续未完成的镜头。",
-      button: "查看本集制作", tab: outstandingJob.type === "tts" ? "episodes" : "visual", icon: "video", episodeOrder: episode?.order,
+      kind: "production",
+      title: isActiveBatch(outstandingJob) ? "本集制作进行中" : "下一步：继续未完成的制作",
+      description: isActiveBatch(outstandingJob)
+        ? "任务进度会自动刷新。可在制作任务中暂停，已有镜头结果会保留。"
+        : "查看制作任务，确认生成费用后继续未完成的镜头。",
+      button: "查看本集制作",
+      tab: outstandingJob.type === "tts" ? "episodes" : "visual",
+      icon: "video",
+      episodeOrder: episode?.order,
     };
   }
   if (!project.sourceBundle) {
@@ -173,28 +212,45 @@ export function buildNextStep(project: DramaProjectDetail, videoProviderConfigur
       shot: shotWithoutPrompt.shot,
     };
   }
-  const videoNeedingAttention = videoPrompts.find((prompt) =>
-    ["queued", "running", "submitting", "submission_unknown", "failed"].includes(prompt.status)
-    || (Boolean(prompt.providerTaskId) && (prompt.status !== "succeeded" || !prompt.resultUrl))
+  const videoNeedingAttention = videoPrompts.find(
+    (prompt) =>
+      ["queued", "running", "submitting", "submission_unknown", "failed"].includes(prompt.status) ||
+      (Boolean(prompt.providerTaskId) && (prompt.status !== "succeeded" || !prompt.resultUrl)),
   );
   if (videoNeedingAttention) {
     const waiting = ["queued", "running", "submitting"].includes(videoNeedingAttention.status);
     return {
-      kind: "videoStatus", title: waiting ? "视频制作进行中" : "下一步：处理未完成的视频",
-      description: waiting ? "视频生成仍在处理中，请在分镜视频中查看进度。" : "查看失败或待确认的视频任务。确认重试前，请检查生成通道中的结果和费用。",
-      button: "查看视频任务", tab: "visual", icon: "video",
-      episodeOrder: episodes.find((episode) => episode.id === videoNeedingAttention.episodeId)?.order,
+      kind: "videoStatus",
+      title: waiting ? "视频制作进行中" : "下一步：处理未完成的视频",
+      description: waiting
+        ? "视频生成仍在处理中，请在分镜视频中查看进度。"
+        : "查看失败或待确认的视频任务。确认重试前，请检查生成通道中的结果和费用。",
+      button: "查看视频任务",
+      tab: "visual",
+      icon: "video",
+      episodeOrder: episodes.find((episode) => episode.id === videoNeedingAttention.episodeId)
+        ?.order,
       videoPrompt: videoNeedingAttention,
     };
   }
   if (promptWithoutTask) {
-    if (!videoProviderConfigured) return {
-      kind: "settings", title: "下一步：配置视频生成通道", description: "在媒体通道设置中添加并启用视频生成服务，再创建视频任务。", button: "设置视频通道", tab: "visual", icon: "video",
-    };
+    if (!videoProviderConfigured)
+      return {
+        kind: "settings",
+        title: "下一步：配置视频生成通道",
+        description: "在媒体通道设置中添加并启用视频生成服务，再创建视频任务。",
+        button: "设置视频通道",
+        tab: "visual",
+        icon: "video",
+      };
     return {
-      kind: "providerTask", title: "下一步：创建视频生成任务",
+      kind: "providerTask",
+      title: "下一步：创建视频生成任务",
       description: "把视频提示词提交给所选生成通道，进度会自动刷新。",
-      button: "创建视频任务", tab: "visual", icon: "video", videoPrompt: promptWithoutTask,
+      button: "创建视频任务",
+      tab: "visual",
+      icon: "video",
+      videoPrompt: promptWithoutTask,
       episodeOrder: episodes.find((episode) => episode.id === promptWithoutTask.episodeId)?.order,
     };
   }
@@ -209,12 +265,17 @@ export function buildNextStep(project: DramaProjectDetail, videoProviderConfigur
   };
 }
 
-
 function outlineStep(range: { startOrder: number; count: number }): NextStep {
   const end = range.startOrder + range.count - 1;
-  const label = range.count === 1 ? `第 ${range.startOrder} 集` : `第 ${range.startOrder}–${end} 集`;
+  const label =
+    range.count === 1 ? `第 ${range.startOrder} 集` : `第 ${range.startOrder}–${end} 集`;
   return {
-    kind: "outline", title: `下一步：规划${label}`, description: "按目标集数补齐下一段分集大纲，保留已有分集和台本。",
-    button: `生成${label}分集`, tab: "episodes", icon: "outline", outlineRange: range,
+    kind: "outline",
+    title: `下一步：规划${label}`,
+    description: "按目标集数补齐下一段分集大纲，保留已有分集和台本。",
+    button: `生成${label}分集`,
+    tab: "episodes",
+    icon: "outline",
+    outlineRange: range,
   };
 }

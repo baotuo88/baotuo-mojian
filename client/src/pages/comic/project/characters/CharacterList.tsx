@@ -86,7 +86,9 @@ function CharacterList({
                 className={[
                   "group w-full rounded-md border px-3 py-2 text-left transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  isSelected ? "border-primary bg-primary/10" : "border-transparent hover:border-border hover:bg-muted/60",
+                  isSelected
+                    ? "border-primary bg-primary/10"
+                    : "border-transparent hover:border-border hover:bg-muted/60",
                 ].join(" ")}
                 onClick={() => onSelect(character.id)}
               >
@@ -94,7 +96,9 @@ function CharacterList({
                   <div
                     className={[
                       "relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border",
-                      isSelected ? "border-primary/30 bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                      isSelected
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground",
                     ].join(" ")}
                   >
                     <User className="h-4 w-4" />
@@ -114,7 +118,9 @@ function CharacterList({
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-medium">{character.name}</p>
                       {hasSheet && (
-                        <span className="shrink-0 text-[10px] text-muted-foreground">v{sheetImage?.version ?? 1}</span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                          v{sheetImage?.version ?? 1}
+                        </span>
                       )}
                     </div>
                     {character.persona && (
@@ -125,7 +131,11 @@ function CharacterList({
                     <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
                       <span className={hasSheet ? "text-primary" : ""}>三视图</span>
                       <span className="text-border">/</span>
-                      <span className={confirmedReferenceImage(expressionData) ? "text-primary" : ""}>表情稿</span>
+                      <span
+                        className={confirmedReferenceImage(expressionData) ? "text-primary" : ""}
+                      >
+                        表情稿
+                      </span>
                     </div>
                   </div>
                 </div>

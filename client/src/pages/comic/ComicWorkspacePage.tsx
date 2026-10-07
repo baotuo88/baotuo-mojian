@@ -65,10 +65,48 @@ export const COMIC_FORMATS: ComicFormatDef[] = [
     promptKeywords: "webtoon vertical strip panel, tall single frame, mobile scroll comic",
     layoutSvg: (
       <svg viewBox="0 0 60 90" className="w-full h-full">
-        <rect x="4" y="4" width="52" height="24" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="4" y="33" width="52" height="24" rx="2" fill="currentColor" opacity="0.1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="4" y="62" width="52" height="24" rx="2" fill="currentColor" opacity="0.08" stroke="currentColor" strokeWidth="1.5" />
-        <line x1="30" y1="10" x2="30" y2="22" stroke="currentColor" strokeWidth="0.8" opacity="0.3" />
+        <rect
+          x="4"
+          y="4"
+          width="52"
+          height="24"
+          rx="2"
+          fill="currentColor"
+          opacity="0.15"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="4"
+          y="33"
+          width="52"
+          height="24"
+          rx="2"
+          fill="currentColor"
+          opacity="0.1"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="4"
+          y="62"
+          width="52"
+          height="24"
+          rx="2"
+          fill="currentColor"
+          opacity="0.08"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <line
+          x1="30"
+          y1="10"
+          x2="30"
+          y2="22"
+          stroke="currentColor"
+          strokeWidth="0.8"
+          opacity="0.3"
+        />
         <circle cx="20" cy="16" r="4" fill="currentColor" opacity="0.2" />
       </svg>
     ),
@@ -79,16 +117,36 @@ export const COMIC_FORMATS: ComicFormatDef[] = [
     desc: "四格竖排一页，起承转合，适合日常喜剧",
     tag: "经典",
     imageSize: "1024x1536",
-    promptKeywords: "4-koma manga layout, four equal vertical panels in one image, sequential comic strip",
+    promptKeywords:
+      "4-koma manga layout, four equal vertical panels in one image, sequential comic strip",
     layoutSvg: (
       <svg viewBox="0 0 60 90" className="w-full h-full">
         {[0, 1, 2, 3].map((i) => (
-          <rect key={i} x="8" y={4 + i * 21} width="44" height="18" rx="1.5" fill="currentColor" opacity={0.18 - i * 0.02} stroke="currentColor" strokeWidth="1.5" />
+          <rect
+            key={i}
+            x="8"
+            y={4 + i * 21}
+            width="44"
+            height="18"
+            rx="1.5"
+            fill="currentColor"
+            opacity={0.18 - i * 0.02}
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
         ))}
-        <text x="30" y="15" textAnchor="middle" fontSize="5" fill="currentColor" opacity="0.4">起</text>
-        <text x="30" y="36" textAnchor="middle" fontSize="5" fill="currentColor" opacity="0.4">承</text>
-        <text x="30" y="57" textAnchor="middle" fontSize="5" fill="currentColor" opacity="0.4">转</text>
-        <text x="30" y="78" textAnchor="middle" fontSize="5" fill="currentColor" opacity="0.4">合</text>
+        <text x="30" y="15" textAnchor="middle" fontSize="5" fill="currentColor" opacity="0.4">
+          起
+        </text>
+        <text x="30" y="36" textAnchor="middle" fontSize="5" fill="currentColor" opacity="0.4">
+          承
+        </text>
+        <text x="30" y="57" textAnchor="middle" fontSize="5" fill="currentColor" opacity="0.4">
+          转
+        </text>
+        <text x="30" y="78" textAnchor="middle" fontSize="5" fill="currentColor" opacity="0.4">
+          合
+        </text>
       </svg>
     ),
   },
@@ -98,14 +156,65 @@ export const COMIC_FORMATS: ComicFormatDef[] = [
     desc: "一页多格，格子大小自由，传统日漫页面",
     tag: "传统",
     imageSize: "1024x1536",
-    promptKeywords: "single page manga layout, multiple panels varied sizes, dynamic panel composition, Japanese manga page",
+    promptKeywords:
+      "single page manga layout, multiple panels varied sizes, dynamic panel composition, Japanese manga page",
     layoutSvg: (
       <svg viewBox="0 0 60 90" className="w-full h-full">
-        <rect x="4" y="4" width="52" height="36" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="4" y="44" width="24" height="24" rx="2" fill="currentColor" opacity="0.12" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="32" y="44" width="24" height="24" rx="2" fill="currentColor" opacity="0.1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="4" y="72" width="16" height="14" rx="2" fill="currentColor" opacity="0.08" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="24" y="72" width="32" height="14" rx="2" fill="currentColor" opacity="0.1" stroke="currentColor" strokeWidth="1.5" />
+        <rect
+          x="4"
+          y="4"
+          width="52"
+          height="36"
+          rx="2"
+          fill="currentColor"
+          opacity="0.15"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="4"
+          y="44"
+          width="24"
+          height="24"
+          rx="2"
+          fill="currentColor"
+          opacity="0.12"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="32"
+          y="44"
+          width="24"
+          height="24"
+          rx="2"
+          fill="currentColor"
+          opacity="0.1"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="4"
+          y="72"
+          width="16"
+          height="14"
+          rx="2"
+          fill="currentColor"
+          opacity="0.08"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="24"
+          y="72"
+          width="32"
+          height="14"
+          rx="2"
+          fill="currentColor"
+          opacity="0.1"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
       </svg>
     ),
   },
@@ -115,14 +224,63 @@ export const COMIC_FORMATS: ComicFormatDef[] = [
     desc: "宽幅横画面，电影感构图，史诗动作场面",
     tag: "大气",
     imageSize: "1536x1024",
-    promptKeywords: "cinematic widescreen panel, film storyboard style, letterbox 16:9 format, movie scene composition",
+    promptKeywords:
+      "cinematic widescreen panel, film storyboard style, letterbox 16:9 format, movie scene composition",
     layoutSvg: (
       <svg viewBox="0 0 90 60" className="w-full h-full">
-        <rect x="4" y="8" width="82" height="18" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="4" y="30" width="38" height="18" rx="2" fill="currentColor" opacity="0.12" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="48" y="30" width="38" height="18" rx="2" fill="currentColor" opacity="0.1" stroke="currentColor" strokeWidth="1.5" />
-        <line x1="4" y1="52" x2="86" y2="52" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3,2" opacity="0.2" />
-        <line x1="4" y1="4" x2="86" y2="4" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3,2" opacity="0.2" />
+        <rect
+          x="4"
+          y="8"
+          width="82"
+          height="18"
+          rx="2"
+          fill="currentColor"
+          opacity="0.15"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="4"
+          y="30"
+          width="38"
+          height="18"
+          rx="2"
+          fill="currentColor"
+          opacity="0.12"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="48"
+          y="30"
+          width="38"
+          height="18"
+          rx="2"
+          fill="currentColor"
+          opacity="0.1"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <line
+          x1="4"
+          y1="52"
+          x2="86"
+          y2="52"
+          stroke="currentColor"
+          strokeWidth="0.5"
+          strokeDasharray="3,2"
+          opacity="0.2"
+        />
+        <line
+          x1="4"
+          y1="4"
+          x2="86"
+          y2="4"
+          stroke="currentColor"
+          strokeWidth="0.5"
+          strokeDasharray="3,2"
+          opacity="0.2"
+        />
       </svg>
     ),
   },
@@ -132,16 +290,47 @@ export const COMIC_FORMATS: ComicFormatDef[] = [
     desc: "对话气泡主导，轻量日常，社交媒体友好",
     tag: "轻快",
     imageSize: "1024x1536",
-    promptKeywords: "chat comic style, messenger conversation bubbles, LINE webtoon chat format, casual slice of life",
+    promptKeywords:
+      "chat comic style, messenger conversation bubbles, LINE webtoon chat format, casual slice of life",
     layoutSvg: (
       <svg viewBox="0 0 60 90" className="w-full h-full">
-        <rect x="4" y="6" width="52" height="22" rx="2" fill="currentColor" opacity="0.08" stroke="currentColor" strokeWidth="1" />
+        <rect
+          x="4"
+          y="6"
+          width="52"
+          height="22"
+          rx="2"
+          fill="currentColor"
+          opacity="0.08"
+          stroke="currentColor"
+          strokeWidth="1"
+        />
         <rect x="8" y="10" width="28" height="8" rx="4" fill="currentColor" opacity="0.2" />
         <rect x="8" y="22" width="20" height="4" rx="2" fill="currentColor" opacity="0.15" />
-        <rect x="4" y="32" width="52" height="22" rx="2" fill="currentColor" opacity="0.08" stroke="currentColor" strokeWidth="1" />
+        <rect
+          x="4"
+          y="32"
+          width="52"
+          height="22"
+          rx="2"
+          fill="currentColor"
+          opacity="0.08"
+          stroke="currentColor"
+          strokeWidth="1"
+        />
         <rect x="24" y="36" width="28" height="8" rx="4" fill="currentColor" opacity="0.2" />
         <rect x="32" y="48" width="20" height="4" rx="2" fill="currentColor" opacity="0.15" />
-        <rect x="4" y="58" width="52" height="22" rx="2" fill="currentColor" opacity="0.08" stroke="currentColor" strokeWidth="1" />
+        <rect
+          x="4"
+          y="58"
+          width="52"
+          height="22"
+          rx="2"
+          fill="currentColor"
+          opacity="0.08"
+          stroke="currentColor"
+          strokeWidth="1"
+        />
         <rect x="8" y="62" width="26" height="8" rx="4" fill="currentColor" opacity="0.2" />
         <circle cx="50" cy="66" r="5" fill="currentColor" opacity="0.15" />
       </svg>
@@ -153,13 +342,54 @@ export const COMIC_FORMATS: ComicFormatDef[] = [
     desc: "圆润可爱的 Q 版人物，萌系轻松风",
     tag: "萌系",
     imageSize: "1024x1024",
-    promptKeywords: "chibi SD manga style, cute super-deformed proportions, kawaii comic panel, round adorable characters",
+    promptKeywords:
+      "chibi SD manga style, cute super-deformed proportions, kawaii comic panel, round adorable characters",
     layoutSvg: (
       <svg viewBox="0 0 60 60" className="w-full h-full">
-        <rect x="4" y="4" width="24" height="24" rx="2" fill="currentColor" opacity="0.12" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="32" y="4" width="24" height="24" rx="2" fill="currentColor" opacity="0.1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="4" y="32" width="24" height="24" rx="2" fill="currentColor" opacity="0.1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="32" y="32" width="24" height="24" rx="2" fill="currentColor" opacity="0.12" stroke="currentColor" strokeWidth="1.5" />
+        <rect
+          x="4"
+          y="4"
+          width="24"
+          height="24"
+          rx="2"
+          fill="currentColor"
+          opacity="0.12"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="32"
+          y="4"
+          width="24"
+          height="24"
+          rx="2"
+          fill="currentColor"
+          opacity="0.1"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="4"
+          y="32"
+          width="24"
+          height="24"
+          rx="2"
+          fill="currentColor"
+          opacity="0.1"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <rect
+          x="32"
+          y="32"
+          width="24"
+          height="24"
+          rx="2"
+          fill="currentColor"
+          opacity="0.12"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
         <circle cx="16" cy="14" r="5" fill="currentColor" opacity="0.25" />
         <circle cx="44" cy="14" r="5" fill="currentColor" opacity="0.2" />
         <circle cx="16" cy="44" r="5" fill="currentColor" opacity="0.2" />
@@ -173,15 +403,69 @@ export const COMIC_FORMATS: ComicFormatDef[] = [
     desc: "传统水墨笔触，古风意境，留白美学",
     tag: "国风",
     imageSize: "1024x1536",
-    promptKeywords: "Chinese ink wash painting comic, traditional brush style, xieyi brushwork, classical Chinese aesthetic, negative space",
+    promptKeywords:
+      "Chinese ink wash painting comic, traditional brush style, xieyi brushwork, classical Chinese aesthetic, negative space",
     layoutSvg: (
       <svg viewBox="0 0 60 90" className="w-full h-full">
-        <rect x="4" y="4" width="52" height="40" rx="2" fill="currentColor" opacity="0.08" stroke="currentColor" strokeWidth="1" strokeDasharray="3,2" />
-        <path d="M10 30 Q30 10 50 25" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" />
-        <path d="M15 35 Q25 20 35 32" stroke="currentColor" strokeWidth="1" fill="none" opacity="0.2" />
-        <rect x="4" y="50" width="24" height="36" rx="2" fill="currentColor" opacity="0.08" stroke="currentColor" strokeWidth="1" strokeDasharray="3,2" />
-        <rect x="32" y="50" width="24" height="36" rx="2" fill="currentColor" opacity="0.06" stroke="currentColor" strokeWidth="1" strokeDasharray="3,2" />
-        <line x1="20" y1="54" x2="20" y2="82" stroke="currentColor" strokeWidth="0.8" opacity="0.15" />
+        <rect
+          x="4"
+          y="4"
+          width="52"
+          height="40"
+          rx="2"
+          fill="currentColor"
+          opacity="0.08"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeDasharray="3,2"
+        />
+        <path
+          d="M10 30 Q30 10 50 25"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="none"
+          opacity="0.3"
+        />
+        <path
+          d="M15 35 Q25 20 35 32"
+          stroke="currentColor"
+          strokeWidth="1"
+          fill="none"
+          opacity="0.2"
+        />
+        <rect
+          x="4"
+          y="50"
+          width="24"
+          height="36"
+          rx="2"
+          fill="currentColor"
+          opacity="0.08"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeDasharray="3,2"
+        />
+        <rect
+          x="32"
+          y="50"
+          width="24"
+          height="36"
+          rx="2"
+          fill="currentColor"
+          opacity="0.06"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeDasharray="3,2"
+        />
+        <line
+          x1="20"
+          y1="54"
+          x2="20"
+          y2="82"
+          stroke="currentColor"
+          strokeWidth="0.8"
+          opacity="0.15"
+        />
       </svg>
     ),
   },
@@ -191,10 +475,21 @@ export const COMIC_FORMATS: ComicFormatDef[] = [
     desc: "竖版视频帧风格，字幕条 + 场景感",
     tag: "新兴",
     imageSize: "1024x1536",
-    promptKeywords: "vertical short drama screenshot style, subtitle bar at bottom, TV drama still frame, cinematic vertical video",
+    promptKeywords:
+      "vertical short drama screenshot style, subtitle bar at bottom, TV drama still frame, cinematic vertical video",
     layoutSvg: (
       <svg viewBox="0 0 60 90" className="w-full h-full">
-        <rect x="4" y="4" width="52" height="70" rx="3" fill="currentColor" opacity="0.1" stroke="currentColor" strokeWidth="1.5" />
+        <rect
+          x="4"
+          y="4"
+          width="52"
+          height="70"
+          rx="3"
+          fill="currentColor"
+          opacity="0.1"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
         <rect x="4" y="68" width="52" height="16" rx="0" fill="currentColor" opacity="0.2" />
         <line x1="10" y1="74" x2="50" y2="74" stroke="white" strokeWidth="1" opacity="0.4" />
         <line x1="14" y1="79" x2="46" y2="79" stroke="white" strokeWidth="0.8" opacity="0.3" />
@@ -219,7 +514,10 @@ function statusBadgeVariant(status: string): "default" | "secondary" | "outline"
 }
 function statusLabel(s: string) {
   const m: Record<string, string> = {
-    draft: "草稿", outlined: "大纲已生成", scripted: "脚本已生成", completed: "已完成",
+    draft: "草稿",
+    outlined: "大纲已生成",
+    scripted: "脚本已生成",
+    completed: "已完成",
   };
   return m[s] ?? s;
 }
@@ -243,7 +541,9 @@ function ProjectCard({
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle className="text-lg leading-6">{project.title}</CardTitle>
             <Badge variant="secondary">{SOURCE_LABELS[project.sourceType]}</Badge>
-            <Badge variant={statusBadgeVariant(project.status)}>{statusLabel(project.status)}</Badge>
+            <Badge variant={statusBadgeVariant(project.status)}>
+              {statusLabel(project.status)}
+            </Badge>
           </div>
           <CardDescription>
             {project._count?.episodes ?? 0} 话 · {project._count?.characters ?? 0} 角色
@@ -290,7 +590,12 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
   });
 
   const [novelSearch, setNovelSearch] = useState("");
-  const { data: novels, isPending: novelsLoading, isError: novelsError, refetch: refetchNovels } = useQuery({
+  const {
+    data: novels,
+    isPending: novelsLoading,
+    isError: novelsError,
+    refetch: refetchNovels,
+  } = useQuery({
     queryKey: ["comic", "novel-source-options", novelSearch],
     queryFn: () => getNovelList({ limit: 100, search: novelSearch }),
     enabled: form.sourceType === "novel_import",
@@ -313,7 +618,10 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
       if (form.sourceType === "text_import") return form.rawText.trim().length > 0;
       return true;
     }
-    return form.title.trim().length > 0 && (form.sourceType !== "novel_import" || Boolean(form.sourceRef));
+    return (
+      form.title.trim().length > 0 &&
+      (form.sourceType !== "novel_import" || Boolean(form.sourceRef))
+    );
   };
 
   const handleSubmit = () => {
@@ -325,7 +633,12 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
       inspiration: form.sourceType === "original" ? form.inspiration.trim() : undefined,
       rawText: form.sourceType === "text_import" ? form.rawText.trim() : undefined,
       comicFormat: selectedFormat.value,
-      stylePreset: JSON.stringify({ style: form.style, format: selectedFormat.value, promptKeywords: selectedFormat.promptKeywords, imageSize: selectedFormat.imageSize }),
+      stylePreset: JSON.stringify({
+        style: form.style,
+        format: selectedFormat.value,
+        promptKeywords: selectedFormat.promptKeywords,
+        imageSize: selectedFormat.imageSize,
+      }),
     });
   };
 
@@ -350,7 +663,9 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
             <div className="space-y-1">
               <label className="text-sm font-medium">项目标题</label>
               <Input
-                placeholder={form.sourceType === "novel_import" ? "可留空，选择小说后自动填写" : "漫画标题"}
+                placeholder={
+                  form.sourceType === "novel_import" ? "可留空，选择小说后自动填写" : "漫画标题"
+                }
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               />
@@ -358,16 +673,18 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
             <div className="space-y-1">
               <label className="text-sm font-medium">内容来源</label>
               <div className="flex flex-wrap gap-2">
-                {(Object.keys(SOURCE_LABELS) as ComicSourceType[]).filter(t => t !== "comic_import").map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, sourceType: t }))}
-                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${form.sourceType === t ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted hover:bg-accent"}`}
-                  >
-                    {SOURCE_LABELS[t]}
-                  </button>
-                ))}
+                {(Object.keys(SOURCE_LABELS) as ComicSourceType[])
+                  .filter((t) => t !== "comic_import")
+                  .map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, sourceType: t }))}
+                      className={`rounded-full border px-3 py-1 text-sm transition-colors ${form.sourceType === t ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted hover:bg-accent"}`}
+                    >
+                      {SOURCE_LABELS[t]}
+                    </button>
+                  ))}
               </div>
             </div>
           </>
@@ -378,22 +695,50 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
             {form.sourceType === "novel_import" && (
               <div className="space-y-1">
                 <label className="text-sm font-medium">选择小说</label>
-                <Input aria-label="搜索小说" placeholder="按小说标题搜索" value={novelSearch} onChange={(event) => setNovelSearch(event.target.value)} />
+                <Input
+                  aria-label="搜索小说"
+                  placeholder="按小说标题搜索"
+                  value={novelSearch}
+                  onChange={(event) => setNovelSearch(event.target.value)}
+                />
                 <SelectControl
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                   value={form.sourceRef}
                   onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
-                    const selected = novels?.data?.items?.find((novel) => novel.id === event.target.value);
-                    setForm((value) => ({ ...value, sourceRef: event.target.value, title: value.title || selected?.title || "" }));
+                    const selected = novels?.data?.items?.find(
+                      (novel) => novel.id === event.target.value,
+                    );
+                    setForm((value) => ({
+                      ...value,
+                      sourceRef: event.target.value,
+                      title: value.title || selected?.title || "",
+                    }));
                   }}
                 >
                   <option value="">{novelsLoading ? "正在读取小说…" : "选择用于改编的小说"}</option>
                   {novels?.data?.items?.map((n) => (
-                    <option key={n.id} value={n.id}>{n.title ?? "未命名"}</option>
+                    <option key={n.id} value={n.id}>
+                      {n.title ?? "未命名"}
+                    </option>
                   ))}
                 </SelectControl>
-                {novelsError && <p className="text-xs text-destructive">小说列表读取失败。<button type="button" className="ml-2 underline" onClick={() => void refetchNovels()}>重试</button></p>}
-                {!novelsLoading && !novelsError && novels?.data?.items?.length === 0 && <p className="text-xs text-muted-foreground">没有找到可选小说。可以调整搜索，或选择原创灵感、文本导入。</p>}
+                {novelsError && (
+                  <p className="text-xs text-destructive">
+                    小说列表读取失败。
+                    <button
+                      type="button"
+                      className="ml-2 underline"
+                      onClick={() => void refetchNovels()}
+                    >
+                      重试
+                    </button>
+                  </p>
+                )}
+                {!novelsLoading && !novelsError && novels?.data?.items?.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    没有找到可选小说。可以调整搜索，或选择原创灵感、文本导入。
+                  </p>
+                )}
               </div>
             )}
             {form.sourceType === "original" && (
@@ -404,7 +749,9 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
                   placeholder="简短描述故事的核心设定、主角和大方向（200-800 字）…"
                   rows={6}
                   value={form.inspiration}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm((f) => ({ ...f, inspiration: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setForm((f) => ({ ...f, inspiration: e.target.value }))
+                  }
                 />
               </div>
             )}
@@ -416,7 +763,9 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
                   placeholder="粘贴完整小说原文（最多 20 万字）…"
                   rows={8}
                   value={form.rawText}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm((f) => ({ ...f, rawText: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setForm((f) => ({ ...f, rawText: e.target.value }))
+                  }
                 />
               </div>
             )}
@@ -427,7 +776,9 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
           <div className="space-y-3">
             <div>
               <label className="text-sm font-medium">漫画形态</label>
-              <p className="text-xs text-muted-foreground mt-0.5">选择漫画的版式风格，影响构图和阅读方式</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                选择漫画的版式风格，影响构图和阅读方式
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {COMIC_FORMATS.map((fmt) => {
@@ -440,15 +791,23 @@ function CreateWizard({ onCreated }: { onCreated: (id: string) => void }) {
                     className={`relative flex flex-col rounded-lg border p-2 text-left transition-all ${selected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-muted/40 hover:bg-accent"}`}
                   >
                     {fmt.tag && (
-                      <span className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${selected ? "bg-primary text-primary-foreground" : "bg-muted-foreground/20 text-muted-foreground"}`}>
+                      <span
+                        className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${selected ? "bg-primary text-primary-foreground" : "bg-muted-foreground/20 text-muted-foreground"}`}
+                      >
                         {fmt.tag}
                       </span>
                     )}
-                    <div className={`mb-2 flex items-center justify-center rounded ${fmt.imageSize === "1536x1024" ? "aspect-video" : "aspect-[2/3]"} w-full overflow-hidden ${selected ? "text-primary" : "text-muted-foreground"}`}>
+                    <div
+                      className={`mb-2 flex items-center justify-center rounded ${fmt.imageSize === "1536x1024" ? "aspect-video" : "aspect-[2/3]"} w-full overflow-hidden ${selected ? "text-primary" : "text-muted-foreground"}`}
+                    >
                       {fmt.layoutSvg}
                     </div>
-                    <span className={`text-xs font-semibold ${selected ? "text-primary" : ""}`}>{fmt.label}</span>
-                    <span className="mt-0.5 line-clamp-2 text-[10px] leading-tight text-muted-foreground">{fmt.desc}</span>
+                    <span className={`text-xs font-semibold ${selected ? "text-primary" : ""}`}>
+                      {fmt.label}
+                    </span>
+                    <span className="mt-0.5 line-clamp-2 text-[10px] leading-tight text-muted-foreground">
+                      {fmt.desc}
+                    </span>
                   </button>
                 );
               })}
@@ -563,9 +922,7 @@ export default function ComicWorkspacePage() {
         />
       )}
 
-      {isLoading && (
-        <div className="py-12 text-center text-muted-foreground text-sm">加载中…</div>
-      )}
+      {isLoading && <div className="py-12 text-center text-muted-foreground text-sm">加载中…</div>}
 
       {!isLoading && projects.length === 0 && !showWizard && (
         <Card className="py-16 text-center">

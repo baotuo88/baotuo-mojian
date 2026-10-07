@@ -1,5 +1,8 @@
 import type { AgentApproval, AgentRun, AgentStep } from "@ai-novel/shared/types/agent";
-import type { DirectorPolicyMode, DirectorRuntimePolicySnapshot } from "@ai-novel/shared/types/directorRuntime";
+import type {
+  DirectorPolicyMode,
+  DirectorRuntimePolicySnapshot,
+} from "@ai-novel/shared/types/directorRuntime";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import type { AgentPlan, AgentToolErrorCode } from "@ai-novel/shared/types/agent";
 
@@ -177,7 +180,12 @@ export interface AgentApprovalDecisionInput {
 
 export interface AgentRuntimeCallbacks {
   onReasoning?: (content: string) => void;
-  onToolCall?: (payload: { runId: string; stepId: string; toolName: AgentToolName; inputSummary: string }) => void;
+  onToolCall?: (payload: {
+    runId: string;
+    stepId: string;
+    toolName: AgentToolName;
+    inputSummary: string;
+  }) => void;
   onToolResult?: (payload: {
     runId: string;
     stepId: string;
@@ -194,12 +202,13 @@ export interface AgentRuntimeCallbacks {
     targetType: string;
     targetId: string;
   }) => void;
-  onApprovalResolved?: (payload: { runId: string; approvalId: string; action: "approved" | "rejected"; note?: string }) => void;
-  onRunStatus?: (payload: {
+  onApprovalResolved?: (payload: {
     runId: string;
-    status: AgentRun["status"];
-    message?: string;
+    approvalId: string;
+    action: "approved" | "rejected";
+    note?: string;
   }) => void;
+  onRunStatus?: (payload: { runId: string; status: AgentRun["status"]; message?: string }) => void;
 }
 
 export interface AgentRuntimeResult {
@@ -221,7 +230,12 @@ export interface ToolExecutionContext {
   maxTokens?: number;
   dryRun?: boolean;
   plannerProfile?: PlannerProfile;
-  chapterDraftSource?: { novelId: string; chapterId: string; chapterOrder: number; expectedContent: string | null };
+  chapterDraftSource?: {
+    novelId: string;
+    chapterId: string;
+    chapterOrder: number;
+    expectedContent: string | null;
+  };
 }
 
 export interface ToolCall {

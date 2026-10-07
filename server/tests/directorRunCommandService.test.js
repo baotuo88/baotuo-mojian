@@ -1,8 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { DirectorCommandService } = require("../dist/services/novel/director/commands/DirectorCommandService.js");
-const { directorIssueService } = require("../dist/services/novel/director/issues/DirectorIssueService.js");
+const {
+  DirectorCommandService,
+} = require("../dist/services/novel/director/commands/DirectorCommandService.js");
+const {
+  directorIssueService,
+} = require("../dist/services/novel/director/issues/DirectorIssueService.js");
 const { prisma } = require("../dist/db/prisma.js");
 
 function createTask(overrides = {}) {
@@ -132,7 +136,9 @@ function createHarness(task = createTask()) {
     },
     async bootstrapTask(input) {
       bootstraps.push(input);
-      task.id = input.workflowTaskId?.trim() || (input.novelId ? `takeover-task-${commands.length + 1}` : task.id);
+      task.id =
+        input.workflowTaskId?.trim() ||
+        (input.novelId ? `takeover-task-${commands.length + 1}` : task.id);
       task.novelId = input.novelId ?? null;
       task.lane = input.lane;
       task.status = "queued";
@@ -187,9 +193,8 @@ function createHarness(task = createTask()) {
     commands.push(row);
     return row;
   };
-  prisma.directorRunCommand.findUnique = async ({ where }) => (
-    commands.find((row) => row.id === where.id) ?? null
-  );
+  prisma.directorRunCommand.findUnique = async ({ where }) =>
+    commands.find((row) => row.id === where.id) ?? null;
   prisma.directorRunCommand.findMany = async ({ where }) => {
     let rows = commands;
     if (where?.taskId) {
@@ -199,7 +204,9 @@ function createHarness(task = createTask()) {
       rows = rows.filter((row) => where.status.in.includes(row.status));
     }
     if (where?.leaseExpiresAt?.lt) {
-      rows = rows.filter((row) => row.leaseExpiresAt && row.leaseExpiresAt < where.leaseExpiresAt.lt);
+      rows = rows.filter(
+        (row) => row.leaseExpiresAt && row.leaseExpiresAt < where.leaseExpiresAt.lt,
+      );
     }
     return rows.map((row) => ({
       id: row.id,
@@ -226,13 +233,21 @@ function createHarness(task = createTask()) {
       if (where?.leaseOwner && row.leaseOwner !== where.leaseOwner) {
         continue;
       }
-      if (where?.leaseExpiresAt && row.leaseExpiresAt?.getTime() !== where.leaseExpiresAt.getTime()) {
+      if (
+        where?.leaseExpiresAt &&
+        row.leaseExpiresAt?.getTime() !== where.leaseExpiresAt.getTime()
+      ) {
         continue;
       }
-      if (where?.task?.is && Object.entries(where.task.is).some(([key, value]) => {
-        if (value === undefined) return false;
-        return value instanceof Date ? task[key]?.getTime() !== value.getTime() : (task[key] ?? null) !== value;
-      })) {
+      if (
+        where?.task?.is &&
+        Object.entries(where.task.is).some(([key, value]) => {
+          if (value === undefined) return false;
+          return value instanceof Date
+            ? task[key]?.getTime() !== value.getTime()
+            : (task[key] ?? null) !== value;
+        })
+      ) {
         continue;
       }
       if (where?.status) {
@@ -256,9 +271,10 @@ function createHarness(task = createTask()) {
     }
     return { count };
   };
-  prisma.novelWorkflowTask.findUnique = async ({ where }) => where.id === task.id
-    ? { novelId: task.novelId, seedPayloadJson: task.seedPayloadJson ?? null }
-    : null;
+  prisma.novelWorkflowTask.findUnique = async ({ where }) =>
+    where.id === task.id
+      ? { novelId: task.novelId, seedPayloadJson: task.seedPayloadJson ?? null }
+      : null;
   prisma.novelWorkflowTask.updateMany = async (args) => {
     taskUpdates.push(args);
     if (args?.where?.id) {
@@ -281,11 +297,8 @@ function createHarness(task = createTask()) {
     jobUpdates.push(args);
     return { count: 1 };
   };
-  prisma.directorRun.findUnique = async ({ where }) => (
-    where.taskId === task.id
-      ? { id: "run-1", novelId: task.novelId }
-      : null
-  );
+  prisma.directorRun.findUnique = async ({ where }) =>
+    where.taskId === task.id ? { id: "run-1", novelId: task.novelId } : null;
   prisma.directorEvent.create = async ({ data }) => {
     directorEvents.push(data);
     return data;
@@ -330,10 +343,12 @@ test("director command service reuses active continue commands", async () => {
 });
 
 test("director command service queues candidate confirmation as a serialized command", async () => {
-  const harness = createHarness(createTask({
-    novelId: null,
-    status: "waiting_approval",
-  }));
+  const harness = createHarness(
+    createTask({
+      novelId: null,
+      status: "waiting_approval",
+    }),
+  );
   try {
     const accepted = await harness.service.enqueueConfirmCandidateCommand(createConfirmRequest());
 
@@ -359,12 +374,15 @@ test("director command service queues candidate confirmation as a serialized com
 });
 
 test("director command service queues candidate generation as a serialized command", async () => {
-  const harness = createHarness(createTask({
-    novelId: null,
-    status: "queued",
-  }));
+  const harness = createHarness(
+    createTask({
+      novelId: null,
+      status: "queued",
+    }),
+  );
   try {
-    const accepted = await harness.service.enqueueGenerateCandidatesCommand(createCandidatesRequest());
+    const accepted =
+      await harness.service.enqueueGenerateCandidatesCommand(createCandidatesRequest());
 
     assert.equal(accepted.status, "queued");
     assert.equal(accepted.commandType, "generate_candidates");
@@ -374,7 +392,10 @@ test("director command service queues candidate generation as a serialized comma
     assert.equal(harness.bootstraps[0].initialState.itemKey, "candidate_direction_batch");
     const payload = JSON.parse(harness.commands[0].payloadJson);
     assert.equal(payload.candidatesRequest.workflowTaskId, "task-1");
-    assert.equal(payload.candidatesRequest.idea, "A college girl accidentally enters a supernatural organization.");
+    assert.equal(
+      payload.candidatesRequest.idea,
+      "A college girl accidentally enters a supernatural organization.",
+    );
     assert.equal(harness.task.currentItemLabel, "AI 正在生成书级方向候选");
   } finally {
     harness.restore();
@@ -382,13 +403,16 @@ test("director command service queues candidate generation as a serialized comma
 });
 
 test("director command service reuses active candidate generation commands", async () => {
-  const harness = createHarness(createTask({
-    novelId: null,
-    status: "queued",
-  }));
+  const harness = createHarness(
+    createTask({
+      novelId: null,
+      status: "queued",
+    }),
+  );
   try {
     const first = await harness.service.enqueueGenerateCandidatesCommand(createCandidatesRequest());
-    const second = await harness.service.enqueueGenerateCandidatesCommand(createCandidatesRequest());
+    const second =
+      await harness.service.enqueueGenerateCandidatesCommand(createCandidatesRequest());
 
     assert.equal(first.commandId, second.commandId);
     assert.equal(harness.commands.length, 1);
@@ -428,7 +452,9 @@ test("director command service queues policy updates without directly mutating r
     assert.equal(harness.commands.length, 1);
     const payload = JSON.parse(harness.commands[0].payloadJson);
     assert.equal(payload.policyUpdateRequest.mode, "run_next_step");
-    assert.deepEqual(payload.policyUpdateRequest.autoApproveActions, ["chapter_execution_continue"]);
+    assert.deepEqual(payload.policyUpdateRequest.autoApproveActions, [
+      "chapter_execution_continue",
+    ]);
     assert.equal(harness.task.currentItemKey, "policy_update");
     assert.equal(harness.task.currentItemLabel, "已提交运行策略调整，等待 AI 按新策略推进");
   } finally {
@@ -437,24 +463,28 @@ test("director command service queues policy updates without directly mutating r
 });
 
 test("director command service applies the full-book autopilot contract before queueing confirmation", async () => {
-  const harness = createHarness(createTask({
-    novelId: null,
-    status: "waiting_approval",
-  }));
+  const harness = createHarness(
+    createTask({
+      novelId: null,
+      status: "waiting_approval",
+    }),
+  );
   try {
-    await harness.service.enqueueConfirmCandidateCommand(createConfirmRequest({
-      runMode: "full_book_autopilot",
-      autoExecutionPlan: {
-        mode: "chapter_range",
-        endOrder: 10,
-        autoReview: false,
-        autoRepair: false,
-      },
-      autoApproval: {
-        enabled: false,
-        approvalPointCodes: ["candidate_direction_confirmed"],
-      },
-    }));
+    await harness.service.enqueueConfirmCandidateCommand(
+      createConfirmRequest({
+        runMode: "full_book_autopilot",
+        autoExecutionPlan: {
+          mode: "chapter_range",
+          endOrder: 10,
+          autoReview: false,
+          autoRepair: false,
+        },
+        autoApproval: {
+          enabled: false,
+          approvalPointCodes: ["candidate_direction_confirmed"],
+        },
+      }),
+    );
 
     const payload = JSON.parse(harness.commands[0].payloadJson);
     assert.equal(payload.confirmRequest.runMode, "full_book_autopilot");
@@ -464,7 +494,9 @@ test("director command service applies the full-book autopilot contract before q
       autoRepair: true,
     });
     assert.equal(payload.confirmRequest.autoApproval.enabled, true);
-    assert.ok(payload.confirmRequest.autoApproval.approvalPointCodes.includes("chapter_execution_continue"));
+    assert.ok(
+      payload.confirmRequest.autoApproval.approvalPointCodes.includes("chapter_execution_continue"),
+    );
     assert.ok(payload.confirmRequest.autoApproval.approvalPointCodes.includes("replan_continue"));
     assert.deepEqual(harness.bootstraps[0].seedPayload.autoExecutionPlan, {
       mode: "book",
@@ -478,11 +510,13 @@ test("director command service applies the full-book autopilot contract before q
 });
 
 test("director command service clears manual recovery state when a stale running task is continued", async () => {
-  const harness = createHarness(createTask({
-    status: "running",
-    pendingManualRecovery: true,
-    lastError: "Director Worker 已中断，任务已暂停，等待手动恢复。",
-  }));
+  const harness = createHarness(
+    createTask({
+      status: "running",
+      pendingManualRecovery: true,
+      lastError: "Director Worker 已中断，任务已暂停，等待手动恢复。",
+    }),
+  );
   try {
     const accepted = await harness.service.enqueueContinueCommand("task-1", {
       forceResume: true,
@@ -526,10 +560,12 @@ test("director command service reuses active takeover command by novel", async (
 });
 
 test("director command service queues chapter title repair without clearing the warning", async () => {
-  const harness = createHarness(createTask({
-    status: "failed",
-    lastError: "章节标题过于相似，需要修复。",
-  }));
+  const harness = createHarness(
+    createTask({
+      status: "failed",
+      lastError: "章节标题过于相似，需要修复。",
+    }),
+  );
   try {
     const accepted = await harness.service.enqueueChapterTitleRepairCommand("task-1", {
       volumeId: " volume-1 ",
@@ -538,7 +574,7 @@ test("director command service queues chapter title repair without clearing the 
     assert.equal(accepted.status, "queued");
     assert.equal(accepted.commandType, "repair_chapter_titles");
     assert.equal(harness.commands.length, 1);
-    assert.equal(harness.commands[0].payloadJson, "{\"volumeId\":\"volume-1\"}");
+    assert.equal(harness.commands[0].payloadJson, '{"volumeId":"volume-1"}');
     assert.equal(harness.task.status, "queued");
     assert.equal(harness.task.lastError, "章节标题过于相似，需要修复。");
     assert.equal("lastError" in harness.taskUpdates[0].data, false);
@@ -556,7 +592,7 @@ test("director command service queues chapter title repair with a null volume fi
 
     assert.equal(accepted.commandType, "repair_chapter_titles");
     assert.equal(harness.commands.length, 1);
-    assert.equal(harness.commands[0].payloadJson, "{\"volumeId\":null}");
+    assert.equal(harness.commands[0].payloadJson, '{"volumeId":null}');
     assert.equal("lastError" in harness.taskUpdates[0].data, false);
   } finally {
     harness.restore();
@@ -617,11 +653,13 @@ test("director command service marks a leased command cancelled and closes runni
 });
 
 test("director command service auto requeues first stale continue lease", async () => {
-  const harness = createHarness(createTask({
-    status: "running",
-    pendingManualRecovery: false,
-    lastError: null,
-  }));
+  const harness = createHarness(
+    createTask({
+      status: "running",
+      pendingManualRecovery: false,
+      lastError: null,
+    }),
+  );
   try {
     await harness.service.enqueueContinueCommand("task-1");
     harness.commands[0].status = "running";
@@ -635,7 +673,10 @@ test("director command service auto requeues first stale continue lease", async 
     assert.equal(harness.commands[0].leaseExpiresAt, null);
     assert.equal(harness.commands[0].startedAt, null);
     assert.equal(harness.commands[0].finishedAt, null);
-    assert.equal(harness.commands[0].errorMessage, "\u540e\u53f0\u6267\u884c\u4e2d\u65ad\uff0c\u7cfb\u7edf\u5df2\u81ea\u52a8\u4ece\u6700\u8fd1\u8fdb\u5ea6\u7ee7\u7eed\u3002");
+    assert.equal(
+      harness.commands[0].errorMessage,
+      "\u540e\u53f0\u6267\u884c\u4e2d\u65ad\uff0c\u7cfb\u7edf\u5df2\u81ea\u52a8\u4ece\u6700\u8fd1\u8fdb\u5ea6\u7ee7\u7eed\u3002",
+    );
     assert.equal(harness.requeued.length, 0);
     assert.equal(harness.stepUpdates.length, 0);
     assert.equal(harness.task.status, "queued");
@@ -675,11 +716,16 @@ test("expired continue lease cannot reopen a completed book", async () => {
   try {
     await harness.service.enqueueContinueCommand("task-1");
     Object.assign(harness.task, {
-      status: "succeeded", checkpointType: "workflow_completed",
-      pendingManualRecovery: false, lastError: null, progress: 1,
+      status: "succeeded",
+      checkpointType: "workflow_completed",
+      pendingManualRecovery: false,
+      lastError: null,
+      progress: 1,
     });
     Object.assign(harness.commands[0], {
-      status: "running", leaseOwner: "worker-a", attempt: 1,
+      status: "running",
+      leaseOwner: "worker-a",
+      attempt: 1,
       leaseExpiresAt: new Date("2026-04-29T12:00:00.000Z"),
     });
     await harness.service.recoverStaleLeases(new Date("2026-04-29T12:01:00.000Z"));
@@ -699,13 +745,19 @@ test("completion lease cleanup loses to a new task run committed after its read"
     await harness.service.enqueueContinueCommand("task-1");
     Object.assign(harness.task, { status: "succeeded", checkpointType: "workflow_completed" });
     Object.assign(harness.commands[0], {
-      status: "running", leaseOwner: "worker-a", attempt: 1,
+      status: "running",
+      leaseOwner: "worker-a",
+      attempt: 1,
       leaseExpiresAt: new Date("2026-04-29T12:00:00.000Z"),
     });
     const updateMany = prisma.directorRunCommand.updateMany;
     prisma.directorRunCommand.updateMany = async (args) => {
       if (args.where.task?.is) {
-        Object.assign(harness.task, { status: "running", checkpointType: null, updatedAt: new Date() });
+        Object.assign(harness.task, {
+          status: "running",
+          checkpointType: null,
+          updatedAt: new Date(),
+        });
       }
       return updateMany(args);
     };
@@ -779,15 +831,19 @@ test("director command stale recovery applies the task policy instead of only re
 });
 
 test("director command service auto requeues full-book autopilot stale leases before manual recovery", async () => {
-  const harness = createHarness(createTask({
-    status: "running",
-    pendingManualRecovery: false,
-    lastError: null,
-  }));
+  const harness = createHarness(
+    createTask({
+      status: "running",
+      pendingManualRecovery: false,
+      lastError: null,
+    }),
+  );
   try {
-    await harness.service.enqueueConfirmCandidateCommand(createConfirmRequest({
-      runMode: "full_book_autopilot",
-    }));
+    await harness.service.enqueueConfirmCandidateCommand(
+      createConfirmRequest({
+        runMode: "full_book_autopilot",
+      }),
+    );
     harness.commands[0].status = "running";
     harness.commands[0].leaseOwner = "worker-a";
     harness.commands[0].attempt = 2;
@@ -808,11 +864,13 @@ test("director command service auto requeues full-book autopilot stale leases be
 });
 
 test("director command service clears exhausted stale command before accepting a new continue", async () => {
-  const harness = createHarness(createTask({
-    status: "running",
-    pendingManualRecovery: true,
-    lastError: "服务重启后任务已暂停，等待手动恢复。",
-  }));
+  const harness = createHarness(
+    createTask({
+      status: "running",
+      pendingManualRecovery: true,
+      lastError: "服务重启后任务已暂停，等待手动恢复。",
+    }),
+  );
   try {
     await harness.service.enqueueContinueCommand("task-1");
     harness.commands[0].status = "running";

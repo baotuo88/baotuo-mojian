@@ -35,10 +35,10 @@ function normalizeBaseUrl(value: string): string {
 
 function isMissingTableError(error: unknown): boolean {
   return (
-    typeof error === "object"
-    && error !== null
-    && "code" in error
-    && (error as { code?: string }).code === "P2021"
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2021"
   );
 }
 
@@ -81,7 +81,8 @@ async function resolveProviderSecret(provider: LLMProvider): Promise<ProviderSec
     throw new Error(`Provider ${provider} API key is not configured.`);
   }
 
-  const baseURLSource = savedBaseURL ?? getProviderEnvBaseUrl(provider) ?? getProviderDefaultBaseUrl(provider);
+  const baseURLSource =
+    savedBaseURL ?? getProviderEnvBaseUrl(provider) ?? getProviderDefaultBaseUrl(provider);
   if (!baseURLSource) {
     throw new Error(`Provider ${provider} API URL is not configured.`);
   }
@@ -89,7 +90,10 @@ async function resolveProviderSecret(provider: LLMProvider): Promise<ProviderSec
   return { apiKey: finalApiKey, baseURL };
 }
 
-function parseImagesFromPayload(payload: unknown, outputFormat: ImageOutputFormat = "png"): Array<{
+function parseImagesFromPayload(
+  payload: unknown,
+  outputFormat: ImageOutputFormat = "png",
+): Array<{
   url: string;
   mimeType?: string;
   width?: number;
@@ -122,13 +126,17 @@ function parseImagesFromPayload(payload: unknown, outputFormat: ImageOutputForma
       width?: unknown;
       height?: unknown;
     };
-    const mimeType = typeof row.mime_type === "string" && ["image/png", "image/jpeg", "image/webp"].includes(row.mime_type)
-      ? row.mime_type : `image/${outputFormat}`;
-    const rawUrl = typeof row.url === "string"
-      ? row.url
-      : typeof row.b64_json === "string"
-        ? `data:${mimeType};base64,${row.b64_json}`
-        : "";
+    const mimeType =
+      typeof row.mime_type === "string" &&
+      ["image/png", "image/jpeg", "image/webp"].includes(row.mime_type)
+        ? row.mime_type
+        : `image/${outputFormat}`;
+    const rawUrl =
+      typeof row.url === "string"
+        ? row.url
+        : typeof row.b64_json === "string"
+          ? `data:${mimeType};base64,${row.b64_json}`
+          : "";
     if (!rawUrl) {
       continue;
     }
@@ -152,14 +160,19 @@ function buildPrompt(prompt: string, negativePrompt?: string): string {
   return `${cleanPrompt}\n\nAvoid: ${cleanNegativePrompt}`;
 }
 
-function normalizeOptionalEnum<T extends string>(value: T | undefined, skipValues: readonly T[]): T | undefined {
+function normalizeOptionalEnum<T extends string>(
+  value: T | undefined,
+  skipValues: readonly T[],
+): T | undefined {
   if (!value || skipValues.includes(value)) {
     return undefined;
   }
   return value;
 }
 
-export function buildImageGenerationRequestBody(input: ImageProviderGenerateInput): Record<string, unknown> {
+export function buildImageGenerationRequestBody(
+  input: ImageProviderGenerateInput,
+): Record<string, unknown> {
   const requestBody: Record<string, unknown> = {
     model: input.model,
     prompt: buildPrompt(input.prompt, input.negativePrompt),
@@ -191,7 +204,10 @@ export function buildImageGenerationRequestBody(input: ImageProviderGenerateInpu
       requestBody.output_format = outputFormat;
     }
     if (typeof input.outputCompression === "number" && Number.isFinite(input.outputCompression)) {
-      requestBody.output_compression = Math.max(0, Math.min(100, Math.floor(input.outputCompression)));
+      requestBody.output_compression = Math.max(
+        0,
+        Math.min(100, Math.floor(input.outputCompression)),
+      );
     }
   }
 
@@ -203,9 +219,8 @@ export function isImageProviderSupported(provider: LLMProvider): boolean {
 }
 
 export async function resolveImageModel(provider: LLMProvider, model?: string): Promise<string> {
-  const resolved = model?.trim()
-    || await getProviderImageModel(provider)
-    || getDefaultImageModel(provider);
+  const resolved =
+    model?.trim() || (await getProviderImageModel(provider)) || getDefaultImageModel(provider);
   if (!resolved) {
     throw new Error(`No default image model configured for provider=${provider}.`);
   }
@@ -222,24 +237,31 @@ async function generateWithFileRef(
   baseURL: string,
   signal: AbortSignal,
 ): Promise<ImageProviderGenerateResult> {
-  const temporary = input.refImages?.length ? await fs.mkdtemp(path.join(os.tmpdir(), "image-references-")) : undefined;
+  const temporary = input.refImages?.length
+    ? await fs.mkdtemp(path.join(os.tmpdir(), "image-references-"))
+    : undefined;
   try {
     const paths = [...(input.refImagePaths ?? [])];
     const maxFileBytes = 20 * 1024 * 1024;
     const maxTotalBytes = 64 * 1024 * 1024;
-    const tooLarge = () => new AppError("参考图单张不能超过 20 MB，总大小不能超过 64 MB，请缩小图片或减少参考图。", 400);
+    const tooLarge = () =>
+      new AppError("参考图单张不能超过 20 MB，总大小不能超过 64 MB，请缩小图片或减少参考图。", 400);
     let stagedBytes = 0;
     for (const referencePath of paths) {
       signal.throwIfAborted();
       const stat = await fs.stat(referencePath);
       stagedBytes += stat.size;
-      if (!stat.isFile() || stat.size > maxFileBytes || stagedBytes > maxTotalBytes) throw tooLarge();
+      if (!stat.isFile() || stat.size > maxFileBytes || stagedBytes > maxTotalBytes)
+        throw tooLarge();
     }
     for (const [index, url] of (input.refImages ?? []).entries()) {
       const remainingBytes = maxTotalBytes - stagedBytes;
       if (remainingBytes <= 0) throw tooLarge();
       const destination = path.join(temporary!, `reference-${index}`);
-      await saveImageToDisk(url, destination, { maxBytes: Math.min(maxFileBytes, remainingBytes), signal });
+      await saveImageToDisk(url, destination, {
+        maxBytes: Math.min(maxFileBytes, remainingBytes),
+        signal,
+      });
       stagedBytes += (await fs.stat(destination)).size;
       paths.push(destination);
     }
@@ -252,13 +274,18 @@ async function generateWithFileRef(
       signal.throwIfAborted();
       const stat = await fs.stat(referencePath);
       totalBytes += stat.size;
-      if (!stat.isFile() || stat.size > maxFileBytes || totalBytes > maxTotalBytes) throw tooLarge();
+      if (!stat.isFile() || stat.size > maxFileBytes || totalBytes > maxTotalBytes)
+        throw tooLarge();
       const fileBuffer = await fs.readFile(referencePath, { signal });
       const { format } = await sharp(fileBuffer).metadata();
       if (format !== "png" && format !== "jpeg" && format !== "webp") {
         throw new AppError("参考图需要使用 PNG、JPEG 或 WebP 格式。", 400);
       }
-      form.append(paths.length === 1 ? "image" : "image[]", new Blob([fileBuffer], { type: `image/${format}` }), `reference-${index}.${format}`);
+      form.append(
+        paths.length === 1 ? "image" : "image[]",
+        new Blob([fileBuffer], { type: `image/${format}` }),
+        `reference-${index}.${format}`,
+      );
     }
 
     signal.throwIfAborted();
@@ -274,7 +301,9 @@ async function generateWithFileRef(
 
     if (!response.ok) {
       const detail = await response.text();
-      throw new Error(`Image API (edits) request failed (${response.status}): ${detail || "unknown error"}`);
+      throw new Error(
+        `Image API (edits) request failed (${response.status}): ${detail || "unknown error"}`,
+      );
     }
 
     const payload = (await response.json()) as unknown;
@@ -295,14 +324,17 @@ async function generateWithFileRef(
   }
 }
 
-export async function generateImagesByProvider(input: ImageProviderGenerateInput): Promise<ImageProviderGenerateResult> {
+export async function generateImagesByProvider(
+  input: ImageProviderGenerateInput,
+): Promise<ImageProviderGenerateResult> {
   throwIfExecutionAborted();
   if (!isImageProviderSupported(input.provider)) {
     throw new Error(`Provider ${input.provider} does not support image generation currently.`);
   }
 
   const referenceCount = (input.refImagePaths?.length ?? 0) + (input.refImages?.length ?? 0);
-  if (referenceCount > 16) throw new AppError("最多使用 16 张参考图，请取消部分参考图后重试。", 400);
+  if (referenceCount > 16)
+    throw new AppError("最多使用 16 张参考图，请取消部分参考图后重试。", 400);
   if (referenceCount && input.provider === "grok") {
     throw new AppError("此图片通道未接入参考图，请选择支持参考图的通道，或取消所有参考图。", 400);
   }
@@ -310,7 +342,9 @@ export async function generateImagesByProvider(input: ImageProviderGenerateInput
   const { apiKey, baseURL } = await resolveProviderSecret(input.provider);
   const controller = new AbortController();
   const executionSignal = getExecutionAbortSignal();
-  const signal = executionSignal ? AbortSignal.any([controller.signal, executionSignal]) : controller.signal;
+  const signal = executionSignal
+    ? AbortSignal.any([controller.signal, executionSignal])
+    : controller.signal;
   const timeoutMs = imageGenerationConfig.httpTimeoutMs;
   const timeout = setTimeout(
     () => controller.abort(new Error(`Image generation request timed out after ${timeoutMs}ms.`)),
@@ -337,7 +371,9 @@ export async function generateImagesByProvider(input: ImageProviderGenerateInput
 
     if (!response.ok) {
       const detail = await response.text();
-      throw new Error(`Image API request failed (${response.status}): ${detail || "unknown error"}`);
+      throw new Error(
+        `Image API request failed (${response.status}): ${detail || "unknown error"}`,
+      );
     }
 
     const payload = (await response.json()) as unknown;

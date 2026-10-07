@@ -22,13 +22,15 @@ export class DirectorCommandExecutor {
   private readonly interpreter: DirectorCommandInterpreter;
   private readonly stateStore: DirectorStateStore;
 
-  constructor(deps: {
-    directorService?: NovelDirectorService;
-    workflowService?: NovelWorkflowService;
-    commandService?: DirectorCommandService;
-    interpreter?: DirectorCommandInterpreter;
-    stateStore?: DirectorStateStore;
-  } = {}) {
+  constructor(
+    deps: {
+      directorService?: NovelDirectorService;
+      workflowService?: NovelWorkflowService;
+      commandService?: DirectorCommandService;
+      interpreter?: DirectorCommandInterpreter;
+      stateStore?: DirectorStateStore;
+    } = {},
+  ) {
     this.directorService = deps.directorService ?? new NovelDirectorService();
     this.workflowService = deps.workflowService ?? new NovelWorkflowService();
     this.commandService = deps.commandService ?? new DirectorCommandService(this.workflowService);
@@ -75,10 +77,16 @@ export class DirectorCommandExecutor {
           ...request,
           workflowTaskId: pipelineCommand.taskId,
         });
-        await this.recordCommandResult(pipelineCommand.taskId, pipelineCommand.id, result, {
-          batches: [result.batch],
-          candidateStage: null,
-        }, true);
+        await this.recordCommandResult(
+          pipelineCommand.taskId,
+          pipelineCommand.id,
+          result,
+          {
+            batches: [result.batch],
+            candidateStage: null,
+          },
+          true,
+        );
         return this.resolveCommandOutcome(pipelineCommand.taskId);
       }
       case "refine_candidates": {
@@ -90,10 +98,16 @@ export class DirectorCommandExecutor {
           ...request,
           workflowTaskId: pipelineCommand.taskId,
         });
-        await this.recordCommandResult(pipelineCommand.taskId, pipelineCommand.id, result, {
-          batches: request.previousBatches.concat(result.batch),
-          candidateStage: null,
-        }, true);
+        await this.recordCommandResult(
+          pipelineCommand.taskId,
+          pipelineCommand.id,
+          result,
+          {
+            batches: request.previousBatches.concat(result.batch),
+            candidateStage: null,
+          },
+          true,
+        );
         return this.resolveCommandOutcome(pipelineCommand.taskId);
       }
       case "patch_candidate": {
@@ -106,12 +120,20 @@ export class DirectorCommandExecutor {
           workflowTaskId: pipelineCommand.taskId,
         });
         const nextBatches = request.previousBatches.some((batch) => batch.id === result.batch.id)
-          ? request.previousBatches.map((batch) => (batch.id === result.batch.id ? result.batch : batch))
+          ? request.previousBatches.map((batch) =>
+              batch.id === result.batch.id ? result.batch : batch,
+            )
           : request.previousBatches.concat(result.batch);
-        await this.recordCommandResult(pipelineCommand.taskId, pipelineCommand.id, result, {
-          batches: nextBatches,
-          candidateStage: null,
-        }, true);
+        await this.recordCommandResult(
+          pipelineCommand.taskId,
+          pipelineCommand.id,
+          result,
+          {
+            batches: nextBatches,
+            candidateStage: null,
+          },
+          true,
+        );
         return this.resolveCommandOutcome(pipelineCommand.taskId);
       }
       case "refine_titles": {
@@ -124,12 +146,20 @@ export class DirectorCommandExecutor {
           workflowTaskId: pipelineCommand.taskId,
         });
         const nextBatches = request.previousBatches.some((batch) => batch.id === result.batch.id)
-          ? request.previousBatches.map((batch) => (batch.id === result.batch.id ? result.batch : batch))
+          ? request.previousBatches.map((batch) =>
+              batch.id === result.batch.id ? result.batch : batch,
+            )
           : request.previousBatches.concat(result.batch);
-        await this.recordCommandResult(pipelineCommand.taskId, pipelineCommand.id, result, {
-          batches: nextBatches,
-          candidateStage: null,
-        }, true);
+        await this.recordCommandResult(
+          pipelineCommand.taskId,
+          pipelineCommand.id,
+          result,
+          {
+            batches: nextBatches,
+            candidateStage: null,
+          },
+          true,
+        );
         return this.resolveCommandOutcome(pipelineCommand.taskId);
       }
       case "confirm_candidate":
@@ -141,10 +171,13 @@ export class DirectorCommandExecutor {
         if (state.task.novelId && this.hasStartedExecution(state.seedPayload)) {
           await this.resumeStartedExecution(pipelineCommand.taskId, state.task);
         } else {
-          await this.directorService.confirmCandidate({
-            ...pipelineCommand.payload.confirmRequest,
-            workflowTaskId: pipelineCommand.taskId,
-          }, { awaitBackgroundRun: true });
+          await this.directorService.confirmCandidate(
+            {
+              ...pipelineCommand.payload.confirmRequest,
+              workflowTaskId: pipelineCommand.taskId,
+            },
+            { awaitBackgroundRun: true },
+          );
         }
         return this.resolveCommandOutcome(pipelineCommand.taskId);
       case "takeover": {
@@ -216,7 +249,9 @@ export class DirectorCommandExecutor {
           throw new AppError("Director step calibration payload is missing.", 400);
         }
         const result = await this.directorService.calibrateStep(pipelineCommand.taskId, request);
-        await this.recordCommandResult(pipelineCommand.taskId, pipelineCommand.id, { calibration: result });
+        await this.recordCommandResult(pipelineCommand.taskId, pipelineCommand.id, {
+          calibration: result,
+        });
         return this.resolveCommandOutcome(pipelineCommand.taskId);
       }
       case "accept_manual_changes_and_continue":
@@ -224,7 +259,9 @@ export class DirectorCommandExecutor {
       case "resume_from_checkpoint":
       case "retry":
       case "approve_gate": {
-        const takeoverRequest = await this.resolveContextlessTakeoverRecovery(pipelineCommand.taskId);
+        const takeoverRequest = await this.resolveContextlessTakeoverRecovery(
+          pipelineCommand.taskId,
+        );
         if (takeoverRequest) {
           await this.directorService.startTakeover(takeoverRequest, {
             workflowTaskId: pipelineCommand.taskId,
@@ -234,7 +271,10 @@ export class DirectorCommandExecutor {
         }
         await this.directorService.executeContinueTask(pipelineCommand.taskId, {
           ...pipelineCommand.payload,
-          continuationMode: pipelineCommand.intent === "approve_gate" ? "resume" : pipelineCommand.payload.continuationMode,
+          continuationMode:
+            pipelineCommand.intent === "approve_gate"
+              ? "resume"
+              : pipelineCommand.payload.continuationMode,
           forceResume: true,
           awaitBackgroundRun: true,
         });
@@ -246,17 +286,26 @@ export class DirectorCommandExecutor {
   }
 
   private hasStartedExecution(seed: DirectorWorkflowSeedPayload): boolean {
-    return Boolean(getDirectorInputFromSeedPayload(seed)
-      && seed.directorSession
-      && seed.directorSession.phase !== "candidate_selection");
+    return Boolean(
+      getDirectorInputFromSeedPayload(seed) &&
+      seed.directorSession &&
+      seed.directorSession.phase !== "candidate_selection",
+    );
   }
 
-  private async resumeStartedExecution(taskId: string, task: {
-    status: string;
-    cancelRequestedAt?: Date | null;
-  }): Promise<void> {
+  private async resumeStartedExecution(
+    taskId: string,
+    task: {
+      status: string;
+      cancelRequestedAt?: Date | null;
+    },
+  ): Promise<void> {
     // Retrying an entry command is not approval of a later explicit runtime gate.
-    if (task.status === "waiting_approval" || task.status === "cancelled" || task.cancelRequestedAt) {
+    if (
+      task.status === "waiting_approval" ||
+      task.status === "cancelled" ||
+      task.cancelRequestedAt
+    ) {
       return;
     }
     await this.directorService.executeContinueTask(taskId, {
@@ -271,7 +320,9 @@ export class DirectorCommandExecutor {
     return row?.status === "cancelled" || row?.cancelRequestedAt ? "cancelled" : "completed";
   }
 
-  private async resolveContextlessTakeoverRecovery(taskId: string): Promise<DirectorTakeoverRequest | null> {
+  private async resolveContextlessTakeoverRecovery(
+    taskId: string,
+  ): Promise<DirectorTakeoverRequest | null> {
     const row = await this.workflowService.getTaskByIdWithoutHealing(taskId);
     const seedPayload = parseSeedPayload<DirectorWorkflowSeedPayload>(row?.seedPayloadJson) ?? {};
     if (getDirectorInputFromSeedPayload(seedPayload)) {
@@ -303,7 +354,10 @@ export class DirectorCommandExecutor {
         if (!row) {
           return;
         }
-        const current = parseSeedPayload<{ directorCommandResults?: Record<string, unknown> }>(row.seedPayloadJson) ?? {};
+        const current =
+          parseSeedPayload<{ directorCommandResults?: Record<string, unknown> }>(
+            row.seedPayloadJson,
+          ) ?? {};
         const directorCommandResults = {
           ...(current.directorCommandResults ?? {}),
           [commandId]: {
@@ -316,14 +370,14 @@ export class DirectorCommandExecutor {
           data: {
             ...(candidateSelectionReady
               ? {
-                status: "waiting_approval",
-                currentStage: "AI 自动导演",
-                currentItemKey: "candidate_selection_required",
-                currentItemLabel: "书级方向已准备好，请选择一套继续",
-                progress: 0.18,
-                checkpointType: "candidate_selection_required",
-                checkpointSummary: "AI 已生成可选的书级方向。",
-              }
+                  status: "waiting_approval",
+                  currentStage: "AI 自动导演",
+                  currentItemKey: "candidate_selection_required",
+                  currentItemLabel: "书级方向已准备好，请选择一套继续",
+                  progress: 0.18,
+                  checkpointType: "candidate_selection_required",
+                  checkpointSummary: "AI 已生成可选的书级方向。",
+                }
               : {}),
             seedPayloadJson: mergeSeedPayload(row.seedPayloadJson, {
               ...seedPatch,

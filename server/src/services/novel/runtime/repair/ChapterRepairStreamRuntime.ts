@@ -150,18 +150,19 @@ export class ChapterRepairStreamRuntime {
 
     const auditIssues = options.auditIssueIds?.length
       ? await prisma.auditIssue.findMany({
-        where: { id: { in: options.auditIssueIds }, report: { novelId, chapterId } },
-        orderBy: { createdAt: "asc" },
-      })
+          where: { id: { in: options.auditIssueIds }, report: { novelId, chapterId } },
+          orderBy: { createdAt: "asc" },
+        })
       : [];
     if (auditIssues.length > 0) {
       return auditIssues.map((item) => ({
         severity: item.severity as ReviewIssue["severity"],
-        category: item.auditType === "continuity"
-          ? "coherence"
-          : item.auditType === "character"
-            ? "logic"
-            : "pacing",
+        category:
+          item.auditType === "continuity"
+            ? "coherence"
+            : item.auditType === "character"
+              ? "logic"
+              : "pacing",
         evidence: item.evidence,
         fixSuggestion: item.fixSuggestion,
       }));
@@ -194,55 +195,68 @@ export class ChapterRepairStreamRuntime {
     }
 
     await commitGeneratedChapter({
-      novelId: input.novelId, chapterId: input.chapterId, content: repairedContent,
-      expectedContent: input.expectedContent, generationState: "repaired",
+      novelId: input.novelId,
+      chapterId: input.chapterId,
+      content: repairedContent,
+      expectedContent: input.expectedContent,
+      generationState: "repaired",
     });
-    await runWithExecutionScope({
-      fence: { kind: "chapter_content", novelId: input.novelId, chapterId: input.chapterId, content: repairedContent },
-    }, async () => {
-      await this.deps.artifactSyncService.syncChapterArtifacts(
-        input.novelId,
-        input.chapterId,
-        repairedContent,
-        {
-          scheduleBackgroundSync: true,
-          awaitArtifactDelta: true,
-          skipLegacySummaryAndFacts: true,
+    await runWithExecutionScope(
+      {
+        fence: {
+          kind: "chapter_content",
+          novelId: input.novelId,
+          chapterId: input.chapterId,
+          content: repairedContent,
+        },
+      },
+      async () => {
+        await this.deps.artifactSyncService.syncChapterArtifacts(
+          input.novelId,
+          input.chapterId,
+          repairedContent,
+          {
+            scheduleBackgroundSync: true,
+            awaitArtifactDelta: true,
+            skipLegacySummaryAndFacts: true,
+            provider: input.options.provider,
+            model: input.options.model,
+          },
+        );
+
+        const review = await this.deps.reviewChapterAfterRepair(input.novelId, input.chapterId, {
           provider: input.options.provider,
           model: input.options.model,
-        },
-      );
-
-      const review = await this.deps.reviewChapterAfterRepair(input.novelId, input.chapterId, {
-        provider: input.options.provider,
-        model: input.options.model,
-        temperature: input.options.temperature,
-        content: repairedContent,
-      });
-      if (isPass(review.score)) {
-        await prisma.chapter.update({
-          where: { id: input.chapterId, content: repairedContent },
-          data: { generationState: "approved" },
+          temperature: input.options.temperature,
+          content: repairedContent,
         });
-        if (input.options.auditIssueIds?.length) {
-          const resolveAuditIssues = this.deps.resolveAuditIssues
-            ?? ((novelId: string, issueIds: string[]) => auditService.resolveIssues(novelId, issueIds));
-          await resolveAuditIssues(input.novelId, input.options.auditIssueIds).catch((error) => {
-            if (isExecutionStoppedError(error)) throw error;
+        if (isPass(review.score)) {
+          await prisma.chapter.update({
+            where: { id: input.chapterId, content: repairedContent },
+            data: { generationState: "approved" },
           });
+          if (input.options.auditIssueIds?.length) {
+            const resolveAuditIssues =
+              this.deps.resolveAuditIssues ??
+              ((novelId: string, issueIds: string[]) =>
+                auditService.resolveIssues(novelId, issueIds));
+            await resolveAuditIssues(input.novelId, input.options.auditIssueIds).catch((error) => {
+              if (isExecutionStoppedError(error)) throw error;
+            });
+          }
         }
-      }
 
-      input.helpers.writeFrame({
-        type: "run_status",
-        runId,
-        status: "succeeded",
-        phase: "completed",
-        message: isPass(review.score)
-          ? "章节修复已完成，本章已达到可继续推进状态。"
-          : "修复稿已保存，但仍有问题待继续处理。",
-      });
-    });
+        input.helpers.writeFrame({
+          type: "run_status",
+          runId,
+          status: "succeeded",
+          phase: "completed",
+          message: isPass(review.score)
+            ? "章节修复已完成，本章已达到可继续推进状态。"
+            : "修复稿已保存，但仍有问题待继续处理。",
+        });
+      },
+    );
   }
 }
 

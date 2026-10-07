@@ -1,6 +1,8 @@
 # 漫画整话导出
 
-`ComicExportService` 负责读取一次完整话快照、校验所有格子、冻结输入文件、记录导出任务，以及对外提供已完成产物。它通过 `assets` 门面解析当前有效图片，不依赖未确认文件。
+`ComicExportService`
+负责读取一次完整话快照、校验所有格子、冻结输入文件、记录导出任务，以及对外提供已完成产物。它通过
+`assets` 门面解析当前有效图片，不依赖未确认文件。
 
 本模块通过 `index.ts` 提供确定性的输出规格验证和图像渲染：
 
@@ -8,10 +10,17 @@
 - 长图超出编码/像素安全限制时也自动分片，API 必须返回全部 `artifacts`。
 - 先逐格归一化，再按输出片段裁取和合成；禁止先创建全话画布或编码全话长图后才切片。
 - 一片最多 1600 万像素、16000 像素高；切片模式未指定高度时采用不超过 8000 像素的安全值。
-- 原始输入与归一化文件留在每个导出任务的私有 `inputs/` 目录；下载入口仅提供 `done` 任务中明确列出的最终产物。
+- 原始输入与归一化文件留在每个导出任务的私有 `inputs/` 目录；下载入口仅提供
+  `done` 任务中明确列出的最终产物。
 
-没有使用真实模型、真实数据库或浏览器的必要：`comicAssetConsistency.test.js` 用临时 PNG、fake provider 验证版本和输出像素；`comicPanelPublication.test.js` 用独立临时 SQLite 验证发布 CAS。
+没有使用真实模型、真实数据库或浏览器的必要：`comicAssetConsistency.test.js`
+用临时 PNG、fake provider 验证版本和输出像素；`comicPanelPublication.test.js`
+用独立临时 SQLite 验证发布 CAS。
 
-`ExportJobLease` 使用导出任务 `updatedAt` 作为 90 秒租约，每 15 秒心跳一次。列表/详情读取只将过期的 `processing` 任务 CAS 转为可重试错误；活跃任务不会因为其他进程读取而被误判。完成发布与心跳同样校验租约，因此没有读请求时，过期执行者也不能发布结果。任何终态不得被迟到回调覆盖。
+`ExportJobLease` 使用导出任务 `updatedAt`
+作为 90 秒租约，每 15 秒心跳一次。列表/详情读取只将过期的 `processing`
+任务 CAS 转为可重试错误；活跃任务不会因为其他进程读取而被误判。完成发布与心跳同样校验租约，因此没有读请求时，过期执行者也不能发布结果。任何终态不得被迟到回调覆盖。
 
-中断恢复保留 `spec.inputSnapshot` 与所有私有输入，不从变化后的当前格子自动重跑。用户重新导出会创建新快照与新任务。`comicExportRecovery.test.js` 使用独立 SQLite 验证心跳、过期发布、读时恢复与终态保护。
+中断恢复保留 `spec.inputSnapshot`
+与所有私有输入，不从变化后的当前格子自动重跑。用户重新导出会创建新快照与新任务。`comicExportRecovery.test.js`
+使用独立 SQLite 验证心跳、过期发布、读时恢复与终态保护。

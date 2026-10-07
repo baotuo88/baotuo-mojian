@@ -82,13 +82,21 @@ function normalizeCharacterRefs(raw: string | null | undefined): StructuredChara
     const expression = isCharacterExpressionId(record.expression) ? record.expression : "neutral";
     const rawProps = record.props;
     const props = Array.isArray(rawProps)
-      ? (rawProps as unknown[]).filter((p): p is string => typeof p === "string" && p.trim().length > 0).map((p) => p.trim())
+      ? (rawProps as unknown[])
+          .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
+          .map((p) => p.trim())
       : undefined;
     refs.push({
       name,
-      costume: typeof record.costume === "string" && record.costume.trim() ? record.costume.trim() : "default",
+      costume:
+        typeof record.costume === "string" && record.costume.trim()
+          ? record.costume.trim()
+          : "default",
       expression,
-      lighting: typeof record.lighting === "string" && record.lighting.trim() ? record.lighting.trim() : undefined,
+      lighting:
+        typeof record.lighting === "string" && record.lighting.trim()
+          ? record.lighting.trim()
+          : undefined,
       props: props && props.length > 0 ? props : undefined,
     });
   }
@@ -108,42 +116,42 @@ function extractVisualAnchorDesc(visualAnchor: string): string {
 
 // 中文形态关键词映射（与前端 COMIC_FORMATS.value 对应）
 const FORMAT_ZH_KEYWORDS: Record<string, string> = {
-  webtoon:         "竖版条漫单格，韩漫竖屏格子，手机阅读条漫画格",
-  "4koma":         "四格漫画，竖版四格，起承转合四格排版",
-  single_page:     "单页漫画，日漫分格页面，大小格混排单页",
-  cinematic:       "电影分镜画格，横版宽幅，电影感构图",
-  chat_comic:      "聊天漫画格，对话气泡式版式，轻松日常漫画",
-  chibi_comic:     "Q版萌漫，SD人物，可爱夸张比例漫画格",
-  ink_comic:       "水墨国风漫画格，毛笔线条，古典意境留白",
-  drama_screenshot:"竖版短剧截图风，字幕条，剧情画面感",
+  webtoon: "竖版条漫单格，韩漫竖屏格子，手机阅读条漫画格",
+  "4koma": "四格漫画，竖版四格，起承转合四格排版",
+  single_page: "单页漫画，日漫分格页面，大小格混排单页",
+  cinematic: "电影分镜画格，横版宽幅，电影感构图",
+  chat_comic: "聊天漫画格，对话气泡式版式，轻松日常漫画",
+  chibi_comic: "Q版萌漫，SD人物，可爱夸张比例漫画格",
+  ink_comic: "水墨国风漫画格，毛笔线条，古典意境留白",
+  drama_screenshot: "竖版短剧截图风，字幕条，剧情画面感",
 };
 
 const STYLE_ZH_KEYWORDS: Record<string, string> = {
-  webtoon_color:   "彩色韩漫风格，干净线条，鲜艳配色",
-  bl_manga:        "彩色少女漫风格，柔和色调，精致五官",
-  shounen_bw:      "黑白少年漫风格，粗犷线条，动感构图",
+  webtoon_color: "彩色韩漫风格，干净线条，鲜艳配色",
+  bl_manga: "彩色少女漫风格，柔和色调，精致五官",
+  shounen_bw: "黑白少年漫风格，粗犷线条，动感构图",
   ink_traditional: "水墨国风，传统毛笔笔触，淡彩晕染",
-  chibi:           "Q版萌漫风格，圆润可爱，夸张表情",
-  realistic:       "写实漫画风格，细腻光影，真实感",
+  chibi: "Q版萌漫风格，圆润可爱，夸张表情",
+  realistic: "写实漫画风格，细腻光影，真实感",
 };
 
 // 九宫格方向 → 图像模型理解的位置描述
 const ANCHOR_HINT_ZH: Record<string, string> = {
-  "top-left":      "左上角",
-  "top-center":    "上方居中",
-  "top-right":     "右上角",
-  "left-center":   "左侧",
-  "center":        "居中",
-  "right-center":  "右侧",
-  "bottom-left":   "左下角",
+  "top-left": "左上角",
+  "top-center": "上方居中",
+  "top-right": "右上角",
+  "left-center": "左侧",
+  center: "居中",
+  "right-center": "右侧",
+  "bottom-left": "左下角",
   "bottom-center": "下方居中",
-  "bottom-right":  "右下角",
+  "bottom-right": "右下角",
 };
 
 const BUBBLE_TYPE_ZH: Record<string, string> = {
-  round:   "圆形对话气泡",
-  spike:   "尖角爆炸气泡（激动喊叫）",
-  cloud:   "云朵思维气泡（内心独白）",
+  round: "圆形对话气泡",
+  spike: "尖角爆炸气泡（激动喊叫）",
+  cloud: "云朵思维气泡（内心独白）",
   caption: "矩形旁白框（叙述）",
 };
 
@@ -199,7 +207,8 @@ function buildPanelPrompt(
   hasSceneRefImage = false,
 ): string {
   // 1. 形态声明（中英双语，模型优先锚定风格）
-  const formatEn = presetData.promptKeywords ?? "webtoon vertical strip panel, single frame, tall aspect ratio";
+  const formatEn =
+    presetData.promptKeywords ?? "webtoon vertical strip panel, single frame, tall aspect ratio";
   const formatZh = FORMAT_ZH_KEYWORDS[presetData.format ?? "webtoon"] ?? FORMAT_ZH_KEYWORDS.webtoon;
 
   // 2. 画风声明
@@ -208,24 +217,24 @@ function buildPanelPrompt(
 
   // 3. 角色外貌锚定（有设计稿时作为次要文字补充，没有时是主要一致性保障）
   //    角色描述里已携带【男性】/【女性】/【中性气质】标签，模型据此画对性别
-  const charPart = characterDescs.length > 0
-    ? `角色外貌设定（请严格按方括号性别标签画对性别，男性不要画成女性，女性不要画成男性）：${characterDescs.join("；")}`
-    : "";
+  const charPart =
+    characterDescs.length > 0
+      ? `角色外貌设定（请严格按方括号性别标签画对性别，男性不要画成女性，女性不要画成男性）：${characterDescs.join("；")}`
+      : "";
 
   // 4. 对话/气泡
   const dialoguePart = buildDialoguePrompt(dialogues);
 
   // 顺序：形态 → 画风 → 角色外貌 → 场景锚定 → 对白气泡 → 场景内容 → 质量词
   // 对白在画面内容之前，确保图像模型赋予更高权重
-  const parts = [
-    `${formatZh}，${formatEn}`,
-    `${styleZh}，${styleEn}`,
-  ];
+  const parts = [`${formatZh}，${formatEn}`, `${styleZh}，${styleEn}`];
   if (charPart) parts.push(charPart);
   if (sceneDesc) parts.push(sceneDesc);
   // 场景参考图防机位僵死：只锁定空间身份，镜头按本格自由运镜
   if (hasSceneRefImage) {
-    parts.push("场景参考图仅用于锁定色调、布局与材质身份，镜头角度、景别与构图必须严格按本格画面内容自由运镜，不要照搬参考图的机位");
+    parts.push(
+      "场景参考图仅用于锁定色调、布局与材质身份，镜头角度、景别与构图必须严格按本格画面内容自由运镜，不要照搬参考图的机位",
+    );
   }
   parts.push(CROWD_DIVERSITY_PROMPT);
   if (dialoguePart) parts.push(dialoguePart);
@@ -273,11 +282,16 @@ export class ComicPanelImageService {
     // A preview entry and an image sent to the model always represent the same immutable file.
     const references: Array<{ filePath: string; meta: PanelReferenceImageMeta }> = [];
     const referencePaths = new Set<string>();
-    const addReference = (file: { filePath: string; revision?: string }, meta: PanelReferenceImageMeta) => {
+    const addReference = (
+      file: { filePath: string; revision?: string },
+      meta: PanelReferenceImageMeta,
+    ) => {
       if (referencePaths.has(file.filePath)) return;
       referencePaths.add(file.filePath);
-      references.push({ filePath: file.filePath, meta: { ...meta,
-        url: meta.url + (file.revision ? `?revision=${file.revision}` : "") } });
+      references.push({
+        filePath: file.filePath,
+        meta: { ...meta, url: meta.url + (file.revision ? `?revision=${file.revision}` : "") },
+      });
     };
 
     if (characterRefs.length > 0) {
@@ -289,10 +303,14 @@ export class ComicPanelImageService {
         const desc = character.visualAnchor?.trim()
           ? extractVisualAnchorDesc(character.visualAnchor)
           : "以角色参考图保持外貌一致";
-        const genderTag = character.gender === "male" ? "【男性】"
-          : character.gender === "female" ? "【女性】"
-          : character.gender === "other" ? "【中性气质】"
-          : "";
+        const genderTag =
+          character.gender === "male"
+            ? "【男性】"
+            : character.gender === "female"
+              ? "【女性】"
+              : character.gender === "other"
+                ? "【中性气质】"
+                : "";
         const refParts = [
           `${genderTag}【${character.name}】${desc}`,
           `服装:${ref.costume ?? "default"}`,
@@ -304,22 +322,30 @@ export class ComicPanelImageService {
 
         const sheetRef = await comicCharacterImageService.resolveSheetFile(character.id);
         if (sheetRef) {
-          addReference(sheetRef, { kind: "character_sheet", label: `${character.name} · 三视图`,
-            url: `/api/comic/character-images/${character.id}/sheet` });
+          addReference(sheetRef, {
+            kind: "character_sheet",
+            label: `${character.name} · 三视图`,
+            url: `/api/comic/character-images/${character.id}/sheet`,
+          });
         }
 
         // Default costume belongs to the character sheet. Only a named variant selects an asset.
         const propNames = new Set(ref.props ?? []);
-        const selectedAssets = project.characterAssets.filter((asset) => asset.characterId === character.id
-          && (asset.assetType === "costume"
-            ? ref.costume !== "default" && asset.name === ref.costume
-            : propNames.has(asset.name)));
+        const selectedAssets = project.characterAssets.filter(
+          (asset) =>
+            asset.characterId === character.id &&
+            (asset.assetType === "costume"
+              ? ref.costume !== "default" && asset.name === ref.costume
+              : propNames.has(asset.name)),
+        );
         for (const asset of selectedAssets) {
           const file = await resolveAssetFile(asset.id);
           if (!file) continue;
-          addReference(file, { kind: "asset",
+          addReference(file, {
+            kind: "asset",
             label: `${character.name} · ${asset.assetType === "costume" ? "服装:" : ""}${asset.name}`,
-            url: `/api/comic/character-assets/${asset.id}/image` });
+            url: `/api/comic/character-assets/${asset.id}/image`,
+          });
         }
       }
 
@@ -328,7 +354,9 @@ export class ComicPanelImageService {
         for (const character of project.characters) {
           const ref = characterRefs.find((item) => item.name === character.name);
           if (!ref?.expression) continue;
-          const expressionRef = await comicCharacterImageService.resolveExpressionFile(character.id);
+          const expressionRef = await comicCharacterImageService.resolveExpressionFile(
+            character.id,
+          );
           if (expressionRef) {
             addReference(expressionRef, {
               kind: "character_expression",
@@ -359,17 +387,27 @@ export class ComicPanelImageService {
         const sceneRef = await resolveSceneFile(scene.id);
         if (sceneRef) {
           hasSceneRefImage = true;
-          addReference(sceneRef, { kind: "scene", label: `场景:${scene.name}`,
-            url: `/api/comic/scenes/${scene.id}/image` });
+          addReference(sceneRef, {
+            kind: "scene",
+            label: `场景:${scene.name}`,
+            url: `/api/comic/scenes/${scene.id}/image`,
+          });
         }
       }
     }
 
     const dialogues = safeJsonParse<DialogueEntry[]>(panel.dialogues, []);
-    const prompt = buildPanelPrompt(panel.visualPrompt, dialogues, presetData, characterVisualDescs, sceneDesc, hasSceneRefImage);
+    const prompt = buildPanelPrompt(
+      panel.visualPrompt,
+      dialogues,
+      presetData,
+      characterVisualDescs,
+      sceneDesc,
+      hasSceneRefImage,
+    );
     const rawSize = presetData.imageSize ?? "1024x1536";
     const imageSize: ImageSize = (IMAGE_SIZES as readonly string[]).includes(rawSize)
-      ? rawSize as ImageSize
+      ? (rawSize as ImageSize)
       : "1024x1536";
 
     const adapter = createPanelImageAdapter(panel);
@@ -387,11 +425,17 @@ export class ComicPanelImageService {
   async preparePanelImage(
     panelId: string,
     provider: LLMProvider = DEFAULT_PROVIDER,
-    overrides?: Pick<import("../image/runtime").ImageGenerationOverrides, "excludedReferenceImageUrls">,
+    overrides?: Pick<
+      import("../image/runtime").ImageGenerationOverrides,
+      "excludedReferenceImageUrls"
+    >,
   ): Promise<import("../image/runtime").ImageGenerationPreview> {
     const ctx = await this.buildPanelGenerationContext(panelId);
-    const refs = filterImageGenerationReferences({ refImagePaths: ctx.refImagePaths,
-      referenceImages: ctx.referenceImages, excludedReferenceImageUrls: overrides?.excludedReferenceImageUrls });
+    const refs = filterImageGenerationReferences({
+      refImagePaths: ctx.refImagePaths,
+      referenceImages: ctx.referenceImages,
+      excludedReferenceImageUrls: overrides?.excludedReferenceImageUrls,
+    });
     // Preview must expose all candidates so the user can remove excess references before generation.
     return {
       kind: ctx.adapter.kind,
@@ -416,7 +460,10 @@ export class ComicPanelImageService {
       excludedReferenceImageUrls: overrides?.excludedReferenceImageUrls,
     });
     if ((refs.refImagePaths?.length ?? 0) > 16) {
-      throw new AppError(`本格选中了 ${refs.refImagePaths!.length} 张参考图，最多可使用 16 张。请在生成预览中移除部分参考图后重试。`, 400);
+      throw new AppError(
+        `本格选中了 ${refs.refImagePaths!.length} 张参考图，最多可使用 16 张。请在生成预览中移除部分参考图后重试。`,
+        400,
+      );
     }
     return runImageGeneration(ctx.adapter, {
       expectedModel: execution?.expectedModel,
@@ -424,7 +471,8 @@ export class ComicPanelImageService {
       prompt: overrides?.promptOverride ?? ctx.prompt,
       size: overrides?.sizeOverride ?? ctx.size,
       refImagePaths: refs.refImagePaths,
-      referenceImages: refs.referenceImages && refs.referenceImages.length > 0 ? refs.referenceImages : undefined,
+      referenceImages:
+        refs.referenceImages && refs.referenceImages.length > 0 ? refs.referenceImages : undefined,
     });
   }
 
@@ -438,14 +486,16 @@ export class ComicPanelImageService {
   }
 
   /** 读取本地图片文件（供 HTTP 路由直接流式响应） */
-  async getPanelImageFile(
-    panelId: string,
-  ): Promise<{ buffer: Buffer; ext: string } | null> {
+  async getPanelImageFile(panelId: string): Promise<{ buffer: Buffer; ext: string } | null> {
     const panel = await prisma.comicPanel.findUnique({ where: { id: panelId } });
     if (!panel) return null;
     const file = await resolvePanelImageFile(panel);
     if (!file) return null;
-    try { return { buffer: await fs.readFile(file.filePath), ext: file.ext }; } catch { return null; }
+    try {
+      return { buffer: await fs.readFile(file.filePath), ext: file.ext };
+    } catch {
+      return null;
+    }
   }
 }
 

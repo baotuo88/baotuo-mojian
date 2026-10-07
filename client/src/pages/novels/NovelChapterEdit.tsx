@@ -65,11 +65,13 @@ export default function NovelChapterEdit() {
         novelId={id}
         chapter={chapter}
         workspace={chapterEditorWorkspaceQuery.data?.data ?? null}
-        workspaceStatus={chapterEditorWorkspaceQuery.isLoading
-          ? "loading"
-          : chapterEditorWorkspaceQuery.isError
-            ? "error"
-            : "ready"}
+        workspaceStatus={
+          chapterEditorWorkspaceQuery.isLoading
+            ? "loading"
+            : chapterEditorWorkspaceQuery.isError
+              ? "error"
+              : "ready"
+        }
         onBack={() => navigate(`/novels/${id}/edit`)}
         onOpenVersionHistory={() => navigate(`/novels/${id}/edit`)}
       />

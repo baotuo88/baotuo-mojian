@@ -55,9 +55,11 @@ export function sanitizeWriterContextBlocks(blocks: PromptContextBlock[]): {
 }
 
 function hasLedgerPressure(writeContext: ChapterWriteContext): boolean {
-  return writeContext.ledgerUrgentItems.length > 0
-    || writeContext.ledgerOverdueItems.length > 0
-    || writeContext.ledgerPendingItems.length > 0;
+  return (
+    writeContext.ledgerUrgentItems.length > 0 ||
+    writeContext.ledgerOverdueItems.length > 0 ||
+    writeContext.ledgerPendingItems.length > 0
+  );
 }
 
 function hasCharacterResourcePressure(writeContext: ChapterWriteContext): boolean {
@@ -65,12 +67,14 @@ function hasCharacterResourcePressure(writeContext: ChapterWriteContext): boolea
   if (!context) {
     return false;
   }
-  return context.availableItems.length > 0
-    || context.setupNeededItems.length > 0
-    || context.blockedItems.length > 0
-    || context.highRiskCommittedItems.length > 0
-    || context.pendingProposalItems.length > 0
-    || context.riskSignals.length > 0;
+  return (
+    context.availableItems.length > 0 ||
+    context.setupNeededItems.length > 0 ||
+    context.blockedItems.length > 0 ||
+    context.highRiskCommittedItems.length > 0 ||
+    context.pendingProposalItems.length > 0 ||
+    context.riskSignals.length > 0
+  );
 }
 
 function buildCharacterHardFactsText(writeContext: ChapterWriteContext): string {
@@ -82,7 +86,9 @@ function buildCharacterHardFactsText(writeContext: ChapterWriteContext): string 
       "如章节任务没有明确要求，不要新增不可逆角色状态。",
     ].join("\n");
   }
-  const hasPendingReviewFields = hardFacts.some((fact) => (fact.pendingReviewFields ?? []).length > 0);
+  const hasPendingReviewFields = hardFacts.some(
+    (fact) => (fact.pendingReviewFields ?? []).length > 0,
+  );
 
   return [
     "【角色硬事实】",
@@ -92,43 +98,56 @@ function buildCharacterHardFactsText(writeContext: ChapterWriteContext): string 
       : "",
     ...hardFacts.slice(0, 8).map((fact) => {
       const pendingReviewFields = new Set(fact.pendingReviewFields ?? []);
-      const parts = takeUnique([
-        fact.role ? `角色定位=${fact.role}` : "",
-        fact.gender ? `性别=${fact.gender}` : "",
-        fact.identityLabel ? `身份=${fact.identityLabel}` : "",
-        fact.factionLabel ? `阵营=${fact.factionLabel}` : "",
-        fact.stanceLabel ? `立场=${fact.stanceLabel}` : "",
-        fact.powerLevel ? `战力=${fact.powerLevel}` : "",
-        fact.realm ? `境界=${fact.realm}` : "",
-        fact.currentLocation ? `当前位置=${fact.currentLocation}` : "",
-        fact.availability ? `可出场状态=${fact.availability}` : "",
-        fact.currentState
-          ? pendingReviewFields.has("currentState")
-            ? `当前状态(待确认，如与最新剧情冲突可按合理逻辑调整)=${fact.currentState}`
-            : `当前状态=${fact.currentState}`
-          : "",
-        fact.currentGoal
-          ? pendingReviewFields.has("currentGoal")
-            ? `当前目标(待确认，如与最新剧情冲突可按合理逻辑调整)=${fact.currentGoal}`
-            : `当前目标=${fact.currentGoal}`
-          : "",
-        fact.prohibitions.length > 0 ? `禁止误写=${fact.prohibitions.join(" / ")}` : "",
-      ], 13);
+      const parts = takeUnique(
+        [
+          fact.role ? `角色定位=${fact.role}` : "",
+          fact.gender ? `性别=${fact.gender}` : "",
+          fact.identityLabel ? `身份=${fact.identityLabel}` : "",
+          fact.factionLabel ? `阵营=${fact.factionLabel}` : "",
+          fact.stanceLabel ? `立场=${fact.stanceLabel}` : "",
+          fact.powerLevel ? `战力=${fact.powerLevel}` : "",
+          fact.realm ? `境界=${fact.realm}` : "",
+          fact.currentLocation ? `当前位置=${fact.currentLocation}` : "",
+          fact.availability ? `可出场状态=${fact.availability}` : "",
+          fact.currentState
+            ? pendingReviewFields.has("currentState")
+              ? `当前状态(待确认，如与最新剧情冲突可按合理逻辑调整)=${fact.currentState}`
+              : `当前状态=${fact.currentState}`
+            : "",
+          fact.currentGoal
+            ? pendingReviewFields.has("currentGoal")
+              ? `当前目标(待确认，如与最新剧情冲突可按合理逻辑调整)=${fact.currentGoal}`
+              : `当前目标=${fact.currentGoal}`
+            : "",
+          fact.prohibitions.length > 0 ? `禁止误写=${fact.prohibitions.join(" / ")}` : "",
+        ],
+        13,
+      );
       return `- ${fact.name}: ${parts.join(" | ")}`;
     }),
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
-function buildResourceItemLine(item: NonNullable<ChapterWriteContext["characterResourceContext"]>["availableItems"][number]): string {
+function buildResourceItemLine(
+  item: NonNullable<ChapterWriteContext["characterResourceContext"]>["availableItems"][number],
+): string {
   const holder = item.holderCharacterName ? `holder=${item.holderCharacterName}` : "holder=unknown";
-  const window = item.expectedUseStartChapterOrder || item.expectedUseEndChapterOrder
-    ? `window=${item.expectedUseStartChapterOrder ?? "?"}-${item.expectedUseEndChapterOrder ?? "?"}`
-    : "";
-  const constraints = item.constraints.length > 0 ? `constraints=${item.constraints.slice(0, 2).join(" / ")}` : "";
+  const window =
+    item.expectedUseStartChapterOrder || item.expectedUseEndChapterOrder
+      ? `window=${item.expectedUseStartChapterOrder ?? "?"}-${item.expectedUseEndChapterOrder ?? "?"}`
+      : "";
+  const constraints =
+    item.constraints.length > 0 ? `constraints=${item.constraints.slice(0, 2).join(" / ")}` : "";
   return `${item.name} [${item.status}; ${holder}; ${item.narrativeFunction}] ${item.summary}${window ? ` | ${window}` : ""}${constraints ? ` | ${constraints}` : ""}`;
 }
 
-function buildResourceProposalLine(item: NonNullable<ChapterWriteContext["characterResourceContext"]>["pendingProposalItems"][number]): string {
+function buildResourceProposalLine(
+  item: NonNullable<
+    ChapterWriteContext["characterResourceContext"]
+  >["pendingProposalItems"][number],
+): string {
   const evidence = item.evidence[0] ? ` | evidence=${item.evidence[0]}` : "";
   return `${item.summary} [risk=${item.riskLevel}; status=${item.status}]${evidence}`;
 }
@@ -140,13 +159,33 @@ function buildCharacterResourceContextBlock(writeContext: ChapterWriteContext): 
   }
   return [
     `Resource ledger summary: ${context.summary}`,
-    toListBlock("Available resources", context.availableItems.slice(0, 6).map(buildResourceItemLine)),
-    toListBlock("Needs setup before use", context.setupNeededItems.slice(0, 5).map(buildResourceItemLine)),
-    toListBlock("Unavailable or risky to reuse", context.blockedItems.slice(0, 5).map(buildResourceItemLine)),
-    toListBlock("High-risk committed resources", context.highRiskCommittedItems.slice(0, 4).map(buildResourceItemLine)),
-    toListBlock("Pending resource proposals (not committed)", context.pendingProposalItems.slice(0, 4).map(buildResourceProposalLine)),
-    toListBlock("Resource risk signals", context.riskSignals.slice(0, 5).map((item) => `${item.severity}: ${item.summary}`)),
-  ].filter(Boolean).join("\n");
+    toListBlock(
+      "Available resources",
+      context.availableItems.slice(0, 6).map(buildResourceItemLine),
+    ),
+    toListBlock(
+      "Needs setup before use",
+      context.setupNeededItems.slice(0, 5).map(buildResourceItemLine),
+    ),
+    toListBlock(
+      "Unavailable or risky to reuse",
+      context.blockedItems.slice(0, 5).map(buildResourceItemLine),
+    ),
+    toListBlock(
+      "High-risk committed resources",
+      context.highRiskCommittedItems.slice(0, 4).map(buildResourceItemLine),
+    ),
+    toListBlock(
+      "Pending resource proposals (not committed)",
+      context.pendingProposalItems.slice(0, 4).map(buildResourceProposalLine),
+    ),
+    toListBlock(
+      "Resource risk signals",
+      context.riskSignals.slice(0, 5).map((item) => `${item.severity}: ${item.summary}`),
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function shouldIncludeCharacterDynamics(
@@ -154,15 +193,21 @@ function shouldIncludeCharacterDynamics(
   mode: ChapterWriterBlockMode,
 ): boolean {
   if (mode === "incremental") {
-    return writeContext.activeRelationStages.length > 0
-      || writeContext.pendingCandidateGuards.length > 0;
+    return (
+      writeContext.activeRelationStages.length > 0 || writeContext.pendingCandidateGuards.length > 0
+    );
   }
   if (mode === "repair") {
-    return writeContext.characterBehaviorGuides.length > 0 || writeContext.activeRelationStages.length > 0;
+    return (
+      writeContext.characterBehaviorGuides.length > 0 ||
+      writeContext.activeRelationStages.length > 0
+    );
   }
-  return writeContext.characterBehaviorGuides.length > 0
-    || writeContext.activeRelationStages.length > 0
-    || writeContext.pendingCandidateGuards.length > 0;
+  return (
+    writeContext.characterBehaviorGuides.length > 0 ||
+    writeContext.activeRelationStages.length > 0 ||
+    writeContext.pendingCandidateGuards.length > 0
+  );
 }
 
 function buildIncrementalRoundContextBlock(
@@ -181,7 +226,9 @@ function buildIncrementalRoundContextBlock(
     incrementalContext.roundInstruction?.trim()
       ? `Current round instruction: ${incrementalContext.roundInstruction.trim()}`
       : "",
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
   if (!content) {
     return null;
   }
@@ -194,7 +241,9 @@ function buildIncrementalRoundContextBlock(
   });
 }
 
-function buildChapterBoundaryContextBlock(writeContext: ChapterWriteContext): PromptContextBlock | null {
+function buildChapterBoundaryContextBlock(
+  writeContext: ChapterWriteContext,
+): PromptContextBlock | null {
   const boundary = writeContext.chapterBoundary;
   if (!boundary) {
     return null;
@@ -210,11 +259,17 @@ function buildChapterBoundaryContextBlock(writeContext: ChapterWriteContext): Pr
       boundary.exclusiveEvent ? `Exclusive event: ${compactText(boundary.exclusiveEvent)}` : "",
       boundary.entryState ? `Entry state: ${compactText(boundary.entryState)}` : "",
       boundary.endingState ? `Ending state: ${compactText(boundary.endingState)}` : "",
-      boundary.nextChapterEntryState ? `Next chapter entry state: ${compactText(boundary.nextChapterEntryState)}` : "",
-      typeof boundary.allowedRevealLevel === "number" ? `Allowed reveal level: ${boundary.allowedRevealLevel}` : "",
+      boundary.nextChapterEntryState
+        ? `Next chapter entry state: ${compactText(boundary.nextChapterEntryState)}`
+        : "",
+      typeof boundary.allowedRevealLevel === "number"
+        ? `Allowed reveal level: ${boundary.allowedRevealLevel}`
+        : "",
       toListBlock("Do not cross", boundary.doNotCross ?? []),
       toListBlock("Protected reveals", boundary.protectedReveals ?? []),
-    ].filter(Boolean).join("\n"),
+    ]
+      .filter(Boolean)
+      .join("\n"),
   });
 }
 
@@ -228,41 +283,44 @@ export function buildChapterWriterContextBlocks(
   const includeVolumeWindow = mode === "full" || mode === "review";
   const includePayoffLedger = mode === "full" && hasLedgerPressure(writeContext);
   const includePayoffDirectives = writeContext.payoffDirectives.length > 0;
-  const hasObligationContract = Object.values(writeContext.obligationContract).some((items) => items.length > 0);
+  const hasObligationContract = Object.values(writeContext.obligationContract).some(
+    (items) => items.length > 0,
+  );
   const includeCharacterResources = !isIncremental && hasCharacterResourcePressure(writeContext);
   const includeCharacterDynamics = shouldIncludeCharacterDynamics(writeContext, mode);
   const includeOpenConflicts = !isIncremental && writeContext.openConflictSummaries.length > 0;
   const includeRecentChapters = mode === "full" && writeContext.recentChapterSummaries.length > 0;
   const includeStyleContract = mode !== "incremental" && Boolean(writeContext.styleContract);
-  const includeContinuationConstraints = mode === "full" && writeContext.continuationConstraints.length > 0;
+  const includeContinuationConstraints =
+    mode === "full" && writeContext.continuationConstraints.length > 0;
   const wordRange = resolveTargetWordRange(writeContext.chapterMission.targetWordCount);
   const blocks: Array<PromptContextBlock | null> = [
     writeContext.timelineContext
       ? createContextBlock({
-        id: "timeline_context",
-        group: "timeline_context",
-        priority: 101,
-        required: true,
-        allowSummary: false,
-        content: timelinePromptAdapter.toPromptBlock(writeContext.timelineContext, {
-          maxPreviousEvents: 12,
-          maxSoftHooks: 8,
-          maxAddressedHooks: 6,
-        }),
-      })
+          id: "timeline_context",
+          group: "timeline_context",
+          priority: 101,
+          required: true,
+          allowSummary: false,
+          content: timelinePromptAdapter.toPromptBlock(writeContext.timelineContext, {
+            maxPreviousEvents: 12,
+            maxSoftHooks: 8,
+            maxAddressedHooks: 6,
+          }),
+        })
       : null,
     writeContext.productionFoundationPrompt
       ? createContextBlock({
-        id: "production_foundation",
-        group: "production_foundation",
-        priority: 100,
-        required: true,
-        allowSummary: false,
-        content: [
-          "本书创作底座（正文、验收与修复必须共同遵守）：",
-          writeContext.productionFoundationPrompt,
-        ].join("\n"),
-      })
+          id: "production_foundation",
+          group: "production_foundation",
+          priority: 100,
+          required: true,
+          allowSummary: false,
+          content: [
+            "本书创作底座（正文、验收与修复必须共同遵守）：",
+            writeContext.productionFoundationPrompt,
+          ].join("\n"),
+        })
       : null,
     createContextBlock({
       id: "chapter_mission",
@@ -274,12 +332,18 @@ export function buildChapterWriterContextBlocks(
         `目标：${writeContext.chapterMission.objective}`,
         `预期效果：${writeContext.chapterMission.expectation}`,
         `状态驱动的下一步动作：${writeContext.nextAction}`,
-        writeContext.chapterMission.planRole ? `计划角色：${writeContext.chapterMission.planRole}` : "",
+        writeContext.chapterMission.planRole
+          ? `计划角色：${writeContext.chapterMission.planRole}`
+          : "",
         wordRange.targetWordCount != null
           ? `目标篇幅：约 ${wordRange.targetWordCount} 个中文字符（可接受范围 ${wordRange.minWordCount}-${wordRange.maxWordCount}；不要明显低于最低值）。`
           : "",
         writeContext.completedMilestones.length > 0
-          ? toListBlock("已完成事项（不得重复追求或重新触发）", writeContext.completedMilestones, "无")
+          ? toListBlock(
+              "已完成事项（不得重复追求或重新触发）",
+              writeContext.completedMilestones,
+              "无",
+            )
           : "",
         toListBlock("必须推进", writeContext.chapterMission.mustAdvance, "无"),
         toListBlock("必须保留", writeContext.chapterMission.mustPreserve, "无"),
@@ -287,21 +351,25 @@ export function buildChapterWriterContextBlocks(
         writeContext.chapterMission.taskSheet
           ? `原始任务单：\n${writeContext.chapterMission.taskSheet}`
           : "",
-        writeContext.chapterMission.hookTarget ? `章末钩子：${writeContext.chapterMission.hookTarget}` : "",
-      ].filter(Boolean).join("\n"),
+        writeContext.chapterMission.hookTarget
+          ? `章末钩子：${writeContext.chapterMission.hookTarget}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
     }),
     writeContext.previousChapterTail
       ? createContextBlock({
-        id: "previous_chapter_tail",
-        group: "previous_chapter_tail",
-        priority: 100,
-        required: true,
-        allowSummary: false,
-        content: [
-          "上一章实际尾段（本章开头必须直接承接这里的时间、地点、人物状态和未兑现动作）：",
-          writeContext.previousChapterTail,
-        ].join("\n"),
-      })
+          id: "previous_chapter_tail",
+          group: "previous_chapter_tail",
+          priority: 100,
+          required: true,
+          allowSummary: false,
+          content: [
+            "上一章实际尾段（本章开头必须直接承接这里的时间、地点、人物状态和未兑现动作）：",
+            writeContext.previousChapterTail,
+          ].join("\n"),
+        })
       : null,
     createContextBlock({
       id: "reader_experience",
@@ -330,40 +398,58 @@ export function buildChapterWriterContextBlocks(
     }),
     hasObligationContract
       ? createContextBlock({
-        id: "obligation_contract",
-        group: "obligation_contract",
-        priority: 99,
-        required: true,
-        allowSummary: false,
-        content: [
-          "章节执行义务：",
-          toListBlock("本章必须命中", writeContext.obligationContract.mustHitNow, "无"),
-          toListBlock("必须保留", writeContext.obligationContract.mustPreserve, "无"),
-          toListBlock("必须触碰的伏笔", writeContext.obligationContract.requiredPayoffTouches, "无"),
-          toListBlock("必须出场的角色", writeContext.obligationContract.requiredCharacterAppearances, "无"),
-          toListBlock("必须变化的目标", writeContext.obligationContract.requiredGoalChanges, "无"),
-          toListBlock("可延后处理", writeContext.obligationContract.canDefer, "无"),
-          toListBlock("禁止越界", writeContext.obligationContract.forbiddenCrossings, "无"),
-        ].filter(Boolean).join("\n"),
-      })
+          id: "obligation_contract",
+          group: "obligation_contract",
+          priority: 99,
+          required: true,
+          allowSummary: false,
+          content: [
+            "章节执行义务：",
+            toListBlock("本章必须命中", writeContext.obligationContract.mustHitNow, "无"),
+            toListBlock("必须保留", writeContext.obligationContract.mustPreserve, "无"),
+            toListBlock(
+              "必须触碰的伏笔",
+              writeContext.obligationContract.requiredPayoffTouches,
+              "无",
+            ),
+            toListBlock(
+              "必须出场的角色",
+              writeContext.obligationContract.requiredCharacterAppearances,
+              "无",
+            ),
+            toListBlock(
+              "必须变化的目标",
+              writeContext.obligationContract.requiredGoalChanges,
+              "无",
+            ),
+            toListBlock("可延后处理", writeContext.obligationContract.canDefer, "无"),
+            toListBlock("禁止越界", writeContext.obligationContract.forbiddenCrossings, "无"),
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        })
       : null,
     includePayoffDirectives
       ? createContextBlock({
-        id: "payoff_directives",
-        group: "payoff_directives",
-        priority: 98,
-        required: true,
-        allowSummary: false,
-        content: [
-          "Payoff directives:",
-          ...writeContext.payoffDirectives.map((item) => [
-            `- ${item.title} [${item.operation}]`,
-            item.ledgerKey ? `ledger=${item.ledgerKey}` : "",
-            item.reason ? `reason=${item.reason}` : "",
-            item.forbiddenReveal ? `forbiddenReveal=${item.forbiddenReveal}` : "",
-          ].filter(Boolean).join(" | ")),
-        ].join("\n"),
-      })
+          id: "payoff_directives",
+          group: "payoff_directives",
+          priority: 98,
+          required: true,
+          allowSummary: false,
+          content: [
+            "Payoff directives:",
+            ...writeContext.payoffDirectives.map((item) =>
+              [
+                `- ${item.title} [${item.operation}]`,
+                item.ledgerKey ? `ledger=${item.ledgerKey}` : "",
+                item.reason ? `reason=${item.reason}` : "",
+                item.forbiddenReveal ? `forbiddenReveal=${item.forbiddenReveal}` : "",
+              ]
+                .filter(Boolean)
+                .join(" | "),
+            ),
+          ].join("\n"),
+        })
       : null,
     createContextBlock({
       id: "state_goal",
@@ -372,71 +458,88 @@ export function buildChapterWriterContextBlocks(
       required: Boolean(writeContext.chapterStateGoal),
       content: writeContext.chapterStateGoal
         ? [
-             `State goal: ${writeContext.chapterStateGoal.summary}`,
-             toListBlock("Target conflicts", writeContext.chapterStateGoal.targetConflicts),
-             toListBlock("Target relationships", writeContext.chapterStateGoal.targetRelationships),
-             toListBlock("Protected secrets", writeContext.protectedSecrets),
-           ].filter(Boolean).join("\n")
+            `State goal: ${writeContext.chapterStateGoal.summary}`,
+            toListBlock("Target conflicts", writeContext.chapterStateGoal.targetConflicts),
+            toListBlock("Target relationships", writeContext.chapterStateGoal.targetRelationships),
+            toListBlock("Protected secrets", writeContext.protectedSecrets),
+          ]
+            .filter(Boolean)
+            .join("\n")
         : "",
     }),
     buildIncrementalRoundContextBlock(options.incrementalContext),
     includeVolumeWindow
       ? createContextBlock({
-        id: "volume_window",
-        group: "volume_window",
-        priority: 96,
-        content: writeContext.volumeWindow
-          ? [
-              `Current volume: ${writeContext.volumeWindow.title}`,
-              `Volume mission: ${writeContext.volumeWindow.missionSummary}`,
-              writeContext.volumeWindow.coreReward
-                ? `Current volume reader reward: ${writeContext.volumeWindow.coreReward}`
-                : "",
-              writeContext.volumeWindow.readerRewardLadder
-                ? `Book reader reward ladder: ${writeContext.volumeWindow.readerRewardLadder}`
-                : "",
-              writeContext.volumeWindow.previousVolumeOutcome
-                ? `Previous volume outcome (must stay consistent — what actually happened):\n${writeContext.volumeWindow.previousVolumeOutcome}`
-                : "",
-              toListBlock("Current volume pending payoffs", writeContext.volumeWindow.pendingPayoffs.slice(0, 3)),
-              writeContext.volumeWindow.keyMilestoneGuards.length > 0
-                ? toListBlock(
-                  "Volume key milestone guards — pacing constraints",
-                  writeContext.volumeWindow.keyMilestoneGuards
-                    .filter((guard) => guard.status !== "done")
-                    .map((guard) => `[${guard.targetChapterRange}] ${guard.event}: ${guard.note}`),
-                )
-                : "",
-            ].filter(Boolean).join("\n")
-          : "Current volume: none",
-      })
+          id: "volume_window",
+          group: "volume_window",
+          priority: 96,
+          content: writeContext.volumeWindow
+            ? [
+                `Current volume: ${writeContext.volumeWindow.title}`,
+                `Volume mission: ${writeContext.volumeWindow.missionSummary}`,
+                writeContext.volumeWindow.coreReward
+                  ? `Current volume reader reward: ${writeContext.volumeWindow.coreReward}`
+                  : "",
+                writeContext.volumeWindow.readerRewardLadder
+                  ? `Book reader reward ladder: ${writeContext.volumeWindow.readerRewardLadder}`
+                  : "",
+                writeContext.volumeWindow.previousVolumeOutcome
+                  ? `Previous volume outcome (must stay consistent — what actually happened):\n${writeContext.volumeWindow.previousVolumeOutcome}`
+                  : "",
+                toListBlock(
+                  "Current volume pending payoffs",
+                  writeContext.volumeWindow.pendingPayoffs.slice(0, 3),
+                ),
+                writeContext.volumeWindow.keyMilestoneGuards.length > 0
+                  ? toListBlock(
+                      "Volume key milestone guards — pacing constraints",
+                      writeContext.volumeWindow.keyMilestoneGuards
+                        .filter((guard) => guard.status !== "done")
+                        .map(
+                          (guard) => `[${guard.targetChapterRange}] ${guard.event}: ${guard.note}`,
+                        ),
+                    )
+                  : "",
+              ]
+                .filter(Boolean)
+                .join("\n")
+            : "Current volume: none",
+        })
       : null,
     writeContext.narrativeProgressHint
       ? createContextBlock({
-        id: "narrative_progress_hint",
-        group: "narrative_progress_hint",
-        priority: 98,
-        required: false,
-        content: writeContext.narrativeProgressHint,
-      })
+          id: "narrative_progress_hint",
+          group: "narrative_progress_hint",
+          priority: 98,
+          required: false,
+          content: writeContext.narrativeProgressHint,
+        })
       : null,
     includePayoffLedger
       ? createContextBlock({
-        id: "payoff_ledger",
-        group: "payoff_ledger",
-        priority: 95,
-        content: [
-          writeContext.ledgerSummary
-            ? `Payoff ledger summary: pending=${writeContext.ledgerSummary.pendingCount}, urgent=${writeContext.ledgerSummary.urgentCount}, overdue=${writeContext.ledgerSummary.overdueCount}`
-            : "Payoff ledger summary: none",
-          toListBlock("Urgent payoffs", writeContext.ledgerUrgentItems.map((item) => buildLedgerItemLine(item, "urgent"))),
-          toListBlock("Overdue payoffs", writeContext.ledgerOverdueItems.map((item) => buildLedgerItemLine(item, "overdue"))),
-          toListBlock(
-            "Active pending payoffs",
-            writeContext.ledgerPendingItems.slice(0, 3).map((item) => buildLedgerItemLine(item, "pending")),
-          ),
-        ].join("\n"),
-      })
+          id: "payoff_ledger",
+          group: "payoff_ledger",
+          priority: 95,
+          content: [
+            writeContext.ledgerSummary
+              ? `Payoff ledger summary: pending=${writeContext.ledgerSummary.pendingCount}, urgent=${writeContext.ledgerSummary.urgentCount}, overdue=${writeContext.ledgerSummary.overdueCount}`
+              : "Payoff ledger summary: none",
+            toListBlock(
+              "Urgent payoffs",
+              writeContext.ledgerUrgentItems.map((item) => buildLedgerItemLine(item, "urgent")),
+            ),
+            toListBlock(
+              "Overdue payoffs",
+              writeContext.ledgerOverdueItems.map((item) => buildLedgerItemLine(item, "overdue")),
+            ),
+            toListBlock(
+              "Active pending payoffs",
+              writeContext.ledgerPendingItems
+                .slice(0, 3)
+                .map((item) => buildLedgerItemLine(item, "pending")),
+            ),
+          ].join("\n"),
+        })
       : null,
     createContextBlock({
       id: "character_hard_facts",
@@ -455,24 +558,24 @@ export function buildChapterWriterContextBlocks(
     }),
     includeCharacterDynamics
       ? createContextBlock({
-        id: "character_dynamics",
-        group: "character_dynamics",
-        priority: 91,
-        content: [
-          buildCharacterGuidanceText(writeContext),
-          buildRelationStageText(writeContext),
-          buildPendingCandidateGuardText(writeContext),
-        ].join("\n\n"),
-      })
+          id: "character_dynamics",
+          group: "character_dynamics",
+          priority: 91,
+          content: [
+            buildCharacterGuidanceText(writeContext),
+            buildRelationStageText(writeContext),
+            buildPendingCandidateGuardText(writeContext),
+          ].join("\n\n"),
+        })
       : null,
     includeCharacterResources
       ? createContextBlock({
-        id: "character_resource_context",
-        group: "character_resource_context",
-        priority: 90,
-        required: mode === "review" || mode === "repair",
-        content: buildCharacterResourceContextBlock(writeContext),
-      })
+          id: "character_resource_context",
+          group: "character_resource_context",
+          priority: 90,
+          required: mode === "review" || mode === "repair",
+          content: buildCharacterResourceContextBlock(writeContext),
+        })
       : null,
     createContextBlock({
       id: "local_state",
@@ -484,60 +587,66 @@ export function buildChapterWriterContextBlocks(
     }),
     includeOpenConflicts
       ? createContextBlock({
-        id: "open_conflicts",
-        group: "open_conflicts",
-        priority: 88,
-        content: toListBlock("Open conflicts", writeContext.openConflictSummaries.slice(0, 6)),
-      })
+          id: "open_conflicts",
+          group: "open_conflicts",
+          priority: 88,
+          content: toListBlock("Open conflicts", writeContext.openConflictSummaries.slice(0, 6)),
+        })
       : null,
     includeRecentChapters
       ? createContextBlock({
-        id: "recent_chapters",
-        group: "recent_chapters",
-        priority: 86,
-        content: toListBlock("Recent chapter summaries", writeContext.recentChapterSummaries),
-      })
+          id: "recent_chapters",
+          group: "recent_chapters",
+          priority: 86,
+          content: toListBlock("Recent chapter summaries", writeContext.recentChapterSummaries),
+        })
       : null,
     mode === "full"
       ? createContextBlock({
-        id: "opening_constraints",
-        group: "opening_constraints",
-        priority: 80,
-        content: [
-          `Opening anti-repeat hint:\n${writeContext.openingAntiRepeatHint}`,
-          writeContext.recentScenePatterns.length > 0
-            ? toListBlock(
-              "Scene pattern blacklist — do NOT repeat these exact time+location+action combinations",
-              writeContext.recentScenePatterns.slice(0, 6),
-            )
-            : "",
-        ].filter(Boolean).join("\n\n"),
-      })
+          id: "opening_constraints",
+          group: "opening_constraints",
+          priority: 80,
+          content: [
+            `Opening anti-repeat hint:\n${writeContext.openingAntiRepeatHint}`,
+            writeContext.recentScenePatterns.length > 0
+              ? toListBlock(
+                  "Scene pattern blacklist — do NOT repeat these exact time+location+action combinations",
+                  writeContext.recentScenePatterns.slice(0, 6),
+                )
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        })
       : null,
     includeStyleContract
       ? createContextBlock({
-        id: "style_contract",
-        group: "style_contract",
-        priority: 74,
-        required: mode === "full",
-        content: buildWriterStyleContractText(writeContext.styleContract),
-      })
+          id: "style_contract",
+          group: "style_contract",
+          priority: 74,
+          required: mode === "full",
+          content: buildWriterStyleContractText(writeContext.styleContract),
+        })
       : null,
     includeContinuationConstraints
       ? createContextBlock({
-        id: "continuation_constraints",
-        group: "continuation_constraints",
-        priority: 74,
-        required: mode === "full",
-        allowSummary: false,
-        content: toListBlock("Continuation constraints", writeContext.continuationConstraints),
-      })
+          id: "continuation_constraints",
+          group: "continuation_constraints",
+          priority: 74,
+          required: mode === "full",
+          allowSummary: false,
+          content: toListBlock("Continuation constraints", writeContext.continuationConstraints),
+        })
       : null,
   ];
-  return blocks.filter((block): block is PromptContextBlock => block !== null && block.content.trim().length > 0);
+  return blocks.filter(
+    (block): block is PromptContextBlock => block !== null && block.content.trim().length > 0,
+  );
 }
 
-export function buildChapterReviewContextBlocks(reviewContext: ChapterReviewContext): PromptContextBlock[] {
+export function buildChapterReviewContextBlocks(
+  reviewContext: ChapterReviewContext,
+): PromptContextBlock[] {
   return [
     ...buildChapterWriterContextBlocks(reviewContext, { mode: "review" }),
     buildChapterBoundaryContextBlock(reviewContext),
@@ -560,10 +669,14 @@ export function buildChapterReviewContextBlocks(reviewContext: ChapterReviewCont
       priority: 82,
       content: toListBlock("Historical unresolved issues", reviewContext.historicalIssues),
     }),
-  ].filter((block): block is PromptContextBlock => block !== null && block.content.trim().length > 0);
+  ].filter(
+    (block): block is PromptContextBlock => block !== null && block.content.trim().length > 0,
+  );
 }
 
-export function buildChapterRepairContextBlocks(repairContext: ChapterRepairContext): PromptContextBlock[] {
+export function buildChapterRepairContextBlocks(
+  repairContext: ChapterRepairContext,
+): PromptContextBlock[] {
   return [
     ...buildChapterWriterContextBlocks(repairContext.writeContext, { mode: "repair" }),
     createContextBlock({
@@ -571,14 +684,16 @@ export function buildChapterRepairContextBlocks(repairContext: ChapterRepairCont
       group: "repair_issues",
       priority: 100,
       required: true,
-      content: repairContext.issues.length > 0
-        ? [
-            "Repair issues:",
-            ...repairContext.issues.map((issue) => (
-              `- ${issue.severity}/${issue.category}: ${issue.evidence} | fix: ${issue.fixSuggestion}`
-            )),
-          ].join("\n")
-        : "Repair issues: none",
+      content:
+        repairContext.issues.length > 0
+          ? [
+              "Repair issues:",
+              ...repairContext.issues.map(
+                (issue) =>
+                  `- ${issue.severity}/${issue.category}: ${issue.evidence} | fix: ${issue.fixSuggestion}`,
+              ),
+            ].join("\n")
+          : "Repair issues: none",
     }),
     buildChapterBoundaryContextBlock(repairContext.writeContext),
     createContextBlock({
@@ -607,5 +722,7 @@ export function buildChapterRepairContextBlocks(repairContext: ChapterRepairCont
       priority: 82,
       content: toListBlock("Historical unresolved issues", repairContext.historicalIssues),
     }),
-  ].filter((block): block is PromptContextBlock => block !== null && block.content.trim().length > 0);
+  ].filter(
+    (block): block is PromptContextBlock => block !== null && block.content.trim().length > 0,
+  );
 }

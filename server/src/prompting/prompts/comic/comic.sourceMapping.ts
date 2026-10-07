@@ -26,8 +26,12 @@ export const comicSourceMappingPrompt: PromptAsset<MappingInput, z.infer<typeof 
   outputSchema,
   render(input) {
     return [
-      new SystemMessage("你负责为已有漫画分话匹配源小说章节。根据具体情节语义选择覆盖本话全部事件的最小连续章节区间，只能使用输入的源章节编号，禁止把漫画话序当成小说章序。无法可靠匹配时 matched=false，不要猜测。不要重写已有大纲。"),
-      new HumanMessage(`项目：${input.projectTitle}\n第 ${input.episodeOrder} 话：${input.episodeTitle}\n本话情节：${input.episodeOutline}\n\n源小说情节及章节编号：\n${input.beatsDigest}\n\n返回 matched、sourceChapterStart、sourceChapterEnd、rationale。`),
+      new SystemMessage(
+        "你负责为已有漫画分话匹配源小说章节。根据具体情节语义选择覆盖本话全部事件的最小连续章节区间，只能使用输入的源章节编号，禁止把漫画话序当成小说章序。无法可靠匹配时 matched=false，不要猜测。不要重写已有大纲。",
+      ),
+      new HumanMessage(
+        `项目：${input.projectTitle}\n第 ${input.episodeOrder} 话：${input.episodeTitle}\n本话情节：${input.episodeOutline}\n\n源小说情节及章节编号：\n${input.beatsDigest}\n\n返回 matched、sourceChapterStart、sourceChapterEnd、rationale。`,
+      ),
     ];
   },
 };

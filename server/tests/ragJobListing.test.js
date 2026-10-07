@@ -19,10 +19,7 @@ test("listJobs requests the most recently updated jobs first for UI polling", as
     await service.listJobs(30);
 
     assert.equal(calls.length, 1);
-    assert.deepEqual(calls[0].orderBy, [
-      { updatedAt: "desc" },
-      { createdAt: "desc" },
-    ]);
+    assert.deepEqual(calls[0].orderBy, [{ updatedAt: "desc" }, { createdAt: "desc" }]);
     assert.equal(calls[0].take, 30);
   } finally {
     prisma.ragIndexJob.findMany = originalFindMany;
@@ -38,8 +35,14 @@ test("claimNextRunnableJob retains the conditional claim inside a serializable t
   const originalUpdate = prisma.ragIndexJob.update;
   let updateManyCalls = 0;
   const job = {
-    id: "rag-job-race", tenantId: "default", ownerType: "chapter", ownerId: "one",
-    payloadJson: null, status: "queued", attempts: 0, runAfter: new Date(0),
+    id: "rag-job-race",
+    tenantId: "default",
+    ownerType: "chapter",
+    ownerId: "one",
+    payloadJson: null,
+    status: "queued",
+    attempts: 0,
+    runAfter: new Date(0),
   };
   prisma.$transaction = async (run, options) => {
     assert.equal(options.isolationLevel, "Serializable");
@@ -54,10 +57,13 @@ test("claimNextRunnableJob retains the conditional claim inside a serializable t
     assert.deepEqual(args.data.attempts, { increment: 1 });
     return { count: updateManyCalls === 1 ? 1 : 0 };
   };
-  prisma.ragIndexJob.findUnique = async () => ({...job, status: "running", attempts: 1});
+  prisma.ragIndexJob.findUnique = async () => ({ ...job, status: "running", attempts: 1 });
   prisma.ragIndexJob.update = async () => job;
   try {
-    const results = await Promise.all([service.claimNextRunnableJob("worker-a"), service.claimNextRunnableJob("worker-b")]);
+    const results = await Promise.all([
+      service.claimNextRunnableJob("worker-a"),
+      service.claimNextRunnableJob("worker-b"),
+    ]);
     assert.equal(updateManyCalls, 2);
     assert.equal(results.filter(Boolean).length, 1);
   } finally {

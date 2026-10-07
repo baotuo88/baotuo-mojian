@@ -19,9 +19,7 @@ function createAbortError(reason?: unknown): Error {
   if (reason instanceof Error) {
     return reason;
   }
-  const message = typeof reason === "string" && reason.trim()
-    ? reason.trim()
-    : "Request aborted.";
+  const message = typeof reason === "string" && reason.trim() ? reason.trim() : "Request aborted.";
   const error = new Error(message);
   error.name = "AbortError";
   return error;
@@ -34,12 +32,15 @@ export async function runWithEnforcedTimeout<T>(input: {
   run: (signal?: AbortSignal) => Promise<T>;
 }): Promise<T> {
   throwIfExecutionAborted();
-  const signals = [input.signal, getExecutionAbortSignal()].filter((signal): signal is AbortSignal => Boolean(signal));
+  const signals = [input.signal, getExecutionAbortSignal()].filter(
+    (signal): signal is AbortSignal => Boolean(signal),
+  );
   const upstreamSignal = signals.length > 1 ? AbortSignal.any(signals) : signals[0];
   upstreamSignal?.throwIfAborted();
-  const timeoutMs = typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
-    ? Math.floor(input.timeoutMs)
-    : null;
+  const timeoutMs =
+    typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
+      ? Math.floor(input.timeoutMs)
+      : null;
 
   if (!timeoutMs && !upstreamSignal) {
     return input.run(undefined);
@@ -55,32 +56,36 @@ export async function runWithEnforcedTimeout<T>(input: {
   raceCandidates.push(workPromise);
 
   if (timeoutMs) {
-    raceCandidates.push(new Promise<T>((_resolve, reject) => {
-      timeoutHandle = setTimeout(() => {
-        timedOut = true;
-        controller.abort(createTimeoutError(timeoutMs, input.label));
-        reject(createTimeoutError(timeoutMs, input.label));
-      }, timeoutMs);
-    }));
+    raceCandidates.push(
+      new Promise<T>((_resolve, reject) => {
+        timeoutHandle = setTimeout(() => {
+          timedOut = true;
+          controller.abort(createTimeoutError(timeoutMs, input.label));
+          reject(createTimeoutError(timeoutMs, input.label));
+        }, timeoutMs);
+      }),
+    );
   }
 
   if (upstreamSignal) {
-    raceCandidates.push(new Promise<T>((_resolve, reject) => {
-      const onAbort = () => {
-        controller.abort(upstreamSignal.reason);
-        reject(createAbortError(upstreamSignal.reason));
-      };
+    raceCandidates.push(
+      new Promise<T>((_resolve, reject) => {
+        const onAbort = () => {
+          controller.abort(upstreamSignal.reason);
+          reject(createAbortError(upstreamSignal.reason));
+        };
 
-      if (upstreamSignal.aborted) {
-        onAbort();
-        return;
-      }
+        if (upstreamSignal.aborted) {
+          onAbort();
+          return;
+        }
 
-      upstreamSignal.addEventListener("abort", onAbort, { once: true });
-      removeAbortListener = () => {
-        upstreamSignal.removeEventListener("abort", onAbort);
-      };
-    }));
+        upstreamSignal.addEventListener("abort", onAbort, { once: true });
+        removeAbortListener = () => {
+          upstreamSignal.removeEventListener("abort", onAbort);
+        };
+      }),
+    );
   }
 
   try {

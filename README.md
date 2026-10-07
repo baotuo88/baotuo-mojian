@@ -61,7 +61,8 @@
 - 👉 提供漫画、短剧等衍生工坊围绕已完成的小说内容做视觉与剧本延展
 - 👉 配套公开介绍站、生产链深度文档和按阶段的恢复手册
 
-适合**完全不懂写作的新手**走完一本长篇，也适合研究 AI Native 应用、Agent Workflow、LangGraph 编排和长链路任务的开发者参考。
+适合**完全不懂写作的新手**走完一本长篇，也适合研究 AI Native 应用、Agent
+Workflow、LangGraph 编排和长链路任务的开发者参考。
 
 ---
 
@@ -69,26 +70,30 @@
 
 三条入口，按需选择：
 
-| 场景 | 命令 | 访问地址 |
-| --- | --- | --- |
-| 只想尽快跑起来（推荐） | `cp .env.example .env` → 设置 `POSTGRES_PASSWORD` → `docker compose up -d --build` | `http://localhost:8080` |
-| 参与开发 / 改代码 | `pnpm install` → `cp server/.env.example server/.env` → `pnpm dev` | 前端 `http://localhost:5173`，API `http://localhost:3000/api` |
-| 先看功能和文档 | 无需安装 | [GitHub Pages 介绍站](https://batuo88.github.io/baotuo-mojian/) |
+| 场景                   | 命令                                                                               | 访问地址                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 只想尽快跑起来（推荐） | `cp .env.example .env` → 设置 `POSTGRES_PASSWORD` → `docker compose up -d --build` | `http://localhost:8080`                                         |
+| 参与开发 / 改代码      | `pnpm install` → `cp server/.env.example server/.env` → `pnpm dev`                 | 前端 `http://localhost:5173`，API `http://localhost:3000/api`   |
+| 先看功能和文档         | 无需安装                                                                           | [GitHub Pages 介绍站](https://batuo88.github.io/baotuo-mojian/) |
 
-模型密钥不是启动前置条件：可以先把项目跑起来，再在页面 `设置 → 模型供应商` 里录入。
+模型密钥不是启动前置条件：可以先把项目跑起来，再在页面 `设置 → 模型供应商`
+里录入。
 
-> 部署目录路径请使用纯英文。含中文的路径会让 Docker Buildx 在构建阶段中断，详见[常见问题排查](#常见问题排查)。
+> 部署目录路径请使用纯英文。含中文的路径会让 Docker
+> Buildx 在构建阶段中断，详见[常见问题排查](#常见问题排查)。
 
 ---
 
 ## 用 Codex 持续创作长篇：Ani Book Skill
 
-如果你希望直接在 Codex 的本地工作区推进小说，可以使用 [Ani Book Skill](https://github.com/ExplosiveCoderflome/ani-book-skill)。它将方向判断、故事发动机、章节推进、审校修复和连续性管理组织为一条可恢复、可追溯的长篇创作流程。
+如果你希望直接在 Codex 的本地工作区推进小说，可以使用
+[Ani Book Skill](https://github.com/ExplosiveCoderflome/ani-book-skill)。它将方向判断、故事发动机、章节推进、审校修复和连续性管理组织为一条可恢复、可追溯的长篇创作流程。
 
 这是一条与本项目互补的创作入口：
 
 - 需要可视化创作工作台、模型配置、运行实况与小说资产管理：使用本仓库。
-- 希望在 Codex 中通过本地文件、阶段工件和 Skill 直接持续创作：前往 [Ani Book Skill](https://github.com/ExplosiveCoderflome/ani-book-skill)。
+- 希望在 Codex 中通过本地文件、阶段工件和 Skill 直接持续创作：前往
+  [Ani Book Skill](https://github.com/ExplosiveCoderflome/ani-book-skill)。
 
 ---
 
@@ -124,7 +129,8 @@
 ### 2. Creative Hub 与 Agent Runtime
 
 - 统一创作中枢承载对话、追问、规划、工具调用、任务状态和回合总结，不再是分散的功能按钮
-- 系统内有明确的 Planner、Tool Registry、Runtime、审批节点、状态卡片和中断恢复链路；自然语言意图会被路由到对应的自动导演阶段或章节任务
+- 系统内有明确的 Planner、Tool
+  Registry、Runtime、审批节点、状态卡片和中断恢复链路；自然语言意图会被路由到对应的自动导演阶段或章节任务
 - 浏览器暂停通知：到达 checkpoint 时弹出系统通知，长链路任务挂机更安心
 
 ### 3. 整本生产主链与章节执行
@@ -137,7 +143,8 @@
 ### 4. 拆书工作台与角色形象演变
 
 - 拆书角色档案分**简要 / 标准 / 深入 / 完整**四档，深入和完整档案会回溯原文片段补全维度
-- **角色形象演变**：按 25% / 50% / 75% / 100% 覆盖率增量扫描出场章节，沉淀每章外貌、服装、状态和场景锚点，并基于章节快照生成同一角色阶段形象图；提取的短外貌词条放入待确认区，勾选后融合到角色档案
+- **角色形象演变**：按 25% / 50% / 75% /
+  100% 覆盖率增量扫描出场章节，沉淀每章外貌、服装、状态和场景锚点，并基于章节快照生成同一角色阶段形象图；提取的短外貌词条放入待确认区，勾选后融合到角色档案
 - 章节形象图可引用角色基础形象图，保持脸型 / 发型 / 标志细节一致
 - 拆书还提供双栏阅读、章节证据回溯、范围定向分析、token 预算守卫、稿件诊断模式
 
@@ -151,7 +158,8 @@
 
 - 世界观从大段设定文本升级为可生成 / 复用 / 同步的本书世界；地图、势力图谱会进入章节上下文
 - 拆书结果和知识库文档通过 RAG 回灌到规划、续写和正文生成
-- RAG 索引流式并行：Embedding 与 Qdrant 写入并发可调；拆书产物入 facets 索引让召回包含拆书结论；chunk hash 去重防止重建产生重复向量；retrieval trace 后端可追踪召回为什么命中
+- RAG 索引流式并行：Embedding 与 Qdrant 写入并发可调；拆书产物入 facets 索引让召回包含拆书结论；chunk
+  hash 去重防止重建产生重复向量；retrieval trace 后端可追踪召回为什么命中
 
 ### 7. 漫画与短剧衍生工坊
 
@@ -161,8 +169,10 @@
 
 ### 8. 公开介绍站与文档体系
 
-- GitHub Pages **公开介绍站**（本地开发端口 4173）展示主链、产品截图、文档入口与下载链接
-- 文档站提供本地全文搜索、面包屑、文内目录、上 / 下一篇导航、tip / warn / checkpoint 提示块、GFM 表格
+- GitHub Pages
+  **公开介绍站**（本地开发端口 4173）展示主链、产品截图、文档入口与下载链接
+- 文档站提供本地全文搜索、面包屑、文内目录、上 / 下一篇导航、tip / warn /
+  checkpoint 提示块、GFM 表格
 - 33 篇公开文档：项目介绍、安装与准备、常见问题、故障排查、第一本小说实操路径、按阶段恢复手册、端到端生产链、自动导演阶段全景、章节执行链、知识与 RAG 召回链 + 模块说明
 - 模块文档配套真实产品截图；自动导演阶段名用中文表达，技术别名对照表保留在自动导演阶段全景文末供开发者查阅
 
@@ -179,8 +189,10 @@
 
 1. 在小说创建页输入一句灵感，先让 AI 自动导演给出整本方向候选。
 2. 进入 `项目设定`，先把题材、卖点、目标读者感受和前 30 章承诺定下来。
-3. 用 `故事宏观规划`、`本书世界` 和 `角色准备`，把整本主线、舞台边界和角色网补到能写。
-4. 进入 `卷战略 / 卷骨架` 决定怎么分卷，再到 `节奏 / 拆章` 把当前卷落到章节列表和单章细化。
+3. 用 `故事宏观规划`、`本书世界` 和
+   `角色准备`，把整本主线、舞台边界和角色网补到能写。
+4. 进入 `卷战略 / 卷骨架` 决定怎么分卷，再到 `节奏 / 拆章`
+   把当前卷落到章节列表和单章细化。
 5. 按需绑定拆书结果、知识库文档和写法资产，让后续正文不只是靠一次性提示词。
 6. 进入 `章节执行` 逐章写作、审计、修复，必要时回到卷工作台做再平衡和重规划。
 7. 想加速推进时，再启动整本生产任务，持续查看状态、失败原因和回灌结果。
@@ -202,42 +214,48 @@
 
 ### 规模边界
 
-| 项目 | 取值 | 出处 |
-| --- | --- | --- |
-| 最大卷数 | 24 卷（`MAX_VOLUME_COUNT`） | `shared/types/volumePlanning.ts` |
-| 单卷章节区间 | 最少 40、理想 55、最多 70 | `DEFAULT_VOLUME_CHAPTER_TARGET_RANGE` |
-| 最小总章节预算 | 12 章（`MIN_TOTAL_CHAPTER_BUDGET`） | 同上 |
-| 固定样本验收 | 100 章、4 卷、GenerationJob 100/100 | `docs/wiki/workflows/long-form-production-acceptance.md` |
+| 项目           | 取值                                | 出处                                                     |
+| -------------- | ----------------------------------- | -------------------------------------------------------- |
+| 最大卷数       | 24 卷（`MAX_VOLUME_COUNT`）         | `shared/types/volumePlanning.ts`                         |
+| 单卷章节区间   | 最少 40、理想 55、最多 70           | `DEFAULT_VOLUME_CHAPTER_TARGET_RANGE`                    |
+| 最小总章节预算 | 12 章（`MIN_TOTAL_CHAPTER_BUDGET`） | 同上                                                     |
+| 固定样本验收   | 100 章、4 卷、GenerationJob 100/100 | `docs/wiki/workflows/long-form-production-acceptance.md` |
 
-按章节预算自动推荐卷数（同一文件内的分级表）：`< 60` 章 1-2 卷、`60-120` 章 3-4 卷、`120-250` 章 4-6 卷、`250-500` 章 6-9 卷、`500-900` 章 9-14 卷、`900-1500` 章 14-20 卷、`1500+` 章 18-24 卷。
+按章节预算自动推荐卷数（同一文件内的分级表）：`< 60` 章 1-2 卷、`60-120`
+章 3-4 卷、`120-250` 章 4-6 卷、`250-500` 章 6-9 卷、`500-900`
+章 9-14 卷、`900-1500` 章 14-20 卷、`1500+` 章 18-24 卷。
 
 ### 三层记忆机制
 
-**分层上下文**：`CanonicalStateService`（书级事实、角色状态、冲突与伏笔账本）、`TimelineContextService`（时间锚点、前置事件、开放钩子、未来禁止揭示）、`ContextAssemblyService`（本章应推进 / 保留 / 触碰 / 禁止的叙事任务），最终收敛成写作、审校、修复共用的 `chapterLayeredContext` 章节合同。
+**分层上下文**：`CanonicalStateService`（书级事实、角色状态、冲突与伏笔账本）、`TimelineContextService`（时间锚点、前置事件、开放钩子、未来禁止揭示）、`ContextAssemblyService`（本章应推进 / 保留 / 触碰 / 禁止的叙事任务），最终收敛成写作、审校、修复共用的
+`chapterLayeredContext` 章节合同。
 
-**确定性记忆窗口**：时间线钩子扫描最近 200 条，开放钩子上限 8 条、已处理钩子上限 5 条，两者分窗互不挤占预算；事实账本只保留最近 30 章的 completed / revealed 事实与 15 章的状态变化。排序永远是"优先级优先 + 最新优先"，不会退化成"最旧优先"。这让 200 章的小说注入量稳定在几十条量级，而不是随章节线性膨胀。
+**确定性记忆窗口**：时间线钩子扫描最近 200 条，开放钩子上限 8 条、已处理钩子上限 5 条，两者分窗互不挤占预算；事实账本只保留最近 30 章的 completed
+/
+revealed 事实与 15 章的状态变化。排序永远是"优先级优先 + 最新优先"，不会退化成"最旧优先"。这让 200 章的小说注入量稳定在几十条量级，而不是随章节线性膨胀。
 
-**卷级滚动摘要**：跨卷续写时模型能看到的不只是"上一卷的计划"，还有"上一卷实际发生了什么"——本卷情节推进、角色状态变化、遗留钩子、不可逆事实和下一卷必须承接的要点，幂等生成后写入 `VolumePlan.completedSummaryJson`，由 `volume_window` 上下文块注入写章提示词。
+**卷级滚动摘要**：跨卷续写时模型能看到的不只是"上一卷的计划"，还有"上一卷实际发生了什么"——本卷情节推进、角色状态变化、遗留钩子、不可逆事实和下一卷必须承接的要点，幂等生成后写入
+`VolumePlan.completedSummaryJson`，由 `volume_window` 上下文块注入写章提示词。
 
 ### 长跑保护
 
-- **高内存预留**：`AUTO_DIRECTOR_HIGH_MEMORY_BATCH_LIMIT = 1`，结构化大纲、节拍表、章节清单等重任务同一范围内只允许一个在跑；预留 TTL 10 分钟、每 2 分钟续约，冲突时返回 409 而不是一起 OOM。
-- **单执行者租约**：后台命令队列（`DirectorRunCommand`）用原子租约领取（compare-and-swap + `@@unique(taskId, commandType, idempotencyKey)`），同一任务同一时刻只有一个 worker 领到命令；租约过期由恢复流程重新排队或收敛终态，避免同一章节被多个执行体并发推进。
+- **高内存预留**：`AUTO_DIRECTOR_HIGH_MEMORY_BATCH_LIMIT = 1`，结构化大纲、节拍表、章节清单等重任务同一范围内只允许一个在跑；预留 TTL
+  10 分钟、每 2 分钟续约，冲突时返回 409 而不是一起 OOM。
+- **单执行者租约**：后台命令队列（`DirectorRunCommand`）用原子租约领取（compare-and-swap +
+  `@@unique(taskId, commandType, idempotencyKey)`），同一任务同一时刻只有一个 worker 领到命令；租约过期由恢复流程重新排队或收敛终态，避免同一章节被多个执行体并发推进。
 - **质量债务**：局部章节问题记录为可见质量债务并继续推进整本；只有明确重规划、无可用正文、受保护内容风险或数据完整性风险才允许阻断。
 
-完整评估（含字数估算、竞品对比和改进建议）见 [LONG_FORM_CAPABILITY_REPORT.md](./LONG_FORM_CAPABILITY_REPORT.md)。
+完整评估（含字数估算、竞品对比和改进建议）见
+[LONG_FORM_CAPABILITY_REPORT.md](./LONG_FORM_CAPABILITY_REPORT.md)。
 
 ---
 
 ## 最新更新
 
-### 2026-10-06
+### 2026-10-07
 
-- 短剧台本支持历史稿查看和下载；多人编辑或 AI 任务同时完成时会保留本地稿，核对后可继续保存。
-- 修改台本后会提示重新制作对应分镜和音视频，旧素材保留作对照；后续创作会自动整理改稿后的剧情事实。
-- 短剧支持合成带字幕和配音的竖屏 MP4，按真实音频长度安排画面，提供进度、取消、重试和历史成片下载。
-- 首帧历史链接持续可用，配音失败保留已有音频；服务重启后可查看中断任务并重新制作。
-- Docker 自部署包含成片所需的视频处理组件和中文字体。
+- 加强自部署的图片处理、访问来源校验和编辑器内容解析安全性。
+- 漫画与短剧制作进度、成片记录及草稿同步更稳定；章节保存失败后保留本地稿，方便重试。
 
 完整更新历史请查看 [版本更新说明](docs/releases/release-notes.md)。
 
@@ -301,7 +319,9 @@
 
 ### 拆书分析
 
-拆书分析已经不只是生成一篇读后感：可选快速 / 标准 / 完整三档拆书，覆盖题材定位、剧情结构、人物系统、世界设定和写法技法；角色档案支持简要 / 标准 / 深入 / 完整四档深度，还能按 25% / 50% / 75% / 100% 覆盖率对角色做形象演变的增量扫描，生成跨章节一致的参考图。拆书结论可以直接发布到知识库、一键转成写法资产，或把角色升格进基础角色库，让”拆一本书”变成后续创作能反复调用的长期资产，而不是看完就忘的一次性笔记。
+拆书分析已经不只是生成一篇读后感：可选快速 / 标准 / 完整三档拆书，覆盖题材定位、剧情结构、人物系统、世界设定和写法技法；角色档案支持简要 / 标准 / 深入 / 完整四档深度，还能按 25%
+/ 50% / 75% /
+100% 覆盖率对角色做形象演变的增量扫描，生成跨章节一致的参考图。拆书结论可以直接发布到知识库、一键转成写法资产，或把角色升格进基础角色库，让”拆一本书”变成后续创作能反复调用的长期资产，而不是看完就忘的一次性笔记。
 
 ### 知识库
 
@@ -345,15 +365,13 @@
 
 ### 环境要求
 
-- Node.js `^20.19.0 || ^22.12.0 || >=24.0.0`
-  推荐直接使用 `20.19.x LTS`
-- pnpm `>= 10.6`
-  推荐直接使用仓库声明的 `pnpm@10.6.0`
-- 至少一组可用的 LLM API Key
-  也可以先把项目跑起来，再在页面里配置
+- Node.js `^20.19.0 || ^22.12.0 || >=24.0.0` 推荐直接使用 `20.19.x LTS`
+- pnpm `>= 10.6` 推荐直接使用仓库声明的 `pnpm@10.6.0`
+- 至少一组可用的 LLM API Key 也可以先把项目跑起来，再在页面里配置
 - 如果你要完整体验知识库 / RAG，再额外准备可用的 Qdrant
 
-版本要求写在根 `package.json` 的 `engines` 与 `packageManager` 字段里，`pnpm dev` 启动前会先跑 `scripts/check-deps.cjs` 做依赖自检。
+版本要求写在根 `package.json` 的 `engines` 与 `packageManager`
+字段里，`pnpm dev` 启动前会先跑 `scripts/check-deps.cjs` 做依赖自检。
 
 ### 1. 安装依赖
 
@@ -361,15 +379,18 @@
 pnpm install
 ```
 
-默认的 `pnpm install` 只准备 Web / Server 开发所需依赖。如果你只是运行现有 Web / Server 开发流，到这里就够了。
+默认的 `pnpm install` 只准备 Web / Server 开发所需依赖。如果你只是运行现有 Web /
+Server 开发流，到这里就够了。
 
-如果你在 Windows 上执行 `pnpm install` 时卡在 `prisma preinstall`，通常先检查这两类问题：
+如果你在 Windows 上执行 `pnpm install` 时卡在
+`prisma preinstall`，通常先检查这两类问题：
 
-1. Node 版本过低
-   Prisma 7 目前要求 Node `^20.19.0 || ^22.12.0 || >=24.0.0`。如果你还在 `20.0 ~ 20.18`，建议先升级到 `20.19.x LTS` 再安装。
-2. `script-shell` 被配置成了交互式 shell
-   如果全局 `npm/pnpm script-shell` 被设成了 `cmd.exe /k` 之类会保留提示符的形式，Prisma 的 lifecycle script 可能不会自动退出，看起来就像安装“卡死”在：
-   `node_modules/.../prisma>`
+1. Node 版本过低 Prisma 7 目前要求 Node
+   `^20.19.0 || ^22.12.0 || >=24.0.0`。如果你还在 `20.0 ~ 20.18`，建议先升级到
+   `20.19.x LTS` 再安装。
+2. `script-shell` 被配置成了交互式 shell 如果全局 `npm/pnpm script-shell`
+   被设成了 `cmd.exe /k` 之类会保留提示符的形式，Prisma 的 lifecycle
+   script 可能不会自动退出，看起来就像安装“卡死”在： `node_modules/.../prisma>`
 
 可以先运行下面几条命令自查：
 
@@ -379,7 +400,8 @@ pnpm config get script-shell
 npm config get script-shell
 ```
 
-如果 `script-shell` 返回的是带 `/k` 的 `cmd.exe`，建议删除这项配置后重新打开终端，然后重新执行 `pnpm install`：
+如果 `script-shell` 返回的是带 `/k` 的
+`cmd.exe`，建议删除这项配置后重新打开终端，然后重新执行 `pnpm install`：
 
 ```bash
 npm config delete script-shell
@@ -390,13 +412,15 @@ pnpm config delete script-shell
 
 这个仓库通过 pnpm workspace 分别启动前后端，所以环境变量也是按子包读取的：
 
-| 文件 | 用途 | 谁读取 |
-| --- | --- | --- |
-| `server/.env` | 本地源码开发的主配置 | `pnpm dev` 启动的 API（工作目录在 `server/`） |
-| `client/.env` / `client/.env.local` | 前端可选覆盖 | Vite（工作目录在 `client/`） |
-| 根目录 `.env` | Docker Compose 部署配置 | `compose.yml` 的 `env_file` |
+| 文件                                | 用途                    | 谁读取                                        |
+| ----------------------------------- | ----------------------- | --------------------------------------------- |
+| `server/.env`                       | 本地源码开发的主配置    | `pnpm dev` 启动的 API（工作目录在 `server/`） |
+| `client/.env` / `client/.env.local` | 前端可选覆盖            | Vite（工作目录在 `client/`）                  |
+| 根目录 `.env`                       | Docker Compose 部署配置 | `compose.yml` 的 `env_file`                   |
 
-三个模板文件分别是 `server/.env.example`、`client/.env.example` 和根目录 `.env.example`；根目录 `.env.docker.example` 是更精简的 Docker 参考。注意根目录 `.env` **不是** `pnpm dev` 的默认入口。
+三个模板文件分别是 `server/.env.example`、`client/.env.example` 和根目录
+`.env.example`；根目录 `.env.docker.example` 是更精简的 Docker 参考。注意根目录
+`.env` **不是** `pnpm dev` 的默认入口。
 
 #### 2.1 服务端环境变量
 
@@ -412,16 +436,17 @@ Copy-Item server/.env.example server/.env
 
 最少建议先确认这些项目：
 
-- `DATABASE_URL`
-  留空即可，开发环境默认回落到本地 SQLite `file:./dev.db`；只有生产环境（`NODE_ENV=production`）才强制要求显式配置
-- `RAG_ENABLED`
-  如果你暂时不接知识库，建议先设为 `false`
-- `QDRANT_URL`、`QDRANT_API_KEY`
-  只有要启用 Qdrant / RAG 时才需要
+- `DATABASE_URL` 留空即可，开发环境默认回落到本地 SQLite
+  `file:./dev.db`；只有生产环境（`NODE_ENV=production`）才强制要求显式配置
+- `RAG_ENABLED` 如果你暂时不接知识库，建议先设为 `false`
+- `QDRANT_URL`、`QDRANT_API_KEY` 只有要启用 Qdrant / RAG 时才需要
 
-`OPENAI_API_KEY`、`DEEPSEEK_API_KEY`、`SILICONFLOW_API_KEY` 这类变量可以先留空——启动时只会打印一条提示，不会阻断服务；项目启动后可以在页面中配置模型供应商和默认模型。
+`OPENAI_API_KEY`、`DEEPSEEK_API_KEY`、`SILICONFLOW_API_KEY`
+这类变量可以先留空——启动时只会打印一条提示，不会阻断服务；项目启动后可以在页面中配置模型供应商和默认模型。
 
-服务端启动时会先执行 `server/src/config/validateEnv.ts`：格式非法的 `DATABASE_URL`、生产环境缺失的 `DATABASE_URL` 和生产弱密码会直接阻断启动；未配置模型密钥、启用 RAG 但缺少 Qdrant 配置只会打印警告。启动日志中的连接串会做脱敏处理，随后打印一份配置摘要（运行环境、数据库类型、已读取的供应商、RAG 状态）。
+服务端启动时会先执行 `server/src/config/validateEnv.ts`：格式非法的
+`DATABASE_URL`、生产环境缺失的 `DATABASE_URL`
+和生产弱密码会直接阻断启动；未配置模型密钥、启用 RAG 但缺少 Qdrant 配置只会打印警告。启动日志中的连接串会做脱敏处理，随后打印一份配置摘要（运行环境、数据库类型、已读取的供应商、RAG 状态）。
 
 #### 2.2 前端环境变量
 
@@ -433,8 +458,8 @@ Copy-Item server/.env.example server/.env
 http(s)://当前页面 hostname:3000/api
 ```
 
-这也包括“同一台机器启动服务，然后用局域网 IP 在别的设备上访问”的场景。
-例如页面开在 `http://192.168.0.37:5173`，前端默认会自动把 API 指到：
+这也包括“同一台机器启动服务，然后用局域网 IP 在别的设备上访问”的场景。例如页面开在
+`http://192.168.0.37:5173`，前端默认会自动把 API 指到：
 
 ```text
 http://192.168.0.37:3000/api
@@ -446,7 +471,9 @@ http://192.168.0.37:3000/api
 - 你想把前端显式指向别的 API 地址
 - 你需要固定 `VITE_API_BASE_URL`
 
-如果你已经复制了 `client/.env.example`，又发现浏览器请求都跑到了 `http://localhost:3000/api`，通常就是因为你把 API 显式固定死了。对同机 / 局域网访问，建议直接删除或注释掉 `VITE_API_BASE_URL`。
+如果你已经复制了 `client/.env.example`，又发现浏览器请求都跑到了
+`http://localhost:3000/api`，通常就是因为你把 API 显式固定死了。对同机 / 局域网访问，建议直接删除或注释掉
+`VITE_API_BASE_URL`。
 
 ```bash
 # macOS / Linux
@@ -467,14 +494,14 @@ Copy-Item client/.env.example client/.env
 
 当前项目已经支持在页面里配置模型相关设置：
 
-- `/settings`
-  配置供应商 API Key、默认模型、连通性测试
-- `/settings/model-routes`
-  给不同任务分配不同 provider / model
-- `/knowledge?tab=settings`
-  配置 Embedding provider、Embedding model、集合命名和自动重建策略
+- `/settings` 配置供应商 API Key、默认模型、连通性测试
+- `/settings/model-routes` 给不同任务分配不同 provider / model
+- `/knowledge?tab=settings` 配置 Embedding provider、Embedding
+  model、集合命名和自动重建策略
 
-所以环境变量里的 `OPENAI_MODEL`、`DEEPSEEK_MODEL`、`EMBEDDING_MODEL` 等，更适合当作启动默认值、以及数据库里还没保存设置时的回退值。页面录入的密钥会加密存库，启动时由 `loadProviderApiKeys()` 载入，失败才回退到环境变量。
+所以环境变量里的 `OPENAI_MODEL`、`DEEPSEEK_MODEL`、`EMBEDDING_MODEL`
+等，更适合当作启动默认值、以及数据库里还没保存设置时的回退值。页面录入的密钥会加密存库，启动时由
+`loadProviderApiKeys()` 载入，失败才回退到环境变量。
 
 ### 3. 启动开发环境
 
@@ -482,8 +509,9 @@ Copy-Item client/.env.example client/.env
 pnpm dev
 ```
 
-如果你已经复制好了 `server/.env`，默认就是直接运行这一条。
-不需要在首次启动前手动再执行 `prisma generate`、`prisma db push` 或 `pnpm db:migrate`。
+如果你已经复制好了
+`server/.env`，默认就是直接运行这一条。不需要在首次启动前手动再执行
+`prisma generate`、`prisma db push` 或 `pnpm db:migrate`。
 
 默认情况下：
 
@@ -492,15 +520,23 @@ pnpm dev
 - API：`http://localhost:3000/api`
 - 公开介绍站（`pnpm dev:site`）：`http://localhost:4173`
 
-`pnpm dev` 会用 `concurrently` 并行拉起 shared 的 watch 构建、服务端和前端，并把整轮日志落盘（`scripts/run-with-log.cjs`）。服务端启动脚本会先跑 `ensure-dev-prisma.cjs`（自动 Prisma generate 与 `db push`）和 `stop-stale-dev-server.cjs`（清理上次残留进程），再用 `tsx watch` 运行 `src/app.ts`。只有在你自己修改了 Prisma schema，或者要处理正式迁移流程时，才需要手动使用 Prisma / 数据库相关命令。
+`pnpm dev` 会用 `concurrently`
+并行拉起 shared 的 watch 构建、服务端和前端，并把整轮日志落盘（`scripts/run-with-log.cjs`）。服务端启动脚本会先跑
+`ensure-dev-prisma.cjs`（自动 Prisma generate 与 `db push`）和
+`stop-stale-dev-server.cjs`（清理上次残留进程），再用 `tsx watch` 运行
+`src/app.ts`。只有在你自己修改了 Prisma
+schema，或者要处理正式迁移流程时，才需要手动使用 Prisma / 数据库相关命令。
 
 启动过程还会拉起若干后台服务：RAG 索引 Worker、检索追踪清理、事件副作用 Worker、导演 Worker、待恢复任务初始化、短篇生产恢复、内置创作资源初始化和日志清理。这些都是长链路生产恢复能力的一部分，不需要额外手动启动。
 
 ### 4. 首次启动后建议的三步
 
 1. 打开 `http://localhost:5173/settings`，至少配置一组可用的模型供应商 API Key
-2. 打开 `http://localhost:5173/settings/model-routes`，检查各任务实际使用的模型路由
-3. 如果要启用知识库，打开 `http://localhost:5173/knowledge?tab=settings`，保存 Embedding / Collection 设置
+2. 打开
+   `http://localhost:5173/settings/model-routes`，检查各任务实际使用的模型路由
+3. 如果要启用知识库，打开
+   `http://localhost:5173/knowledge?tab=settings`，保存 Embedding /
+   Collection 设置
 
 ### 5. 可选初始化
 
@@ -515,7 +551,9 @@ pnpm db:studio
 
 ## Docker Compose 部署
 
-仓库根目录的 `compose.yml`（Compose v2 命名，不是 `docker-compose.yml`）提供 Web、API、PostgreSQL 和可选 Qdrant 的完整编排，项目名为 `baotuo-mojian-app`。
+仓库根目录的 `compose.yml`（Compose v2 命名，不是
+`docker-compose.yml`）提供 Web、API、PostgreSQL 和可选 Qdrant 的完整编排，项目名为
+`baotuo-mojian-app`。
 
 ```bash
 cp .env.example .env
@@ -531,16 +569,22 @@ curl -fsS http://localhost:8080/api/health/live
 
 ### 服务编排
 
-| 服务 | 镜像 / 构建 | 说明 |
-| --- | --- | --- |
-| `web` | `Dockerfile.web`，构建参数 `VITE_API_BASE_URL=/api` | 宿主机端口由 `WEB_PORT` 决定，默认 `8080:8080` |
-| `api` | `Dockerfile.api` | `NODE_ENV=production`、`PORT=3000`、`HOST=0.0.0.0`、`ALLOW_LAN=false`、`TRUSTED_REVERSE_PROXY=true`；健康检查 `/api/health/live` |
-| `postgres` | `postgres:17-alpine` | `pg_isready` 健康检查，仅挂在内部网络 |
-| `qdrant` | `qdrant/qdrant:v1.15.4` | 属于 `rag` profile，默认不启动 |
+| 服务       | 镜像 / 构建                                         | 说明                                                                                                                             |
+| ---------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `web`      | `Dockerfile.web`，构建参数 `VITE_API_BASE_URL=/api` | 宿主机端口由 `WEB_PORT` 决定，默认 `8080:8080`                                                                                   |
+| `api`      | `Dockerfile.api`                                    | `NODE_ENV=production`、`PORT=3000`、`HOST=0.0.0.0`、`ALLOW_LAN=false`、`TRUSTED_REVERSE_PROXY=true`；健康检查 `/api/health/live` |
+| `postgres` | `postgres:17-alpine`                                | `pg_isready` 健康检查，仅挂在内部网络                                                                                            |
+| `qdrant`   | `qdrant/qdrant:v1.15.4`                             | 属于 `rag` profile，默认不启动                                                                                                   |
 
-网络上只有 `web` 暴露到宿主机，`backend` 网络标记为 `internal`，数据库和向量库不会直接对外。数据卷分别是 `baotuo-mojian-app_postgres_data`、`_image_storage` 和 `_qdrant_storage`。
+网络上只有 `web` 暴露到宿主机，`backend` 网络标记为
+`internal`，数据库和向量库不会直接对外。数据卷分别是
+`baotuo-mojian-app_postgres_data`、`_image_storage` 和 `_qdrant_storage`。
 
-`DATABASE_URL` 由 `compose.yml` 依据 `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` 自动拼装并强制 `AI_NOVEL_DATABASE_MODE=postgresql`、`AI_NOVEL_COMPOSE_BASELINE=true`，不需要在 `.env` 里手写；只有把 API 指向外部数据库时才需要显式覆盖。密码含 `@ : / # ?` 等 URL 特殊字符时需要做百分号编码。
+`DATABASE_URL` 由 `compose.yml` 依据 `POSTGRES_USER` / `POSTGRES_PASSWORD` /
+`POSTGRES_DB` 自动拼装并强制
+`AI_NOVEL_DATABASE_MODE=postgresql`、`AI_NOVEL_COMPOSE_BASELINE=true`，不需要在
+`.env` 里手写；只有把 API 指向外部数据库时才需要显式覆盖。密码含 `@ : / # ?`
+等 URL 特殊字符时需要做百分号编码。
 
 ### 启用 RAG
 
@@ -549,7 +593,9 @@ curl -fsS http://localhost:8080/api/health/live
 docker compose --profile rag up -d --build
 ```
 
-根目录 `.env.example` 里 `RAG_ENABLED` 显式写成 `false`，所以 Compose 默认不启用 RAG；`server/.env.example` 默认为 `true`，代码内的默认值也是启用，因此本地开发若不想接 Qdrant 需要主动关掉。
+根目录 `.env.example` 里 `RAG_ENABLED` 显式写成
+`false`，所以 Compose 默认不启用 RAG；`server/.env.example` 默认为
+`true`，代码内的默认值也是启用，因此本地开发若不想接 Qdrant 需要主动关掉。
 
 ### 更新、备份与卸载
 
@@ -564,29 +610,42 @@ docker compose exec postgres pg_dump -U baotuo -d baotuo_mojian -Fc > backup.dum
 docker compose down
 ```
 
-`docker compose down -v` 会连同数据卷一起删除，属于破坏性操作，执行前请确认已备份。完整配置、升级和排障说明见 [Docker Compose 部署文档](./docs/deployment/docker-compose.md)。
+`docker compose down -v`
+会连同数据卷一起删除，属于破坏性操作，执行前请确认已备份。完整配置、升级和排障说明见
+[Docker Compose 部署文档](./docs/deployment/docker-compose.md)。
 
 ### 部署注意事项
 
-- **部署目录必须是纯英文路径**。含中文的路径会让 Docker Buildx 报 `x-docker-expose-session-sharedkey ... non-printable ASCII characters` 并中断构建。
-- **项目没有完整的多用户认证体系**。不要把 `WEB_PORT` 直接暴露到公网；需要外网访问时请在前面放一层 HTTPS 反向代理并自行加访问控制，同时把 `APP_BASE_URL` 和 `CORS_ORIGIN` 改成最终域名。
-- 旧版本 Docker Compose 可以先用 `./scripts/docker-compose-up.sh` 作为过渡启动方式。
+- **部署目录必须是纯英文路径**。含中文的路径会让 Docker Buildx 报
+  `x-docker-expose-session-sharedkey ... non-printable ASCII characters`
+  并中断构建。
+- **项目没有完整的多用户认证体系**。不要把 `WEB_PORT`
+  直接暴露到公网；需要外网访问时请在前面放一层 HTTPS 反向代理并自行加访问控制，同时把
+  `APP_BASE_URL` 和 `CORS_ORIGIN` 改成最终域名。
+- 旧版本 Docker Compose 可以先用 `./scripts/docker-compose-up.sh`
+  作为过渡启动方式。
 - 只想单独跑一个 Qdrant 时可以用 `infra/docker-compose.qdrant.yml`。
 
 ---
 
 ## 知识库与 RAG
 
-RAG 不是跑通主链的前置条件。只体验主流程时，在 `server/.env` 里设 `RAG_ENABLED=false` 即可。
+RAG 不是跑通主链的前置条件。只体验主流程时，在 `server/.env` 里设
+`RAG_ENABLED=false` 即可。
 
-启用后的检索链路是"向量召回 + 关键词召回 + 融合"：默认分块 800 token、重叠 120，向量与关键词各取 40 个候选，最终返回 8 条。集合默认名为 `ai_novel_chunks_v1`，本地 Qdrant 默认地址 `http://127.0.0.1:6333`。Embedding 并发、Qdrant 写入并发这类运行时参数不从环境变量读取，统一在 `知识库 → 向量设置` 面板里管理，改完即生效。
+启用后的检索链路是"向量召回 + 关键词召回 + 融合"：默认分块 800
+token、重叠 120，向量与关键词各取 40 个候选，最终返回 8 条。集合默认名为
+`ai_novel_chunks_v1`，本地 Qdrant 默认地址
+`http://127.0.0.1:6333`。Embedding 并发、Qdrant 写入并发这类运行时参数不从环境变量读取，统一在
+`知识库 → 向量设置` 面板里管理，改完即生效。
 
 ### 使用 Qdrant Cloud
 
 1. 到 [Qdrant Cloud](https://cloud.qdrant.io/) 注册账号。
 2. 在 `Clusters` 页面创建一个集群。测试阶段用 Free cluster 就够了。
 3. 集群创建完成后，到集群详情页复制 Cluster URL。
-4. 在集群详情页的 `API Keys` 中创建并复制一个 Database API Key。这个 key 创建后通常只展示一次，建议立即保存。
+4. 在集群详情页的 `API Keys` 中创建并复制一个 Database API
+   Key。这个 key 创建后通常只展示一次，建议立即保存。
 5. 把它们写入 `server/.env`：
 
 ```env
@@ -594,7 +653,8 @@ QDRANT_URL=https://your-cluster.region.cloud.qdrant.io:6333
 QDRANT_API_KEY=your_database_api_key
 ```
 
-6. 启动项目后，再去 `知识库 -> 向量设置` 页面选择 Embedding provider / model，并保存集合设置。
+6. 启动项目后，再去 `知识库 -> 向量设置` 页面选择 Embedding provider /
+   model，并保存集合设置。
 
 对这个项目来说，`QDRANT_URL` 建议直接填 REST 地址，也就是带 `:6333` 的地址。
 
@@ -617,65 +677,75 @@ Qdrant 官方文档：
 
 ## 模型供应商与环境变量
 
-内置 11 个供应商，键名的唯一事实源是 `server/src/llm/providers.ts`。每个供应商都支持三个环境变量：`<前缀>_API_KEY`、`<前缀>_BASE_URL`、`<前缀>_MODEL`。
+内置 11 个供应商，键名的唯一事实源是
+`server/src/llm/providers.ts`。每个供应商都支持三个环境变量：`<前缀>_API_KEY`、`<前缀>_BASE_URL`、`<前缀>_MODEL`。
 
-| 供应商 | API Key 变量 | 默认 Base URL | 代码内默认模型 |
-| --- | --- | --- | --- |
-| DeepSeek | `DEEPSEEK_API_KEY` | `https://api.deepseek.com/v1` | `deepseek-v4-flash` |
-| SiliconFlow | `SILICONFLOW_API_KEY` | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` |
-| OpenAI | `OPENAI_API_KEY` | `https://api.openai.com/v1` | `gpt-5` |
-| Anthropic | `ANTHROPIC_API_KEY` | `https://api.anthropic.com/v1` | `claude-3-5-sonnet-20241022` |
-| Grok | `XAI_API_KEY` | `https://api.x.ai/v1` | `grok-4` |
-| Kimi | `KIMI_API_KEY` | `https://api.moonshot.cn/v1` | `moonshot-v1-32k` |
-| MiniMax | `MINIMAX_API_KEY` | `https://api.minimax.io/v1` | `MiniMax-M2.7` |
-| GLM | `GLM_API_KEY` | `https://open.bigmodel.cn/api/paas/v4` | `glm-4.5-air` |
-| Qwen | `QWEN_API_KEY` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
-| Gemini | `GEMINI_API_KEY` | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash` |
-| Ollama | 不需要（`requiresApiKey: false`） | `http://127.0.0.1:11434/v1` | `llama3.2` |
+| 供应商      | API Key 变量                      | 默认 Base URL                                             | 代码内默认模型               |
+| ----------- | --------------------------------- | --------------------------------------------------------- | ---------------------------- |
+| DeepSeek    | `DEEPSEEK_API_KEY`                | `https://api.deepseek.com/v1`                             | `deepseek-v4-flash`          |
+| SiliconFlow | `SILICONFLOW_API_KEY`             | `https://api.siliconflow.cn/v1`                           | `Qwen/Qwen2.5-7B-Instruct`   |
+| OpenAI      | `OPENAI_API_KEY`                  | `https://api.openai.com/v1`                               | `gpt-5`                      |
+| Anthropic   | `ANTHROPIC_API_KEY`               | `https://api.anthropic.com/v1`                            | `claude-3-5-sonnet-20241022` |
+| Grok        | `XAI_API_KEY`                     | `https://api.x.ai/v1`                                     | `grok-4`                     |
+| Kimi        | `KIMI_API_KEY`                    | `https://api.moonshot.cn/v1`                              | `moonshot-v1-32k`            |
+| MiniMax     | `MINIMAX_API_KEY`                 | `https://api.minimax.io/v1`                               | `MiniMax-M2.7`               |
+| GLM         | `GLM_API_KEY`                     | `https://open.bigmodel.cn/api/paas/v4`                    | `glm-4.5-air`                |
+| Qwen        | `QWEN_API_KEY`                    | `https://dashscope.aliyuncs.com/compatible-mode/v1`       | `qwen-plus`                  |
+| Gemini      | `GEMINI_API_KEY`                  | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash`           |
+| Ollama      | 不需要（`requiresApiKey: false`） | `http://127.0.0.1:11434/v1`                               | `llama3.2`                   |
 
-Ollama 本地部署只需要配置 `OLLAMA_BASE_URL`。使用第三方兼容网关时，覆盖对应的 `<前缀>_BASE_URL` 即可。
+Ollama 本地部署只需要配置 `OLLAMA_BASE_URL`。使用第三方兼容网关时，覆盖对应的
+`<前缀>_BASE_URL` 即可。
 
 ### 其他常用变量
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `PORT` / `HOST` | `3000` / `localhost` | 开发环境 `ALLOW_LAN` 默认开启，此时监听 `0.0.0.0` |
-| `ALLOW_LAN` | 开发 `true`，生产 `false` | 是否允许局域网 IP 来源的跨域访问 |
-| `CORS_ORIGIN` | 空 | 逗号分隔的允许来源；localhost 开发来源始终允许 |
-| `API_JSON_LIMIT` | `20mb` | 长篇正文请求体较大；公网暴露建议收窄 |
-| `NOVEL_SNAPSHOT_RETENTION_COUNT` | `10` | 每本小说保留的自动版本快照数（手动快照不计入） |
-| `WORLD_WIZARD_ENABLED` / `WORLD_VIS_ENABLED` / `WORLD_GRAPH_ENABLED` | `true` / `true` / `false` | 世界观向导、可视化、关系图谱开关 |
-| `RAG_ENABLED` | 代码默认 `true` | 根 `.env.example` 显式设为 `false` |
-| `LLM_REQUEST_TIMEOUT_MS` | `120000` | 单次模型请求超时 |
-| `AI_NOVEL_LOG_RETENTION_DAYS` / `AI_NOVEL_LLM_LOG_RETENTION_DAYS` | `14` / `7` | 日志保留天数，启动时自动清理 |
-| `BOOK_ANALYSIS_MAX_CONCURRENT_TASKS` | `2` | 拆书分析并发上限 |
+| 变量                                                                 | 默认值                    | 说明                                              |
+| -------------------------------------------------------------------- | ------------------------- | ------------------------------------------------- |
+| `PORT` / `HOST`                                                      | `3000` / `localhost`      | 开发环境 `ALLOW_LAN` 默认开启，此时监听 `0.0.0.0` |
+| `ALLOW_LAN`                                                          | 开发 `true`，生产 `false` | 是否允许局域网 IP 来源的跨域访问                  |
+| `CORS_ORIGIN`                                                        | 空                        | 逗号分隔的允许来源；localhost 开发来源始终允许    |
+| `API_JSON_LIMIT`                                                     | `20mb`                    | 长篇正文请求体较大；公网暴露建议收窄              |
+| `NOVEL_SNAPSHOT_RETENTION_COUNT`                                     | `10`                      | 每本小说保留的自动版本快照数（手动快照不计入）    |
+| `WORLD_WIZARD_ENABLED` / `WORLD_VIS_ENABLED` / `WORLD_GRAPH_ENABLED` | `true` / `true` / `false` | 世界观向导、可视化、关系图谱开关                  |
+| `RAG_ENABLED`                                                        | 代码默认 `true`           | 根 `.env.example` 显式设为 `false`                |
+| `LLM_REQUEST_TIMEOUT_MS`                                             | `120000`                  | 单次模型请求超时                                  |
+| `AI_NOVEL_LOG_RETENTION_DAYS` / `AI_NOVEL_LLM_LOG_RETENTION_DAYS`    | `14` / `7`                | 日志保留天数，启动时自动清理                      |
+| `BOOK_ANALYSIS_MAX_CONCURRENT_TASKS`                                 | `2`                       | 拆书分析并发上限                                  |
 
-完整清单见 `server/.env.example`（本地开发）与根目录 `.env.example`（Docker Compose）。
+完整清单见 `server/.env.example`（本地开发）与根目录 `.env.example`（Docker
+Compose）。
 
 ---
 
 ## 数据库与双 Schema
 
-项目同时维护 SQLite 与 PostgreSQL 两套 Prisma schema，通过 Prisma 7 的 driver adapter（`@prisma/adapter-better-sqlite3` / `@prisma/adapter-pg`）切换。
+项目同时维护 SQLite 与 PostgreSQL 两套 Prisma schema，通过 Prisma 7 的 driver
+adapter（`@prisma/adapter-better-sqlite3` / `@prisma/adapter-pg`）切换。
 
 ### 运行时如何选择数据库
 
 判定逻辑在 `server/src/config/database.ts`：
 
-1. 若设置了 `DATABASE_URL`，按前缀判定：`file:` → SQLite，其余（`postgresql://` / `postgres://`）→ PostgreSQL；`postgresql+psycopg://` 会被自动规范化。
-2. 未设置 `DATABASE_URL` 时读 `AI_NOVEL_DATABASE_MODE`，可取 `sqlite` / `file` / `postgres` / `postgresql` / `pg`。
-3. 两者都没有时默认 SQLite，连接串为 `file:./dev.db`；显式选 PostgreSQL 而未给连接串时回落到 `postgresql://postgres:postgres@127.0.0.1:5432/ai_novel`。
-4. `NODE_ENV=production` 且没有 `DATABASE_URL` 会直接抛错，不会静默落到本地 SQLite。
+1. 若设置了 `DATABASE_URL`，按前缀判定：`file:` → SQLite，其余（`postgresql://`
+   / `postgres://`）→ PostgreSQL；`postgresql+psycopg://` 会被自动规范化。
+2. 未设置 `DATABASE_URL` 时读 `AI_NOVEL_DATABASE_MODE`，可取 `sqlite` / `file` /
+   `postgres` / `postgresql` / `pg`。
+3. 两者都没有时默认 SQLite，连接串为
+   `file:./dev.db`；显式选 PostgreSQL 而未给连接串时回落到
+   `postgresql://postgres:postgres@127.0.0.1:5432/ai_novel`。
+4. `NODE_ENV=production` 且没有 `DATABASE_URL`
+   会直接抛错，不会静默落到本地 SQLite。
 
 ### Schema 与迁移目录对应关系
 
-| 数据库 | Schema | 迁移目录 |
-| --- | --- | --- |
-| SQLite | `server/src/prisma/schema.sqlite.prisma` | `server/src/prisma/migrations.sqlite` |
-| PostgreSQL（源码开发） | `server/src/prisma/schema.prisma` | `server/src/prisma/migrations` |
-| PostgreSQL（Compose 基线） | `server/src/prisma/schema.prisma` | `server/src/prisma/migrations.compose` |
+| 数据库                     | Schema                                   | 迁移目录                               |
+| -------------------------- | ---------------------------------------- | -------------------------------------- |
+| SQLite                     | `server/src/prisma/schema.sqlite.prisma` | `server/src/prisma/migrations.sqlite`  |
+| PostgreSQL（源码开发）     | `server/src/prisma/schema.prisma`        | `server/src/prisma/migrations`         |
+| PostgreSQL（Compose 基线） | `server/src/prisma/schema.prisma`        | `server/src/prisma/migrations.compose` |
 
-`AI_NOVEL_COMPOSE_BASELINE=true` 时使用 `migrations.compose` 这套压缩基线，且只允许配合 PostgreSQL，否则启动即报错。Compose 部署已默认打开该开关。
+`AI_NOVEL_COMPOSE_BASELINE=true` 时使用 `migrations.compose`
+这套压缩基线，且只允许配合 PostgreSQL，否则启动即报错。Compose 部署已默认打开该开关。
 
 ### 保持两套 Schema 对齐
 
@@ -685,7 +755,9 @@ Ollama 本地部署只需要配置 `OLLAMA_BASE_URL`。使用第三方兼容网�
 pnpm check:prisma-parity
 ```
 
-该脚本（`scripts/check-prisma-schema-parity.cjs`）比对模型、字段与枚举差异，避免只改一侧导致另一种数据库启动失败。迁移可用 `pnpm test:migrations` 做一次干净库的重放验证（需要 bash 环境，Windows 下用 Git Bash 或 WSL）。
+该脚本（`scripts/check-prisma-schema-parity.cjs`）比对模型、字段与枚举差异，避免只改一侧导致另一种数据库启动失败。迁移可用
+`pnpm test:migrations` 做一次干净库的重放验证（需要 bash 环境，Windows 下用 Git
+Bash 或 WSL）。
 
 ---
 
@@ -693,67 +765,69 @@ pnpm check:prisma-parity
 
 ### 开发与构建（仓库根目录）
 
-| 命令 | 说明 |
-| --- | --- |
-| `pnpm dev` | 依赖自检 + 带日志落盘地并行启动 shared / server / client |
-| `pnpm dev:raw` | 同上但不写日志文件 |
-| `pnpm dev:server` / `pnpm dev:client` / `pnpm dev:shared` | 只启动单个包 |
-| `pnpm dev:client:wait` | 等待 API 3000 端口就绪后再启动前端 |
-| `pnpm dev:site` | 启动官网站点（默认 4173） |
-| `pnpm build` | 按 shared → server → client 顺序构建 |
-| `pnpm build:site` | 单独构建官网站点 |
-| `pnpm typecheck` | 构建 shared 后对 server 与 client 做类型检查 |
+| 命令                                                      | 说明                                                     |
+| --------------------------------------------------------- | -------------------------------------------------------- |
+| `pnpm dev`                                                | 依赖自检 + 带日志落盘地并行启动 shared / server / client |
+| `pnpm dev:raw`                                            | 同上但不写日志文件                                       |
+| `pnpm dev:server` / `pnpm dev:client` / `pnpm dev:shared` | 只启动单个包                                             |
+| `pnpm dev:client:wait`                                    | 等待 API 3000 端口就绪后再启动前端                       |
+| `pnpm dev:site`                                           | 启动官网站点（默认 4173）                                |
+| `pnpm build`                                              | 按 shared → server → client 顺序构建                     |
+| `pnpm build:site`                                         | 单独构建官网站点                                         |
+| `pnpm typecheck`                                          | 构建 shared 后对 server 与 client 做类型检查             |
 
 ### 数据库
 
-| 命令 | 说明 |
-| --- | --- |
-| `pnpm db:migrate` | 执行 Prisma 迁移（透传到 `@ai-novel/server`） |
-| `pnpm db:seed` | 写入示例数据 |
-| `pnpm db:studio` | 打开 Prisma Studio 浏览数据 |
-| `pnpm db:restore` | 从备份恢复开发数据 |
-| `pnpm db:prune-snapshots` | 清理过量版本快照 |
-| `pnpm --filter @ai-novel/server db:inspect` | 打印数据库结构与统计 |
-| `pnpm --filter @ai-novel/server db:archive-state-snapshots` | 归档状态快照 |
-| `pnpm --filter @ai-novel/server prisma:generate` | 重新生成 Prisma Client |
-| `pnpm --filter @ai-novel/server prisma:deploy` | 生产环境 `migrate deploy` |
+| 命令                                                        | 说明                                          |
+| ----------------------------------------------------------- | --------------------------------------------- |
+| `pnpm db:migrate`                                           | 执行 Prisma 迁移（透传到 `@ai-novel/server`） |
+| `pnpm db:seed`                                              | 写入示例数据                                  |
+| `pnpm db:studio`                                            | 打开 Prisma Studio 浏览数据                   |
+| `pnpm db:restore`                                           | 从备份恢复开发数据                            |
+| `pnpm db:prune-snapshots`                                   | 清理过量版本快照                              |
+| `pnpm --filter @ai-novel/server db:inspect`                 | 打印数据库结构与统计                          |
+| `pnpm --filter @ai-novel/server db:archive-state-snapshots` | 归档状态快照                                  |
+| `pnpm --filter @ai-novel/server prisma:generate`            | 重新生成 Prisma Client                        |
+| `pnpm --filter @ai-novel/server prisma:deploy`              | 生产环境 `migrate deploy`                     |
 
-所有 server 侧 Prisma 命令都会带上 `--config prisma.config.ts`，由该配置根据当前数据库模式挑选 schema 与迁移目录，不要绕过它直接调用裸 `prisma` 命令。
+所有 server 侧 Prisma 命令都会带上
+`--config prisma.config.ts`，由该配置根据当前数据库模式挑选 schema 与迁移目录，不要绕过它直接调用裸
+`prisma` 命令。
 
 ### 测试
 
-| 命令 | 说明 |
-| --- | --- |
-| `pnpm test` | 服务端快速用例集（`server/scripts/run-tests.cjs fast`），会先构建 shared 与 server |
-| `pnpm test:client` | 前端用例（`node --experimental-strip-types --test`） |
-| `pnpm test:all` | 服务端 fast + integration，再加前端用例 |
-| `pnpm --filter @ai-novel/server test:integration` | 只跑集成用例 |
-| `pnpm --filter @ai-novel/server test:planner` | 规划器用例 |
-| `pnpm --filter @ai-novel/server test:tools` | 工具层用例 |
-| `pnpm --filter @ai-novel/server test:runtime` | 运行时用例 |
-| `pnpm --filter @ai-novel/server test:routes` | 路由用例（`run-route-tests.cjs`） |
-| `pnpm --filter @ai-novel/server test:book-analysis` | 拆书分析用例 |
-| `pnpm test:migrations` | 干净库迁移重放校验，需要 bash |
+| 命令                                                | 说明                                                                               |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `pnpm test`                                         | 服务端快速用例集（`server/scripts/run-tests.cjs fast`），会先构建 shared 与 server |
+| `pnpm test:client`                                  | 前端用例（`node --experimental-strip-types --test`）                               |
+| `pnpm test:all`                                     | 服务端 fast + integration，再加前端用例                                            |
+| `pnpm --filter @ai-novel/server test:integration`   | 只跑集成用例                                                                       |
+| `pnpm --filter @ai-novel/server test:planner`       | 规划器用例                                                                         |
+| `pnpm --filter @ai-novel/server test:tools`         | 工具层用例                                                                         |
+| `pnpm --filter @ai-novel/server test:runtime`       | 运行时用例                                                                         |
+| `pnpm --filter @ai-novel/server test:routes`        | 路由用例（`run-route-tests.cjs`）                                                  |
+| `pnpm --filter @ai-novel/server test:book-analysis` | 拆书分析用例                                                                       |
+| `pnpm test:migrations`                              | 干净库迁移重放校验，需要 bash                                                      |
 
 ### 质量与检查
 
-| 命令 | 说明 |
-| --- | --- |
-| `pnpm lint` | 三个包依次做 TypeScript 严格检查 |
-| `pnpm format` / `pnpm format:check` | Prettier 写入 / 只校验 |
-| `pnpm audit` / `pnpm audit:fix` | 依赖漏洞审计（moderate 及以上） |
-| `pnpm check:deps` | 校验 workspace 依赖与 Node/pnpm 版本 |
-| `pnpm check:prisma-parity` | 校验双 Prisma schema 是否对齐 |
-| `pnpm check:docs-manifest` | 校验文档清单与实际文件一致 |
+| 命令                                | 说明                                 |
+| ----------------------------------- | ------------------------------------ |
+| `pnpm lint`                         | 三个包依次做 TypeScript 严格检查     |
+| `pnpm format` / `pnpm format:check` | Prettier 写入 / 只校验               |
+| `pnpm audit` / `pnpm audit:fix`     | 依赖漏洞审计（moderate 及以上）      |
+| `pnpm check:deps`                   | 校验 workspace 依赖与 Node/pnpm 版本 |
+| `pnpm check:prisma-parity`          | 校验双 Prisma schema 是否对齐        |
+| `pnpm check:docs-manifest`          | 校验文档清单与实际文件一致           |
 
 ### 运维与分析脚本
 
-| 命令 | 说明 |
-| --- | --- |
-| `pnpm --filter @ai-novel/server rag:eval` | RAG 检索效果评测 |
-| `pnpm --filter @ai-novel/server audit:director-recovery-samples` | 审计导演模式恢复样本 |
+| 命令                                                               | 说明                                               |
+| ------------------------------------------------------------------ | -------------------------------------------------- |
+| `pnpm --filter @ai-novel/server rag:eval`                          | RAG 检索效果评测                                   |
+| `pnpm --filter @ai-novel/server audit:director-recovery-samples`   | 审计导演模式恢复样本                               |
 | `pnpm --filter @ai-novel/server backfill:director-draft-baselines` | 回填章节草稿基线（需 `DIRECTOR_BASELINE_WRITE=1`） |
-| `node scripts/summarize-llm-repair-log.cjs` | 汇总 LLM 修复日志 |
+| `node scripts/summarize-llm-repair-log.cjs`                        | 汇总 LLM 修复日志                                  |
 
 ---
 
@@ -761,36 +835,39 @@ pnpm check:prisma-parity
 
 ### 前端（`client`）
 
-| 领域 | 选型 |
-| --- | --- |
-| 框架 | React 19 + TypeScript 5.9 |
-| 构建 | Vite 7 |
-| 路由 | React Router 7 |
-| 数据层 | TanStack Query 5 + axios |
-| 状态 | Zustand 5 |
-| 富文本 | Plate（platejs）+ Slate |
-| 对话 UI | assistant-ui |
-| 图与可视化 | @xyflow/react、d3 |
-| UI 基建 | Radix UI + Tailwind CSS 3 + framer-motion + sonner |
-| 本地缓存 | idb-keyval |
+| 领域       | 选型                                               |
+| ---------- | -------------------------------------------------- |
+| 框架       | React 19 + TypeScript 5.9                          |
+| 构建       | Vite 7                                             |
+| 路由       | React Router 7                                     |
+| 数据层     | TanStack Query 5 + axios                           |
+| 状态       | Zustand 5                                          |
+| 富文本     | Plate（platejs）+ Slate                            |
+| 对话 UI    | assistant-ui                                       |
+| 图与可视化 | @xyflow/react、d3                                  |
+| UI 基建    | Radix UI + Tailwind CSS 3 + framer-motion + sonner |
+| 本地缓存   | idb-keyval                                         |
 
 ### 后端（`server`）
 
-| 领域 | 选型 |
-| --- | --- |
-| 运行时 | Node.js 20/22/24 + Express 5 |
-| 开发执行 | `tsx watch` |
-| ORM | Prisma 7（driver adapter 双库） |
-| 校验 | Zod 4 |
-| AI 编排 | @langchain/core + @langchain/langgraph + @langchain/openai |
-| 安全与日志 | helmet + morgan |
-| 图像与存储 | sharp + @aws-sdk/client-s3（本地卷 / S3 兼容二选一） |
-| 向量库 | Qdrant（HTTP API） |
+| 领域       | 选型                                                       |
+| ---------- | ---------------------------------------------------------- |
+| 运行时     | Node.js 20/22/24 + Express 5                               |
+| 开发执行   | `tsx watch`                                                |
+| ORM        | Prisma 7（driver adapter 双库）                            |
+| 校验       | Zod 4                                                      |
+| AI 编排    | @langchain/core + @langchain/langgraph + @langchain/openai |
+| 安全与日志 | helmet + morgan                                            |
+| 图像与存储 | sharp + @aws-sdk/client-s3（本地卷 / S3 兼容二选一）       |
+| 向量库     | Qdrant（HTTP API）                                         |
 
 ### 共享层与站点
 
-- `shared`：跨端类型与工具的唯一事实源，前后端都从这里导入类型（例如 `shared/types/volumePlanning.ts`、`shared/types/timeline.ts`）。修改后需要重新 `pnpm dev:shared` 或 `pnpm build`。
-- `site`：对外介绍站，独立于产品前端，通过 `pnpm dev:site` / `pnpm build:site` 使用，并由 `.github/workflows/site-pages.yml` 发布到 GitHub Pages。
+- `shared`：跨端类型与工具的唯一事实源，前后端都从这里导入类型（例如
+  `shared/types/volumePlanning.ts`、`shared/types/timeline.ts`）。修改后需要重新
+  `pnpm dev:shared` 或 `pnpm build`。
+- `site`：对外介绍站，独立于产品前端，通过 `pnpm dev:site` / `pnpm build:site`
+  使用，并由 `.github/workflows/site-pages.yml` 发布到 GitHub Pages。
 
 ### 仓库结构
 
@@ -853,7 +930,8 @@ Express 路由层（routes/、modules/*/http/）
    └─ 后台 worker（workers/、services/rag/）：导演推进、RAG 索引、检索追踪清理
 ```
 
-后端启动时会拉起一组后台服务，见 `server/src/app.ts` 的 `initializeBackgroundServices()`：RAG 索引 worker、检索追踪保留策略、小说副作用 worker、导演 worker、未完成恢复任务重建、短篇生产恢复、模型密钥装载、系统资源初始化、拆书与流水线看门狗，以及日志保留清理。
+后端启动时会拉起一组后台服务，见 `server/src/app.ts` 的
+`initializeBackgroundServices()`：RAG 索引 worker、检索追踪保留策略、小说副作用 worker、导演 worker、未完成恢复任务重建、短篇生产恢复、模型密钥装载、系统资源初始化、拆书与流水线看门狗，以及日志保留清理。
 
 ### 当前系统关注点
 
@@ -868,71 +946,81 @@ Express 路由层（routes/、modules/*/http/）
 
 ### 持续集成
 
-`.github/workflows/ci.yml` 在推送与 PR 到 `main` / `develop` 时触发，四个并行 Job 统一使用 pnpm 10.6.0 + Node 22 + `pnpm install --frozen-lockfile`：
+`.github/workflows/ci.yml` 在推送与 PR 到 `main` / `develop`
+时触发，四个并行 Job 统一使用 pnpm 10.6.0 + Node 22 +
+`pnpm install --frozen-lockfile`：
 
-| Job | 内容 |
-| --- | --- |
-| `lint-and-typecheck` | `pnpm lint` → `pnpm format:check` → `pnpm typecheck` |
-| `security-audit` | `pnpm audit --audit-level=moderate`（`continue-on-error`，只做提示不阻断） |
-| `test` | 起 `postgres:16` 服务容器，`prisma migrate deploy` 后执行 `pnpm test` |
-| `build` | `pnpm build` 并上传 `client/dist`、`server/dist` 制品（保留 7 天） |
+| Job                  | 内容                                                                       |
+| -------------------- | -------------------------------------------------------------------------- |
+| `lint-and-typecheck` | `pnpm lint` → `pnpm format:check` → `pnpm typecheck`                       |
+| `security-audit`     | `pnpm audit --audit-level=moderate`（`continue-on-error`，只做提示不阻断） |
+| `test`               | 起 `postgres:16` 服务容器，`prisma migrate deploy` 后执行 `pnpm test`      |
+| `build`              | `pnpm build` 并上传 `client/dist`、`server/dist` 制品（保留 7 天）         |
 
 另有 `.github/workflows/site-pages.yml` 负责介绍站的 GitHub Pages 发布。
 
 ### 本地质量闸门
 
-- **启动前环境校验**：`server/src/config/validateEnv.ts` 在 `app.ts` 最前面运行。缺少数据库连接串在开发环境只是回落到 SQLite，生产环境直接报错退出；模型密钥缺失只警告，因为可以在设置页录入；打印配置摘要时会掩码连接串中的账号密码。
-- **类型与格式**：`pnpm lint` 对三个包做 `tsc --noEmit`，`pnpm format:check` 用 Prettier 校验 `ts/tsx/js/jsx/json/css/md`。
-- **依赖自检**：`pnpm dev` 前置 `scripts/check-deps.cjs`，校验 Node / pnpm 版本与 workspace 依赖是否完整安装。
+- **启动前环境校验**：`server/src/config/validateEnv.ts` 在 `app.ts`
+  最前面运行。缺少数据库连接串在开发环境只是回落到 SQLite，生产环境直接报错退出；模型密钥缺失只警告，因为可以在设置页录入；打印配置摘要时会掩码连接串中的账号密码。
+- **类型与格式**：`pnpm lint` 对三个包做 `tsc --noEmit`，`pnpm format:check`
+  用 Prettier 校验 `ts/tsx/js/jsx/json/css/md`。
+- **依赖自检**：`pnpm dev` 前置 `scripts/check-deps.cjs`，校验 Node /
+  pnpm 版本与 workspace 依赖是否完整安装。
 - **双 Schema 对齐**：`pnpm check:prisma-parity` 防止只改一侧 schema。
 - **迁移重放**：`pnpm test:migrations` 在干净库上重放全部迁移（依赖 bash）。
 - **文档清单**：`pnpm check:docs-manifest` 校验 `docs/` 索引与实际文件一致。
-- **前端错误边界**：`client/src/components/common/ErrorBoundary.tsx` 兜住渲染期异常，避免单个面板崩溃导致整页白屏。
+- **前端错误边界**：`client/src/components/common/ErrorBoundary.tsx`
+  兜住渲染期异常，避免单个面板崩溃导致整页白屏。
 
 ### 长篇生产的运行时保护
 
 - **单执行者租约**：后台命令队列（`DirectorRunCommand`）用原子租约领取保证同一任务同一时刻只有一个 worker 在执行，租约过期由命令恢复流程重新排队或收敛终态，避免同一章节被并发写入。
 - **高内存预留**：结构化大纲、节拍表、章节列表等阶段同一范围内只允许一个任务，预留冲突返回 409 并提示等待。
-- **幂等键**：`creationRequestId` 等幂等标识保证重复点击继续、重复消费命令不会产生重复产物。
+- **幂等键**：`creationRequestId`
+  等幂等标识保证重复点击继续、重复消费命令不会产生重复产物。
 - **质量债务**：局部质量问题记录为可见债务而不是直接阻断整本生产，只有重规划、无可用正文、受保护内容风险等情况才会停下来等人。
 
 ---
 
 ## 文档地图
 
-`docs/` 的组织约定见 [Docs 管理约定](./docs/README.md)：根目录只保留对外入口与工具链配置，设计稿、阶段总结、模块计划统一进入子目录。
+`docs/` 的组织约定见
+[Docs 管理约定](./docs/README.md)：根目录只保留对外入口与工具链配置，设计稿、阶段总结、模块计划统一进入子目录。
 
 ### 入门与协作
 
-| 文档 | 用途 |
-| --- | --- |
-| [TASK.md](./TASK.md) | 当前主路线与优先级清单 |
-| [AGENTS.md](./AGENTS.md) | 协作与工程约束（人类与 AI Agent 都适用） |
-| [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md) | 开发者上手指引；包结构与端口以本 README 和 `compose.yml` 为准 |
-| [docs/api/README.md](./docs/api/README.md) | API 说明 |
-| [docs/architecture/testing.md](./docs/architecture/testing.md) | 后端 `node:test` 的运行方式与目录约定 |
-| [docs/deployment/docker-compose.md](./docs/deployment/docker-compose.md) | Compose 部署细节 |
-| [docs/releases/release-notes.md](./docs/releases/release-notes.md) | 完整版本更新历史 |
+| 文档                                                                     | 用途                                                          |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| [TASK.md](./TASK.md)                                                     | 当前主路线与优先级清单                                        |
+| [AGENTS.md](./AGENTS.md)                                                 | 协作与工程约束（人类与 AI Agent 都适用）                      |
+| [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md)                     | 开发者上手指引；包结构与端口以本 README 和 `compose.yml` 为准 |
+| [docs/api/README.md](./docs/api/README.md)                               | API 说明                                                      |
+| [docs/architecture/testing.md](./docs/architecture/testing.md)           | 后端 `node:test` 的运行方式与目录约定                         |
+| [docs/deployment/docker-compose.md](./docs/deployment/docker-compose.md) | Compose 部署细节                                              |
+| [docs/releases/release-notes.md](./docs/releases/release-notes.md)       | 完整版本更新历史                                              |
 
 ### 长篇生产核心 Wiki
 
-| 文档 | 解释了什么 |
-| --- | --- |
-| [long-form-narrative-context.md](./docs/wiki/workflows/long-form-narrative-context.md) | 超长篇叙事上下文的边界与分层策略 |
-| [longform-memory-windowing.md](./docs/wiki/workflows/longform-memory-windowing.md) | 记忆窗口与优先级截断规则 |
-| [volume-rolling-summary.md](./docs/wiki/workflows/volume-rolling-summary.md) | 卷级滚动摘要的生成与注入 |
-| [long-form-production-acceptance.md](./docs/wiki/workflows/long-form-production-acceptance.md) | 长篇生产成熟度的十维验收标准与固定样本记录 |
-| [chapter-production-chain.md](./docs/wiki/workflows/chapter-production-chain.md) | 章节生产链的阶段与状态流转 |
-| [auto-director-runtime.md](./docs/wiki/workflows/auto-director-runtime.md) | 自动导演的运行时与恢复语义 |
-| [volume-planning.md](./docs/wiki/workflows/volume-planning.md) | 分卷规划规则 |
-| [timeline-constraint-layer.md](./docs/wiki/workflows/timeline-constraint-layer.md) | 时间线约束层 |
-| [novel-fact-ledger.md](./docs/wiki/workflows/novel-fact-ledger.md) | 事实账本 |
-| [payoff-ledger-contract.md](./docs/wiki/workflows/payoff-ledger-contract.md) | 伏笔与兑现账本合同 |
-| [quality-debt-attribution.md](./docs/wiki/workflows/quality-debt-attribution.md) | 质量债务归因 |
-| [llm-call-guards-and-output-budget.md](./docs/wiki/workflows/llm-call-guards-and-output-budget.md) | 调用护栏与输出预算 |
-| [database-protection.md](./docs/wiki/workflows/database-protection.md) | 数据保护与快照约束 |
+| 文档                                                                                               | 解释了什么                                 |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| [long-form-narrative-context.md](./docs/wiki/workflows/long-form-narrative-context.md)             | 超长篇叙事上下文的边界与分层策略           |
+| [longform-memory-windowing.md](./docs/wiki/workflows/longform-memory-windowing.md)                 | 记忆窗口与优先级截断规则                   |
+| [volume-rolling-summary.md](./docs/wiki/workflows/volume-rolling-summary.md)                       | 卷级滚动摘要的生成与注入                   |
+| [long-form-production-acceptance.md](./docs/wiki/workflows/long-form-production-acceptance.md)     | 长篇生产成熟度的十维验收标准与固定样本记录 |
+| [chapter-production-chain.md](./docs/wiki/workflows/chapter-production-chain.md)                   | 章节生产链的阶段与状态流转                 |
+| [auto-director-runtime.md](./docs/wiki/workflows/auto-director-runtime.md)                         | 自动导演的运行时与恢复语义                 |
+| [volume-planning.md](./docs/wiki/workflows/volume-planning.md)                                     | 分卷规划规则                               |
+| [timeline-constraint-layer.md](./docs/wiki/workflows/timeline-constraint-layer.md)                 | 时间线约束层                               |
+| [novel-fact-ledger.md](./docs/wiki/workflows/novel-fact-ledger.md)                                 | 事实账本                                   |
+| [payoff-ledger-contract.md](./docs/wiki/workflows/payoff-ledger-contract.md)                       | 伏笔与兑现账本合同                         |
+| [quality-debt-attribution.md](./docs/wiki/workflows/quality-debt-attribution.md)                   | 质量债务归因                               |
+| [llm-call-guards-and-output-budget.md](./docs/wiki/workflows/llm-call-guards-and-output-budget.md) | 调用护栏与输出预算                         |
+| [database-protection.md](./docs/wiki/workflows/database-protection.md)                             | 数据保护与快照约束                         |
 
-完整索引见 [Wiki Index](./docs/wiki/README.md)。本仓库另有两份评估报告：[优化报告](./OPTIMIZATION_REPORT.md) 与 [超长篇能力评估](./LONG_FORM_CAPABILITY_REPORT.md)。
+完整索引见
+[Wiki Index](./docs/wiki/README.md)。本仓库另有两份评估报告：[优化报告](./OPTIMIZATION_REPORT.md)
+与 [超长篇能力评估](./LONG_FORM_CAPABILITY_REPORT.md)。
 
 ---
 
@@ -941,43 +1029,58 @@ Express 路由层（routes/、modules/*/http/）
 ### 启动阶段
 
 **`pnpm dev` 刚启动就退出，控制台打印"环境变量校验失败"**
-按提示看具体哪一项：本地开发只有 `DATABASE_URL` 格式非法（既不是 `postgresql://` / `postgres://` 也不是 `file:`）才会拦下来；完全不写反而合法，会回落到 `file:./dev.db`。模型密钥缺失只是警告，不影响启动。
+按提示看具体哪一项：本地开发只有 `DATABASE_URL` 格式非法（既不是 `postgresql://`
+/ `postgres://` 也不是 `file:`）才会拦下来；完全不写反而合法，会回落到
+`file:./dev.db`。模型密钥缺失只是警告，不影响启动。
 
-**Windows 下 pnpm 脚本报"命令不存在"或参数解析异常**
-把脚本 shell 指到 Git Bash：`pnpm config set script-shell "C:\\Program Files\\Git\\bin\\bash.exe"`。`pnpm test:migrations` 这类 `.sh` 脚本同样需要 bash（Git Bash 或 WSL）。
+**Windows 下 pnpm 脚本报"命令不存在"或参数解析异常** 把脚本 shell 指到 Git
+Bash：`pnpm config set script-shell "C:\\Program Files\\Git\\bin\\bash.exe"`。`pnpm test:migrations`
+这类 `.sh` 脚本同样需要 bash（Git Bash 或 WSL）。
 
-**3000 端口被占用**
-`pnpm dev:server` 前置的 `scripts/stop-stale-dev-server.cjs` 会清理本项目残留的开发进程；如果是别的程序占用，改 `server/.env` 里的 `PORT`，Vite 的 `/api` 代理会跟着 `PORT` 走。
+**3000 端口被占用** `pnpm dev:server` 前置的 `scripts/stop-stale-dev-server.cjs`
+会清理本项目残留的开发进程；如果是别的程序占用，改 `server/.env` 里的
+`PORT`，Vite 的 `/api` 代理会跟着 `PORT` 走。
 
-**前端能打开但所有接口 404 / CORS 报错**
-开发环境不配 `VITE_API_BASE_URL` 时前端请求 `/api`，由 Vite 代理转发到 `http://127.0.0.1:${PORT}`，这是最省事的路径。用局域网 IP 访问时，若配置了指向 `localhost` 的 `VITE_API_BASE_URL`，前端会自动把主机名换成当前页面的 IP；如果仍被拦，检查 `ALLOW_LAN` 与 `CORS_ORIGIN`。
+**前端能打开但所有接口 404 / CORS 报错** 开发环境不配 `VITE_API_BASE_URL`
+时前端请求 `/api`，由 Vite 代理转发到
+`http://127.0.0.1:${PORT}`，这是最省事的路径。用局域网 IP 访问时，若配置了指向
+`localhost` 的
+`VITE_API_BASE_URL`，前端会自动把主机名换成当前页面的 IP；如果仍被拦，检查
+`ALLOW_LAN` 与 `CORS_ORIGIN`。
 
 ### 数据库
 
 **切换 SQLite / PostgreSQL 后 Prisma 报表不存在**
-两套库的迁移目录是分开的，切换后需要对新库执行一次迁移。不要绕过 `server/prisma.config.ts` 直接跑裸 `prisma` 命令，否则会挑错 schema。
+两套库的迁移目录是分开的，切换后需要对新库执行一次迁移。不要绕过
+`server/prisma.config.ts` 直接跑裸 `prisma` 命令，否则会挑错 schema。
 
-**改了数据模型，另一种数据库启动失败**
-说明只改了一侧 schema，跑 `pnpm check:prisma-parity` 定位差异。
+**改了数据模型，另一种数据库启动失败** 说明只改了一侧 schema，跑
+`pnpm check:prisma-parity` 定位差异。
 
 **担心正文被覆盖或写坏**
-章节执行由后台命令队列的单执行者租约保护（同一任务同一时刻只有一个 worker 写入），另有自动版本快照（数量由 `NOVEL_SNAPSHOT_RETENTION_COUNT` 控制，手动快照不计入）。误操作后可用 `pnpm db:restore` 恢复开发数据，`pnpm db:prune-snapshots` 清理过量快照。
+章节执行由后台命令队列的单执行者租约保护（同一任务同一时刻只有一个 worker 写入），另有自动版本快照（数量由
+`NOVEL_SNAPSHOT_RETENTION_COUNT` 控制，手动快照不计入）。误操作后可用
+`pnpm db:restore` 恢复开发数据，`pnpm db:prune-snapshots` 清理过量快照。
 
 ### 模型调用
 
 **模型返回 401 / 超时 / 连不上**
-先在「设置 → 模型供应商」用连通性测试定位是密钥、Base URL 还是网络问题。第三方兼容网关需要覆盖对应的 `<前缀>_BASE_URL`。单次请求超时用 `LLM_REQUEST_TIMEOUT_MS` 调整，长输出阶段可以适当放大。
+先在「设置 → 模型供应商」用连通性测试定位是密钥、Base
+URL 还是网络问题。第三方兼容网关需要覆盖对应的 `<前缀>_BASE_URL`。单次请求超时用
+`LLM_REQUEST_TIMEOUT_MS` 调整，长输出阶段可以适当放大。
 
-**结构化输出反复失败**
-系统会走 schema 约束与结构化修复重试，修复日志可以用 `node scripts/summarize-llm-repair-log.cjs` 汇总，看是哪个阶段、哪个 schema 反复不合法，再决定换模型还是收窄提示词。
+**结构化输出反复失败** 系统会走 schema 约束与结构化修复重试，修复日志可以用
+`node scripts/summarize-llm-repair-log.cjs`
+汇总，看是哪个阶段、哪个 schema 反复不合法，再决定换模型还是收窄提示词。
 
 ### RAG
 
-**检索结果为空**
-按顺序确认：`RAG_ENABLED` 是否开启（Compose 默认关闭，需要 `--profile rag`）、Qdrant 是否可访问、Embedding 供应商密钥是否配置、目标内容是否已完成索引。索引是异步 worker 推进的，刚导入的内容需要等一会儿。
+**检索结果为空** 按顺序确认：`RAG_ENABLED` 是否开启（Compose 默认关闭，需要
+`--profile rag`）、Qdrant 是否可访问、Embedding 供应商密钥是否配置、目标内容是否已完成索引。索引是异步 worker 推进的，刚导入的内容需要等一会儿。
 
-**换了 Embedding 模型后检索质量异常**
-不同模型的向量空间不兼容。改模型时同步调整 `EMBEDDING_VERSION` 或换一个 `QDRANT_COLLECTION`，让旧向量与新向量分开，然后重建索引。
+**换了 Embedding 模型后检索质量异常** 不同模型的向量空间不兼容。改模型时同步调整
+`EMBEDDING_VERSION` 或换一个
+`QDRANT_COLLECTION`，让旧向量与新向量分开，然后重建索引。
 
 ### 长篇生产
 
@@ -992,18 +1095,18 @@ Express 路由层（routes/、modules/*/http/）
 
 ### Docker 部署
 
-**Buildx 构建中途报路径相关错误**
-部署目录路径改成纯英文，不要包含中文或空格。
+**Buildx 构建中途报路径相关错误** 部署目录路径改成纯英文，不要包含中文或空格。
 
-**`web` 能打开但接口 502**
-`api` 容器可能还没通过健康检查。用 `docker compose logs -f api` 看启动日志，健康检查探的是 `/api/health/live`。
+**`web` 能打开但接口 502** `api` 容器可能还没通过健康检查。用
+`docker compose logs -f api` 看启动日志，健康检查探的是 `/api/health/live`。
 
-**改了根 `.env` 但容器行为没变**
-需要重建：`docker compose up -d --build`。只 `restart` 不会重新注入构建期变量。
+**改了根 `.env` 但容器行为没变** 需要重建：`docker compose up -d --build`。只
+`restart` 不会重新注入构建期变量。
 
 ## 当前路线图
 
-路线图的唯一事实源是仓库根目录的 [TASK.md](./TASK.md)，下面是面向读者的摘要。需要精确到某一条待办的状态时请直接看该文件。
+路线图的唯一事实源是仓库根目录的
+[TASK.md](./TASK.md)，下面是面向读者的摘要。需要精确到某一条待办的状态时请直接看该文件。
 
 ### P0：唯一主线
 
@@ -1032,21 +1135,23 @@ Express 路由层（routes/、modules/*/http/）
 
 ### 活跃子线
 
-| 子线 | 关注点 |
-| --- | --- |
-| P0-A | 真实 Prisma 数据的端到端只读抽样审计，覆盖旧项目接管、服务重启后手动恢复、章节批量执行、命令诊断与缺正文账本基线 |
-| P0-B | 已落地资产的更深消费：章节任务单门禁、质量闭环、`patch_first` 修复策略、阶段级模型路由与 fallback |
-| P0-C / P0-D | 卷级工作台二期与结构化规划资产前移，让卷级账本视图成为主视图 |
+| 子线                 | 关注点                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| P0-A                 | 真实 Prisma 数据的端到端只读抽样审计，覆盖旧项目接管、服务重启后手动恢复、章节批量执行、命令诊断与缺正文账本基线       |
+| P0-B                 | 已落地资产的更深消费：章节任务单门禁、质量闭环、`patch_first` 修复策略、阶段级模型路由与 fallback                      |
+| P0-C / P0-D          | 卷级工作台二期与结构化规划资产前移，让卷级账本视图成为主视图                                                           |
 | P0-E / P0-E0 / P0-E1 | 状态·审计·Replan 闭环、执行面隔离（独立 Director Worker + 命令队列 + 轻量 projection 轮询）、统一状态源与手动/导演共线 |
-| P0-F | 新手首启与快速开书入口收敛，关键节点只保留一个推荐的下一步 |
-| P0-G | 拆书工作台渐进式流程（前 N 片段试跑 → 扩范围继续）与 Chapter Editor V2 |
-| P0-TechDebt | 技术债收口，继续瘦身 `NovelDirectorService` 与 `DirectorRuntimeStore` |
+| P0-F                 | 新手首启与快速开书入口收敛，关键节点只保留一个推荐的下一步                                                             |
+| P0-G                 | 拆书工作台渐进式流程（前 N 片段试跑 → 扩范围继续）与 Chapter Editor V2                                                 |
+| P0-TechDebt          | 技术债收口，继续瘦身 `NovelDirectorService` 与 `DirectorRuntimeStore`                                                  |
 
 ### 工程约束
 
-- **AI-first**：意图识别、任务分类、规划、路由、结构判断等核心行为优先用 AI 结构化输出实现，不靠关键词表、硬编码规则或伪 AI fallback 兜底。
+- **AI-first**：意图识别、任务分类、规划、路由、结构判断等核心行为优先用 AI 结构化输出实现，不靠关键词表、硬编码规则或伪 AI
+  fallback 兜底。
 - **新手优先**：优先降低认知负担、减少前置决策、提供默认推荐。
-- **Prompt 治理**：新增产品级 prompt 只能进入 `server/src/prompting/`，并纳入 PromptAsset 与 registry 治理，不在业务服务里继续内联扩写。
+- **Prompt 治理**：新增产品级 prompt 只能进入
+  `server/src/prompting/`，并纳入 PromptAsset 与 registry 治理，不在业务服务里继续内联扩写。
 
 ### 自评完成度
 
@@ -1056,7 +1161,9 @@ TASK.md 记录的阶段自评（非精确度量，仅用于判断优先级）：
 - 按完整统一运行时目标衡量：约 70%
 - 按完整 P0"让新手稳定完成整本小说"产品目标衡量：约 55%–60%
 
-另外两点值得知道：自动导演主执行链当前**不走 LangGraph**，LangGraph 只在 `DirectorLangGraphPilot` 做低风险试点，后续仅作为编排、interrupt、resume、trace 的外壳接入；服务重启后的策略是"标记待手动恢复 → 用户确认 → 从真实资产断点继续"，不做后台静默续跑。
+另外两点值得知道：自动导演主执行链当前**不走 LangGraph**，LangGraph 只在
+`DirectorLangGraphPilot`
+做低风险试点，后续仅作为编排、interrupt、resume、trace 的外壳接入；服务重启后的策略是"标记待手动恢复 → 用户确认 → 从真实资产断点继续"，不做后台静默续跑。
 
 ### P1：从"能写完整本"到"能稳定写好"
 
@@ -1066,7 +1173,8 @@ TASK.md 记录的阶段自评（非精确度量，仅用于判断优先级）：
 
 面向小白的全流程作品工厂、多模式创作策略、题材与写法模板化、可视化长篇控制台、完结前全书巡检与修复计划。
 
-> TASK.md 里仍保留 P2-A「Electron 桌面化」的历史计划，但 2026-09-02 的「聚焦 Web 端」变更已移除桌面安装包与 `desktop/` 工程，当前形态只提供 Web 端。阅读该章节时请以此为准。
+> TASK.md 里仍保留 P2-A「Electron 桌面化」的历史计划，但 2026-09-02 的「聚焦 Web 端」变更已移除桌面安装包与
+> `desktop/` 工程，当前形态只提供 Web 端。阅读该章节时请以此为准。
 
 ### 当前不优先做的事
 
@@ -1101,7 +1209,9 @@ TASK.md 记录的阶段自评（非精确度量，仅用于判断优先级）：
 
 1. Fork 仓库并从 `main` 切出特性分支。
 2. 本地跑通质量闸门：`pnpm lint`、`pnpm typecheck`、`pnpm format:check`、`pnpm test`。
-3. 提交 PR，按 [`.github/pull_request_template.md`](./.github/pull_request_template.md) 填写变更说明与验证方式。
+3. 提交 PR，按
+   [`.github/pull_request_template.md`](./.github/pull_request_template.md)
+   填写变更说明与验证方式。
 
 提交前请先读这两份文件：
 
@@ -1111,9 +1221,12 @@ TASK.md 记录的阶段自评（非精确度量，仅用于判断优先级）：
 向本仓库提交贡献即表示你已阅读并同意 CLA。几条容易踩的约定：
 
 - 新增产品级 prompt 只能进入 `server/src/prompting/`，不要在业务服务里内联扩写。
-- 改动 Prisma 模型时必须同步 PostgreSQL 与 SQLite 两份 schema，并通过 `pnpm check:prisma-parity`。
-- 面向用户可见的变更请同时更新 [docs/releases/release-notes.md](./docs/releases/release-notes.md)。
-- 新增文档需要能通过 `pnpm check:docs-manifest`，并遵守 [docs/README.md](./docs/README.md) 的目录约定。
+- 改动 Prisma 模型时必须同步 PostgreSQL 与 SQLite 两份 schema，并通过
+  `pnpm check:prisma-parity`。
+- 面向用户可见的变更请同时更新
+  [docs/releases/release-notes.md](./docs/releases/release-notes.md)。
+- 新增文档需要能通过 `pnpm check:docs-manifest`，并遵守
+  [docs/README.md](./docs/README.md) 的目录约定。
 
 ---
 
@@ -1127,8 +1240,11 @@ TASK.md 记录的阶段自评（非精确度量，仅用于判断优先级）：
 
 ## 说明
 
-- 本 README 描述的是当前仓库状态。路线图、待办与阶段自评以 [TASK.md](./TASK.md) 为准，用户可见的历史变更以 [docs/releases/release-notes.md](./docs/releases/release-notes.md) 为准。
-- 项目当前只提供 Web 端形态，桌面安装包已于 2026-09-02 移除。部分历史文档中仍可能出现 `desktop/` 工程或旧端口的描述，遇到冲突时以本 README 和 `compose.yml` 为准。
+- 本 README 描述的是当前仓库状态。路线图、待办与阶段自评以 [TASK.md](./TASK.md)
+  为准，用户可见的历史变更以
+  [docs/releases/release-notes.md](./docs/releases/release-notes.md) 为准。
+- 项目当前只提供 Web 端形态，桌面安装包已于 2026-09-02 移除。部分历史文档中仍可能出现
+  `desktop/` 工程或旧端口的描述，遇到冲突时以本 README 和 `compose.yml` 为准。
 - 生成内容由第三方大模型产生，作者需要自行对最终作品的合规性、原创性与发布风险负责。项目本身不对模型输出做版权担保。
 - 模型调用会产生实际费用。开始长篇批量生产前建议先跑小样本确认成本，并关注任务中心里的 token 统计。
 
@@ -1141,7 +1257,8 @@ TASK.md 记录的阶段自评（非精确度量，仅用于判断优先级）：
 - **默认社区许可**：[GNU Affero General Public License v3.0 only（AGPL-3.0-only）](./LICENSE)
 - **商业授权**：以本项目或其修改版本作为后端 / 核心服务，向第三方提供 SaaS、托管、代运维或类似服务的服务型商业使用，需要单独取得项目维护者的商业授权
 
-版权归属见 [NOTICE](./NOTICE)：AI Novel Writing Assistant 2，Copyright 2026 ExplosiveCoderflome and contributors。
+版权归属见 [NOTICE](./NOTICE)：AI Novel Writing Assistant 2，Copyright 2026
+ExplosiveCoderflome and contributors。
 
 使用与分发时请遵守开源许可条款，并在适用场景下取得相应授权。
 

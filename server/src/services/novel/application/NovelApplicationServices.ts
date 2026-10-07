@@ -46,8 +46,12 @@ export class DefaultNovelApplicationServices {
   private readonly core = new NovelCoreService();
   private readonly worldSliceService = new NovelWorldSliceService();
   private readonly novelWorldInstanceService = new NovelWorldInstanceService();
-  private readonly novelWorldManualService = new NovelWorldManualService(this.novelWorldInstanceService);
-  private readonly novelWorldLibrarySaveService = new NovelWorldLibrarySaveService(this.novelWorldInstanceService);
+  private readonly novelWorldManualService = new NovelWorldManualService(
+    this.novelWorldInstanceService,
+  );
+  private readonly novelWorldLibrarySaveService = new NovelWorldLibrarySaveService(
+    this.novelWorldInstanceService,
+  );
   private readonly characterPreparationService = new CharacterPreparationService();
   private readonly characterDynamicsService = new CharacterDynamicsService();
   private readonly characterVisibleProfileService = new CharacterVisibleProfileService();
@@ -59,7 +63,8 @@ export class DefaultNovelApplicationServices {
   private readonly chapterEditorService = new NovelChapterEditorService();
   private readonly chapterRuntimeCoordinator = new ChapterRuntimeCoordinator();
   private readonly qualityRepairCoordinator = new ChapterRuntimeCoordinator({
-    reviewChapterAfterRepair: (novelId, chapterId, options) => this.core.reviewChapter(novelId, chapterId, options),
+    reviewChapterAfterRepair: (novelId, chapterId, options) =>
+      this.core.reviewChapter(novelId, chapterId, options),
     resolveAuditIssues: (novelId, issueIds) => this.core.resolveAuditIssues(novelId, issueIds),
   });
 
@@ -133,21 +138,27 @@ export class DefaultNovelApplicationServices {
   async createCharacter(...args: Parameters<NovelCoreService["createCharacter"]>) {
     const [novelId] = args;
     const created = await this.core.createCharacter(...args);
-    await this.characterDynamicsService.rebuildDynamics(novelId, { sourceType: "rebuild_projection" }).catch(() => null);
+    await this.characterDynamicsService
+      .rebuildDynamics(novelId, { sourceType: "rebuild_projection" })
+      .catch(() => null);
     return created;
   }
 
   async updateCharacter(...args: Parameters<NovelCoreService["updateCharacter"]>) {
     const [novelId] = args;
     const updated = await this.core.updateCharacter(...args);
-    await this.characterDynamicsService.rebuildDynamics(novelId, { sourceType: "rebuild_projection" }).catch(() => null);
+    await this.characterDynamicsService
+      .rebuildDynamics(novelId, { sourceType: "rebuild_projection" })
+      .catch(() => null);
     return updated;
   }
 
   async deleteCharacter(...args: Parameters<NovelCoreService["deleteCharacter"]>) {
     const [novelId] = args;
     await this.core.deleteCharacter(...args);
-    await this.characterDynamicsService.rebuildDynamics(novelId, { sourceType: "rebuild_projection" }).catch(() => null);
+    await this.characterDynamicsService
+      .rebuildDynamics(novelId, { sourceType: "rebuild_projection" })
+      .catch(() => null);
   }
 
   listCharacterTimeline(...args: Parameters<NovelCoreService["listCharacterTimeline"]>) {
@@ -170,23 +181,40 @@ export class DefaultNovelApplicationServices {
     return this.core.checkCharacterAgainstWorld(...args);
   }
 
-  async createNovelSnapshot(novelId: string, triggerType: "manual" | "auto_milestone" | "before_pipeline", label?: string) {
+  async createNovelSnapshot(
+    novelId: string,
+    triggerType: "manual" | "auto_milestone" | "before_pipeline",
+    label?: string,
+  ) {
     const snapshot = await this.core.createNovelSnapshot(novelId, triggerType, label);
     const volumeWorkspace = await this.volumeService.getVolumes(novelId).catch(() => null);
-    const updatedSnapshot = await prisma.$transaction(async (tx) => {
-      const archive = await captureNovelRuntimeArchive(novelId, tx);
-      const novel = await tx.novel.findUniqueOrThrow({ where: { id: novelId }, select: { outline: true, structuredOutline: true } });
-      return tx.novelSnapshot.update({
-        where: { id: snapshot.id },
-        data: { snapshotData: JSON.stringify({
-          outline: novel.outline,
-          structuredOutline: novel.structuredOutline,
-          chapters: archive.chapters,
-          runtimeArchive: archive,
-          ...(volumeWorkspace ? { volumes: volumeWorkspace.volumes, activeVolumeVersionId: volumeWorkspace.activeVersionId } : {}),
-        }) },
-      });
-    }, { isolationLevel: "Serializable", timeout: 30_000 });
+    const updatedSnapshot = await prisma.$transaction(
+      async (tx) => {
+        const archive = await captureNovelRuntimeArchive(novelId, tx);
+        const novel = await tx.novel.findUniqueOrThrow({
+          where: { id: novelId },
+          select: { outline: true, structuredOutline: true },
+        });
+        return tx.novelSnapshot.update({
+          where: { id: snapshot.id },
+          data: {
+            snapshotData: JSON.stringify({
+              outline: novel.outline,
+              structuredOutline: novel.structuredOutline,
+              chapters: archive.chapters,
+              runtimeArchive: archive,
+              ...(volumeWorkspace
+                ? {
+                    volumes: volumeWorkspace.volumes,
+                    activeVolumeVersionId: volumeWorkspace.activeVersionId,
+                  }
+                : {}),
+            }),
+          },
+        });
+      },
+      { isolationLevel: "Serializable", timeout: 30_000 },
+    );
     return toNovelSnapshotListItem(updatedSnapshot);
   }
 
@@ -196,7 +224,8 @@ export class DefaultNovelApplicationServices {
 
   async restoreFromSnapshot(novelId: string, snapshotId: string) {
     await novelSnapshotRestoreService.restore(novelId, snapshotId, () =>
-      this.createNovelSnapshot(novelId, "manual", `before-restore-${snapshotId.slice(0, 8)}`));
+      this.createNovelSnapshot(novelId, "manual", `before-restore-${snapshotId.slice(0, 8)}`),
+    );
     return this.getNovelById(novelId);
   }
 
@@ -204,9 +233,15 @@ export class DefaultNovelApplicationServices {
     return this.core.createOutlineStream(...args);
   }
 
-  async createStructuredOutlineStream(...args: Parameters<NovelCoreService["createStructuredOutlineStream"]>) {
+  async createStructuredOutlineStream(
+    ...args: Parameters<NovelCoreService["createStructuredOutlineStream"]>
+  ) {
     const [novelId] = args;
-    await this.core.createNovelSnapshot(novelId, "manual", `before-structured-outline-${Date.now()}`);
+    await this.core.createNovelSnapshot(
+      novelId,
+      "manual",
+      `before-structured-outline-${Date.now()}`,
+    );
     return this.core.createStructuredOutlineStream(...args);
   }
 
@@ -295,7 +330,9 @@ export class DefaultNovelApplicationServices {
     return this.core.getPipelineJobById(...args);
   }
 
-  findActivePipelineJobForRange(...args: Parameters<NovelCoreService["findActivePipelineJobForRange"]>) {
+  findActivePipelineJobForRange(
+    ...args: Parameters<NovelCoreService["findActivePipelineJobForRange"]>
+  ) {
     return this.core.findActivePipelineJobForRange(...args);
   }
 
@@ -355,7 +392,9 @@ export class DefaultNovelApplicationServices {
     return this.volumeService.syncVolumeChapters(...args);
   }
 
-  ensureChapterExecutionContract(...args: Parameters<NovelVolumeService["ensureChapterExecutionContract"]>) {
+  ensureChapterExecutionContract(
+    ...args: Parameters<NovelVolumeService["ensureChapterExecutionContract"]>
+  ) {
     return this.volumeService.ensureChapterExecutionContract(...args);
   }
 
@@ -383,7 +422,9 @@ export class DefaultNovelApplicationServices {
     };
   }
 
-  async activateStorylineVersion(...args: Parameters<NovelCoreService["activateStorylineVersion"]>) {
+  async activateStorylineVersion(
+    ...args: Parameters<NovelCoreService["activateStorylineVersion"]>
+  ) {
     const row = await this.volumeService.activateStorylineVersionCompat(...args);
     return {
       ...row,
@@ -516,7 +557,9 @@ export class DefaultNovelApplicationServices {
     return this.worldSliceService.refreshWorldSlice(...args);
   }
 
-  updateWorldSliceOverrides(...args: Parameters<NovelWorldSliceService["updateWorldSliceOverrides"]>) {
+  updateWorldSliceOverrides(
+    ...args: Parameters<NovelWorldSliceService["updateWorldSliceOverrides"]>
+  ) {
     return this.worldSliceService.updateWorldSliceOverrides(...args);
   }
 
@@ -528,7 +571,9 @@ export class DefaultNovelApplicationServices {
     return this.novelWorldInstanceService.getSyncDiff(...args);
   }
 
-  importNovelWorldFromLibrary(...args: Parameters<NovelWorldInstanceService["importFromWorldLibrary"]>) {
+  importNovelWorldFromLibrary(
+    ...args: Parameters<NovelWorldInstanceService["importFromWorldLibrary"]>
+  ) {
     return this.novelWorldInstanceService.importFromWorldLibrary(...args);
   }
 
@@ -536,11 +581,15 @@ export class DefaultNovelApplicationServices {
     return this.novelWorldManualService.createManualNovelWorld(...args);
   }
 
-  generateNovelWorldFromTheme(...args: Parameters<NovelWorldInstanceService["generateFromNovelTheme"]>) {
+  generateNovelWorldFromTheme(
+    ...args: Parameters<NovelWorldInstanceService["generateFromNovelTheme"]>
+  ) {
     return this.novelWorldInstanceService.generateFromNovelTheme(...args);
   }
 
-  saveNovelWorldToLibrary(...args: Parameters<NovelWorldLibrarySaveService["saveNovelWorldToLibrary"]>) {
+  saveNovelWorldToLibrary(
+    ...args: Parameters<NovelWorldLibrarySaveService["saveNovelWorldToLibrary"]>
+  ) {
     return this.novelWorldLibrarySaveService.saveNovelWorldToLibrary(...args);
   }
 
@@ -548,61 +597,91 @@ export class DefaultNovelApplicationServices {
     return this.novelWorldInstanceService.syncWithLibrary(...args);
   }
 
-  listCharacterRelations(...args: Parameters<CharacterPreparationService["listCharacterRelations"]>) {
+  listCharacterRelations(
+    ...args: Parameters<CharacterPreparationService["listCharacterRelations"]>
+  ) {
     return this.characterPreparationService.listCharacterRelations(...args);
   }
 
-  listCharacterCastOptions(...args: Parameters<CharacterPreparationService["listCharacterCastOptions"]>) {
+  listCharacterCastOptions(
+    ...args: Parameters<CharacterPreparationService["listCharacterCastOptions"]>
+  ) {
     return this.characterPreparationService.listCharacterCastOptions(...args);
   }
 
-  generateCharacterCastOptions(...args: Parameters<CharacterPreparationService["generateCharacterCastOptions"]>) {
+  generateCharacterCastOptions(
+    ...args: Parameters<CharacterPreparationService["generateCharacterCastOptions"]>
+  ) {
     return this.characterPreparationService.generateCharacterCastOptions(...args);
   }
 
-  applyCharacterCastOption(...args: Parameters<CharacterPreparationService["applyCharacterCastOption"]>) {
+  applyCharacterCastOption(
+    ...args: Parameters<CharacterPreparationService["applyCharacterCastOption"]>
+  ) {
     return this.characterPreparationService.applyCharacterCastOption(...args);
   }
 
-  runDeferredCharacterEnhancements(...args: Parameters<CharacterPreparationService["runDeferredEnhancements"]>) {
+  runDeferredCharacterEnhancements(
+    ...args: Parameters<CharacterPreparationService["runDeferredEnhancements"]>
+  ) {
     return this.characterPreparationService.runDeferredEnhancements(...args);
   }
 
-  generateSupplementalCharacters(...args: Parameters<CharacterPreparationService["generateSupplementalCharacters"]>) {
+  generateSupplementalCharacters(
+    ...args: Parameters<CharacterPreparationService["generateSupplementalCharacters"]>
+  ) {
     return this.characterPreparationService.generateSupplementalCharacters(...args);
   }
 
-  applySupplementalCharacter(...args: Parameters<CharacterPreparationService["applySupplementalCharacter"]>) {
+  applySupplementalCharacter(
+    ...args: Parameters<CharacterPreparationService["applySupplementalCharacter"]>
+  ) {
     return this.characterPreparationService.applySupplementalCharacter(...args);
   }
 
-  deleteCharacterCastOption(...args: Parameters<CharacterPreparationService["deleteCharacterCastOption"]>) {
+  deleteCharacterCastOption(
+    ...args: Parameters<CharacterPreparationService["deleteCharacterCastOption"]>
+  ) {
     return this.characterPreparationService.deleteCharacterCastOption(...args);
   }
 
-  clearCharacterCastOptions(...args: Parameters<CharacterPreparationService["clearCharacterCastOptions"]>) {
+  clearCharacterCastOptions(
+    ...args: Parameters<CharacterPreparationService["clearCharacterCastOptions"]>
+  ) {
     return this.characterPreparationService.clearCharacterCastOptions(...args);
   }
 
-  generateCharacterVisibleProfile(...args: Parameters<CharacterVisibleProfileService["generateCharacterVisibleProfile"]>) {
+  generateCharacterVisibleProfile(
+    ...args: Parameters<CharacterVisibleProfileService["generateCharacterVisibleProfile"]>
+  ) {
     return this.characterVisibleProfileService.generateCharacterVisibleProfile(...args);
   }
 
-  generateBatchCharacterVisibleProfiles(...args: Parameters<CharacterVisibleProfileService["generateBatchVisibleProfiles"]>) {
+  generateBatchCharacterVisibleProfiles(
+    ...args: Parameters<CharacterVisibleProfileService["generateBatchVisibleProfiles"]>
+  ) {
     return this.characterVisibleProfileService.generateBatchVisibleProfiles(...args);
   }
 
-  async applyCharacterVisibleProfile(...args: Parameters<CharacterVisibleProfileService["applyCharacterVisibleProfile"]>) {
+  async applyCharacterVisibleProfile(
+    ...args: Parameters<CharacterVisibleProfileService["applyCharacterVisibleProfile"]>
+  ) {
     const [novelId] = args;
     const result = await this.characterVisibleProfileService.applyCharacterVisibleProfile(...args);
-    await this.characterDynamicsService.rebuildDynamics(novelId, { sourceType: "rebuild_projection" }).catch(() => null);
+    await this.characterDynamicsService
+      .rebuildDynamics(novelId, { sourceType: "rebuild_projection" })
+      .catch(() => null);
     return result;
   }
 
-  async applyBatchCharacterVisibleProfiles(...args: Parameters<CharacterVisibleProfileService["applyBatchVisibleProfiles"]>) {
+  async applyBatchCharacterVisibleProfiles(
+    ...args: Parameters<CharacterVisibleProfileService["applyBatchVisibleProfiles"]>
+  ) {
     const [novelId] = args;
     const result = await this.characterVisibleProfileService.applyBatchVisibleProfiles(...args);
-    await this.characterDynamicsService.rebuildDynamics(novelId, { sourceType: "rebuild_projection" }).catch(() => null);
+    await this.characterDynamicsService
+      .rebuildDynamics(novelId, { sourceType: "rebuild_projection" })
+      .catch(() => null);
     return result;
   }
 
@@ -622,11 +701,15 @@ export class DefaultNovelApplicationServices {
     return this.characterDynamicsService.mergeCandidate(...args);
   }
 
-  updateCharacterDynamicState(...args: Parameters<CharacterDynamicsService["updateCharacterDynamicState"]>) {
+  updateCharacterDynamicState(
+    ...args: Parameters<CharacterDynamicsService["updateCharacterDynamicState"]>
+  ) {
     return this.characterDynamicsService.updateCharacterDynamicState(...args);
   }
 
-  updateCharacterRelationStage(...args: Parameters<CharacterDynamicsService["updateRelationStage"]>) {
+  updateCharacterRelationStage(
+    ...args: Parameters<CharacterDynamicsService["updateRelationStage"]>
+  ) {
     return this.characterDynamicsService.updateRelationStage(...args);
   }
 
@@ -642,23 +725,33 @@ export class DefaultNovelApplicationServices {
     return this.characterMindService.refreshMindState(...args);
   }
 
-  listCharacterInfluenceProposals(...args: Parameters<CharacterInfluenceService["listInfluenceProposals"]>) {
+  listCharacterInfluenceProposals(
+    ...args: Parameters<CharacterInfluenceService["listInfluenceProposals"]>
+  ) {
     return this.characterInfluenceService.listInfluenceProposals(...args);
   }
 
-  generateCharacterInfluenceProposals(...args: Parameters<CharacterInfluenceService["generateInfluenceProposals"]>) {
+  generateCharacterInfluenceProposals(
+    ...args: Parameters<CharacterInfluenceService["generateInfluenceProposals"]>
+  ) {
     return this.characterInfluenceService.generateInfluenceProposals(...args);
   }
 
-  acceptCharacterInfluenceProposal(...args: Parameters<CharacterInfluenceService["acceptInfluenceProposal"]>) {
+  acceptCharacterInfluenceProposal(
+    ...args: Parameters<CharacterInfluenceService["acceptInfluenceProposal"]>
+  ) {
     return this.characterInfluenceService.acceptInfluenceProposal(...args);
   }
 
-  dismissCharacterInfluenceProposal(...args: Parameters<CharacterInfluenceService["dismissInfluenceProposal"]>) {
+  dismissCharacterInfluenceProposal(
+    ...args: Parameters<CharacterInfluenceService["dismissInfluenceProposal"]>
+  ) {
     return this.characterInfluenceService.dismissInfluenceProposal(...args);
   }
 
-  getActiveCharacterDialogueSession(...args: Parameters<CharacterDialogueService["getActiveSession"]>) {
+  getActiveCharacterDialogueSession(
+    ...args: Parameters<CharacterDialogueService["getActiveSession"]>
+  ) {
     return this.characterDialogueService.getActiveSession(...args);
   }
 
@@ -670,11 +763,15 @@ export class DefaultNovelApplicationServices {
     return this.characterDialogueService.sendTurn(...args);
   }
 
-  activateCharacterDialogueInfluence(...args: Parameters<CharacterDialogueService["activateLatestDraftInfluence"]>) {
+  activateCharacterDialogueInfluence(
+    ...args: Parameters<CharacterDialogueService["activateLatestDraftInfluence"]>
+  ) {
     return this.characterDialogueService.activateLatestDraftInfluence(...args);
   }
 
-  dismissCharacterDialogueInfluence(...args: Parameters<CharacterDialogueService["dismissLatestDraftInfluence"]>) {
+  dismissCharacterDialogueInfluence(
+    ...args: Parameters<CharacterDialogueService["dismissLatestDraftInfluence"]>
+  ) {
     return this.characterDialogueService.dismissLatestDraftInfluence(...args);
   }
 }

@@ -7,17 +7,32 @@ import {
   withoutExecutionScope,
 } from "./executionScope";
 
-type FenceClient = Pick<Prisma.TransactionClient,
-  "directorRunCommand" | "agentRun" | "chapter" | "chapterArtifactSyncCheckpoint" | "comicBatchJob" | "$executeRaw">;
+type FenceClient = Pick<
+  Prisma.TransactionClient,
+  | "directorRunCommand"
+  | "agentRun"
+  | "chapter"
+  | "chapterArtifactSyncCheckpoint"
+  | "comicBatchJob"
+  | "$executeRaw"
+>;
 
 export function isExecutionMutation(operation: string): boolean {
-  return operation.startsWith("create") || operation.startsWith("update")
-    || operation.startsWith("delete") || operation === "upsert"
-    || operation.startsWith("$executeRaw") || operation === "executeRaw";
+  return (
+    operation.startsWith("create") ||
+    operation.startsWith("update") ||
+    operation.startsWith("delete") ||
+    operation === "upsert" ||
+    operation.startsWith("$executeRaw") ||
+    operation === "executeRaw"
+  );
 }
 
 /** Check persisted ownership as well as the local signal; no cached lease decisions. */
-export async function assertExecutionWriteAllowed(client: FenceClient, lock = false): Promise<void> {
+export async function assertExecutionWriteAllowed(
+  client: FenceClient,
+  lock = false,
+): Promise<void> {
   throwIfExecutionAborted();
   const scope = getExecutionScope();
   if (!scope || (scope.writeFenceHeld && !lock)) return;
@@ -27,9 +42,18 @@ export async function assertExecutionWriteAllowed(client: FenceClient, lock = fa
         const job = await client.comicBatchJob.findUnique({ where: { id: fence.jobId } });
         if (!job || job.type !== "episode_image_batch" || job.status !== "running") return 0;
         let progress: { leaseOwner?: string; leaseExpiresAt?: number };
-        try { progress = JSON.parse(job.progress); } catch { return 0; }
-        if (!progress || progress.leaseOwner !== fence.leaseOwner
-          || typeof progress.leaseExpiresAt !== "number" || progress.leaseExpiresAt <= Date.now()) return 0;
+        try {
+          progress = JSON.parse(job.progress);
+        } catch {
+          return 0;
+        }
+        if (
+          !progress ||
+          progress.leaseOwner !== fence.leaseOwner ||
+          typeof progress.leaseExpiresAt !== "number" ||
+          progress.leaseExpiresAt <= Date.now()
+        )
+          return 0;
         if (!lock) return 1;
         // Compare the complete lease snapshot while acquiring the row lock. Never renew here.
         return client.$executeRaw(Prisma.sql`
@@ -49,7 +73,12 @@ export async function assertExecutionWriteAllowed(client: FenceClient, lock = fa
             : { task: { is: { cancelRequestedAt: null, status: { not: "cancelled" as const } } } }),
         };
         return lock
-          ? (await client.directorRunCommand.updateMany({ where, data: { leaseOwner: fence.leaseOwner } })).count
+          ? (
+              await client.directorRunCommand.updateMany({
+                where,
+                data: { leaseOwner: fence.leaseOwner },
+              })
+            ).count
           : await client.directorRunCommand.count({ where });
       }
       if (fence.kind === "chapter_content") {
@@ -59,9 +88,10 @@ export async function assertExecutionWriteAllowed(client: FenceClient, lock = fa
           });
         }
         // A SQL no-op takes the row lock without Prisma advancing updatedAt.
-        const contentMatch = fence.content === null
-          ? Prisma.sql`"content" IS NULL`
-          : Prisma.sql`"content" = ${fence.content}`;
+        const contentMatch =
+          fence.content === null
+            ? Prisma.sql`"content" IS NULL`
+            : Prisma.sql`"content" = ${fence.content}`;
         return client.$executeRaw(Prisma.sql`
           UPDATE "Chapter" SET "content" = "content"
           WHERE "id" = ${fence.chapterId} AND "novelId" = ${fence.novelId} AND ${contentMatch}

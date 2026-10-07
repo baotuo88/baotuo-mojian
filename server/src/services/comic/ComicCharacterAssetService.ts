@@ -12,7 +12,13 @@ import { AppError } from "../../middleware/errorHandler";
 import { filterImageGenerationReferences, runImageGeneration } from "../image/runtime";
 import { buildGenderLockPrompt, resolveComicStyleKeywords } from "./comicStylePrompt";
 import { comicCharacterImageService } from "./ComicCharacterImageService";
-import { assetImageSource, createAssetReferenceAdapter, publishReferenceUpload, referenceSourceFingerprint, resolveReferenceImageFile } from "./assets";
+import {
+  assetImageSource,
+  createAssetReferenceAdapter,
+  publishReferenceUpload,
+  referenceSourceFingerprint,
+  resolveReferenceImageFile,
+} from "./assets";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,11 +58,23 @@ export function assetImageUrl(assetId: string): string {
 }
 
 /** 找已存盘的资产图路径 */
-export async function resolveAssetFile(assetId: string, revision?: string): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
-  const asset = await prisma.comicCharacterAsset.findUnique({ where: { id: assetId },
-    include: { character: true, project: { select: { stylePreset: true } } } });
-  return asset ? resolveReferenceImageFile("asset", assetId, asset.imageData,
-    referenceSourceFingerprint(assetImageSource(asset)), revision) : null;
+export async function resolveAssetFile(
+  assetId: string,
+  revision?: string,
+): Promise<{ filePath: string; mimeType: string; revision?: string } | null> {
+  const asset = await prisma.comicCharacterAsset.findUnique({
+    where: { id: assetId },
+    include: { character: true, project: { select: { stylePreset: true } } },
+  });
+  return asset
+    ? resolveReferenceImageFile(
+        "asset",
+        assetId,
+        asset.imageData,
+        referenceSourceFingerprint(assetImageSource(asset)),
+        revision,
+      )
+    : null;
 }
 
 function buildAssetPrompt(params: {
@@ -69,7 +87,16 @@ function buildAssetPrompt(params: {
   isRefAvailable: boolean;
   styleKeywords: string;
 }): string {
-  const { assetType, name, description, characterName, characterGender, characterVisualAnchor, isRefAvailable, styleKeywords } = params;
+  const {
+    assetType,
+    name,
+    description,
+    characterName,
+    characterGender,
+    characterVisualAnchor,
+    isRefAvailable,
+    styleKeywords,
+  } = params;
   const genderLock = buildGenderLockPrompt(characterGender, characterName);
 
   const typeLabels: Record<CharacterAssetType, string> = {
@@ -119,7 +146,9 @@ function buildAssetPrompt(params: {
       const parsed = JSON.parse(characterVisualAnchor) as Record<string, unknown>;
       const desc = typeof parsed.description === "string" ? parsed.description : "";
       if (desc) lines.push(`character style hint: ${desc}`);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   lines.push(`${styleKeywords}, high quality`);
@@ -193,11 +222,21 @@ export class ComicCharacterAssetService {
 
   // ── 图片上传 ──────────────────────────────────────────────────────────────
 
-  async uploadAssetImage(assetId: string, fileBuffer: Buffer, mimeType: string): Promise<{ url: string }> {
-    const asset = await prisma.comicCharacterAsset.findUnique({ where: { id: assetId },
-      include: { character: true, project: { select: { stylePreset: true } } } });
+  async uploadAssetImage(
+    assetId: string,
+    fileBuffer: Buffer,
+    mimeType: string,
+  ): Promise<{ url: string }> {
+    const asset = await prisma.comicCharacterAsset.findUnique({
+      where: { id: assetId },
+      include: { character: true, project: { select: { stylePreset: true } } },
+    });
     if (!asset) throw new AppError(`资产不存在：${assetId}`, 404);
-    return publishReferenceUpload(createAssetReferenceAdapter<AssetImageData>(asset, true), fileBuffer, mimeType);
+    return publishReferenceUpload(
+      createAssetReferenceAdapter<AssetImageData>(asset, true),
+      fileBuffer,
+      mimeType,
+    );
   }
 
   // ── AI 生成（prepare / generate 共享 buildContext） ──────────────────────
@@ -206,7 +245,9 @@ export class ComicCharacterAssetService {
     const asset = await prisma.comicCharacterAsset.findUnique({
       where: { id: assetId },
       include: {
-        character: { select: { id: true, name: true, gender: true, visualAnchor: true, sheetData: true } },
+        character: {
+          select: { id: true, name: true, gender: true, visualAnchor: true, sheetData: true },
+        },
         project: { select: { stylePreset: true } },
       },
     });
@@ -231,7 +272,9 @@ export class ComicCharacterAssetService {
       referenceImages.push({
         kind: "character_sheet",
         label: `${asset.character.name} · 三视图`,
-        url: `/api/comic/character-images/${asset.character.id}/sheet` + (sheetReference?.revision ? `?revision=${sheetReference.revision}` : ""),
+        url:
+          `/api/comic/character-images/${asset.character.id}/sheet` +
+          (sheetReference?.revision ? `?revision=${sheetReference.revision}` : ""),
       });
     }
 
@@ -248,7 +291,10 @@ export class ComicCharacterAssetService {
   }
 
   /** 预览即将发送给图像模型的全部素材（不消耗 token） */
-  async prepareAssetImage(assetId: string, provider?: string): Promise<import("../image/runtime").ImageGenerationPreview> {
+  async prepareAssetImage(
+    assetId: string,
+    provider?: string,
+  ): Promise<import("../image/runtime").ImageGenerationPreview> {
     const ctx = await this.buildAssetGenerationContext(assetId);
     return {
       kind: ctx.adapter.kind,
@@ -276,13 +322,17 @@ export class ComicCharacterAssetService {
       prompt: overrides?.promptOverride ?? ctx.prompt,
       size: overrides?.sizeOverride ?? ctx.size,
       refImagePaths: refs.refImagePaths,
-      referenceImages: refs.referenceImages && refs.referenceImages.length > 0 ? refs.referenceImages : undefined,
+      referenceImages:
+        refs.referenceImages && refs.referenceImages.length > 0 ? refs.referenceImages : undefined,
     });
   }
 
   // ── 文件服务 ──────────────────────────────────────────────────────────────
 
-  async serveAssetImage(assetId: string, revision?: string): Promise<{ filePath: string; mimeType: string }> {
+  async serveAssetImage(
+    assetId: string,
+    revision?: string,
+  ): Promise<{ filePath: string; mimeType: string }> {
     const resolved = await resolveAssetFile(assetId, revision);
     if (!resolved) throw new AppError(`资产图片未找到：${assetId}`, 404);
     return resolved;

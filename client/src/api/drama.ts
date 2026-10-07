@@ -331,7 +331,7 @@ export type DramaProjectDetail = DramaProject & {
   episodes?: DramaEpisode[];
   videoPrompts?: DramaVideoPrompt[];
   batchJobs?: DramaBatchJob[];
-}
+};
 
 export async function listDramaProjects() {
   const { data } = await apiClient.get<ApiResponse<DramaProject[]>>("/drama/projects");
@@ -349,7 +349,10 @@ export async function getDramaProject(id: string) {
 }
 
 export async function assembleDramaSourceBundle(id: string) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/projects/${id}/source-bundle`, {});
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/projects/${id}/source-bundle`,
+    {},
+  );
   return data;
 }
 
@@ -360,13 +363,19 @@ export async function recommendDramaTrack(payload: {
   theme?: string;
   targetEpisodes?: number;
 }) {
-  const { data } = await apiClient.post<ApiResponse<DramaTrackRecommendation>>("/drama/track-recommendation", payload);
+  const { data } = await apiClient.post<ApiResponse<DramaTrackRecommendation>>(
+    "/drama/track-recommendation",
+    payload,
+  );
   return data;
 }
 
-export async function analyzeDramaSourceSupplement(id: string, payload: DramaLLMOptions & {
-  userSupplement?: string;
-} = {}) {
+export async function analyzeDramaSourceSupplement(
+  id: string,
+  payload: DramaLLMOptions & {
+    userSupplement?: string;
+  } = {},
+) {
   const { data } = await apiClient.post<ApiResponse<DramaSourceSupplementGuidance>>(
     `/drama/projects/${id}/source-supplement`,
     payload,
@@ -375,41 +384,72 @@ export async function analyzeDramaSourceSupplement(id: string, payload: DramaLLM
 }
 
 export async function generateDramaStrategy(id: string, payload: DramaLLMOptions = {}) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/projects/${id}/strategy`, payload);
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/projects/${id}/strategy`,
+    payload,
+  );
   return data;
 }
 
-export async function generateDramaOutline(id: string, payload: DramaLLMOptions & {
-  startOrder?: number;
-  count?: number;
-} = {}) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/projects/${id}/outline`, payload);
+export async function generateDramaOutline(
+  id: string,
+  payload: DramaLLMOptions & {
+    startOrder?: number;
+    count?: number;
+  } = {},
+) {
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/projects/${id}/outline`,
+    payload,
+  );
   return data;
 }
 
-export async function generateDramaEpisodeScript(id: string, order: number, payload: DramaLLMOptions = {}) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/projects/${id}/episodes/${order}/script`, payload);
+export async function generateDramaEpisodeScript(
+  id: string,
+  order: number,
+  payload: DramaLLMOptions = {},
+) {
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/projects/${id}/episodes/${order}/script`,
+    payload,
+  );
   return data;
 }
 
-export async function updateDramaEpisode(id: string, order: number, payload: {
-  expectedRevision: number;
-  title?: string;
-  content?: string;
-  hookOpening?: string | null;
-  cliffhanger?: string | null;
-  durationSec?: number | null;
-}) {
-  const { data } = await apiClient.patch<ApiResponse<DramaEpisode>>(`/drama/projects/${id}/episodes/${order}`, payload, { silentErrorStatuses: [409] });
+export async function updateDramaEpisode(
+  id: string,
+  order: number,
+  payload: {
+    expectedRevision: number;
+    title?: string;
+    content?: string;
+    hookOpening?: string | null;
+    cliffhanger?: string | null;
+    durationSec?: number | null;
+  },
+) {
+  const { data } = await apiClient.patch<ApiResponse<DramaEpisode>>(
+    `/drama/projects/${id}/episodes/${order}`,
+    payload,
+    { silentErrorStatuses: [409] },
+  );
   return data;
 }
 
 export async function reviewDramaEpisode(id: string, order: number, payload: DramaLLMOptions = {}) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/projects/${id}/episodes/${order}/review`, payload);
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/projects/${id}/episodes/${order}/review`,
+    payload,
+  );
   return data;
 }
 
-export async function checkDramaEpisodeCompliance(id: string, order: number, payload: DramaLLMOptions = {}) {
+export async function checkDramaEpisodeCompliance(
+  id: string,
+  order: number,
+  payload: DramaLLMOptions = {},
+) {
   const { data } = await apiClient.post<ApiResponse<DramaComplianceReport>>(
     `/drama/projects/${id}/episodes/${order}/compliance`,
     payload,
@@ -425,10 +465,17 @@ export async function checkDramaProjectCompliance(id: string, payload: DramaLLMO
   return data;
 }
 
-export async function repairDramaEpisode(id: string, order: number, payload: DramaLLMOptions & {
-  instruction?: string;
-} = {}) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/projects/${id}/episodes/${order}/repair`, payload);
+export async function repairDramaEpisode(
+  id: string,
+  order: number,
+  payload: DramaLLMOptions & {
+    instruction?: string;
+  } = {},
+) {
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/projects/${id}/episodes/${order}/repair`,
+    payload,
+  );
   return data;
 }
 
@@ -437,12 +484,23 @@ export async function listDramaCharacters(id: string) {
   return data;
 }
 
-export async function updateDramaCharacter(id: string, characterId: string, payload: Record<string, unknown>) {
-  const { data } = await apiClient.patch<ApiResponse<unknown>>(`/drama/projects/${id}/characters/${characterId}`, payload);
+export async function updateDramaCharacter(
+  id: string,
+  characterId: string,
+  payload: Record<string, unknown>,
+) {
+  const { data } = await apiClient.patch<ApiResponse<unknown>>(
+    `/drama/projects/${id}/characters/${characterId}`,
+    payload,
+  );
   return data;
 }
 
-export async function saveDramaCharacterToLibrary(id: string, characterId: string, tags?: string[]) {
+export async function saveDramaCharacterToLibrary(
+  id: string,
+  characterId: string,
+  tags?: string[],
+) {
   const { data } = await apiClient.post<ApiResponse<unknown>>(
     `/drama/projects/${id}/characters/${characterId}/save-to-library`,
     { tags },
@@ -451,21 +509,34 @@ export async function saveDramaCharacterToLibrary(id: string, characterId: strin
 }
 
 export async function listDramaCharacterLibrary(projectId?: string) {
-  const { data } = await apiClient.get<ApiResponse<DramaCharacterLibraryItem[]>>("/drama/character-library", {
-    params: projectId ? { projectId } : undefined,
-  });
+  const { data } = await apiClient.get<ApiResponse<DramaCharacterLibraryItem[]>>(
+    "/drama/character-library",
+    {
+      params: projectId ? { projectId } : undefined,
+    },
+  );
   return data;
 }
 
 export async function importDramaCharacterFromLibrary(id: string, libraryId: string) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/projects/${id}/character-library/import`, {
-    libraryId,
-  });
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/projects/${id}/character-library/import`,
+    {
+      libraryId,
+    },
+  );
   return data;
 }
 
-export async function generateDramaStoryboard(id: string, order: number, payload: DramaLLMOptions = {}) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/projects/${id}/episodes/${order}/storyboard`, payload);
+export async function generateDramaStoryboard(
+  id: string,
+  order: number,
+  payload: DramaLLMOptions = {},
+) {
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/projects/${id}/episodes/${order}/storyboard`,
+    payload,
+  );
   return data;
 }
 
@@ -484,8 +555,15 @@ export async function listDramaTTSProviders() {
   return data;
 }
 
-export async function generateDramaVideoPrompt(id: string, shotId: string, payload: DramaLLMOptions = {}) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/projects/${id}/shots/${shotId}/video-prompt`, payload);
+export async function generateDramaVideoPrompt(
+  id: string,
+  shotId: string,
+  payload: DramaLLMOptions = {},
+) {
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/projects/${id}/shots/${shotId}/video-prompt`,
+    payload,
+  );
   return data;
 }
 
@@ -498,7 +576,11 @@ export async function generateDramaShotKeyframe(
 ) {
   const { data } = await apiClient.post<ApiResponse<DramaShotKeyframeData>>(
     `/drama/projects/${id}/shots/${shotId}/keyframe`,
-    { ...(provider ? { provider } : {}), ...(useCharacterRefImages ? { useCharacterRefImages } : {}), ...(overrides ?? {}) },
+    {
+      ...(provider ? { provider } : {}),
+      ...(useCharacterRefImages ? { useCharacterRefImages } : {}),
+      ...(overrides ?? {}),
+    },
   );
   return data;
 }
@@ -511,30 +593,47 @@ export async function prepareDramaShotKeyframe(
 ): Promise<ApiResponse<ImageGenerationPreview>> {
   const { data } = await apiClient.post<ApiResponse<ImageGenerationPreview>>(
     `/drama/projects/${id}/shots/${shotId}/keyframe/prepare`,
-    { ...(provider ? { provider } : {}), ...(useCharacterRefImages ? { useCharacterRefImages } : {}) },
+    {
+      ...(provider ? { provider } : {}),
+      ...(useCharacterRefImages ? { useCharacterRefImages } : {}),
+    },
   );
   return data;
 }
 
-export async function createDramaVideoProviderTask(videoPromptId: string, provider: string, confirmResubmit?: boolean) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/video-prompts/${videoPromptId}/provider-task`, {
-    provider,
-    ...(confirmResubmit ? { confirmResubmit: true } : {}),
-  });
+export async function createDramaVideoProviderTask(
+  videoPromptId: string,
+  provider: string,
+  confirmResubmit?: boolean,
+) {
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/video-prompts/${videoPromptId}/provider-task`,
+    {
+      provider,
+      ...(confirmResubmit ? { confirmResubmit: true } : {}),
+    },
+  );
   return data;
 }
 
 export async function refreshDramaVideoProviderTask(videoPromptId: string) {
-  const { data } = await apiClient.post<ApiResponse<unknown>>(`/drama/video-prompts/${videoPromptId}/provider-task/refresh`, {});
+  const { data } = await apiClient.post<ApiResponse<unknown>>(
+    `/drama/video-prompts/${videoPromptId}/provider-task/refresh`,
+    {},
+  );
   return data;
 }
 
-export async function createDramaEpisodeBatchJob(id: string, order: number, payload: {
-  type: DramaBatchJobType;
-  provider?: string;
-  failedShotIds?: string[];
-  useCharacterRefImages?: boolean;
-}) {
+export async function createDramaEpisodeBatchJob(
+  id: string,
+  order: number,
+  payload: {
+    type: DramaBatchJobType;
+    provider?: string;
+    failedShotIds?: string[];
+    useCharacterRefImages?: boolean;
+  },
+) {
   const { data } = await apiClient.post<ApiResponse<DramaBatchJob>>(
     `/drama/projects/${id}/episodes/${order}/batch-jobs`,
     payload,
@@ -542,12 +641,16 @@ export async function createDramaEpisodeBatchJob(id: string, order: number, payl
   return data;
 }
 
-export async function estimateDramaEpisodeBatchJob(id: string, order: number, payload: {
-  type: DramaBatchJobType;
-  provider?: string;
-  failedShotIds?: string[];
-  useCharacterRefImages?: boolean;
-}) {
+export async function estimateDramaEpisodeBatchJob(
+  id: string,
+  order: number,
+  payload: {
+    type: DramaBatchJobType;
+    provider?: string;
+    failedShotIds?: string[];
+    useCharacterRefImages?: boolean;
+  },
+) {
   const { data } = await apiClient.post<ApiResponse<DramaBatchEstimate>>(
     `/drama/projects/${id}/episodes/${order}/batch-jobs/estimate`,
     payload,
@@ -557,14 +660,20 @@ export async function estimateDramaEpisodeBatchJob(id: string, order: number, pa
 
 export async function pauseDramaBatchJob(projectId: string, jobId: string) {
   const { data } = await apiClient.post<ApiResponse<DramaBatchJob>>(
-    `/drama/projects/${projectId}/batch-jobs/${jobId}/pause`, {},
+    `/drama/projects/${projectId}/batch-jobs/${jobId}/pause`,
+    {},
   );
   return data;
 }
 
-export async function resumeDramaBatchJob(projectId: string, jobId: string, confirmAdditionalCost: true) {
+export async function resumeDramaBatchJob(
+  projectId: string,
+  jobId: string,
+  confirmAdditionalCost: true,
+) {
   const { data } = await apiClient.post<ApiResponse<DramaBatchJob>>(
-    `/drama/projects/${projectId}/batch-jobs/${jobId}/resume`, { confirmAdditionalCost },
+    `/drama/projects/${projectId}/batch-jobs/${jobId}/resume`,
+    { confirmAdditionalCost },
   );
   return data;
 }
@@ -579,7 +688,11 @@ export async function downloadDramaExport(id: string, format: "markdown" | "json
 
 export type DramaEpisodeExportFormat = "srt" | "timeline-json";
 
-export async function downloadDramaEpisodeExport(id: string, order: number, format: DramaEpisodeExportFormat) {
+export async function downloadDramaEpisodeExport(
+  id: string,
+  order: number,
+  format: DramaEpisodeExportFormat,
+) {
   const response = await apiClient.get<Blob>(`/drama/projects/${id}/episodes/${order}/export`, {
     params: { format },
     responseType: "blob",
@@ -592,9 +705,9 @@ export async function downloadDramaEpisodeExport(id: string, order: number, form
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getDramaCharacterImageStatus(id: string, characterId: string) {
-  const { data } = await apiClient.get<ApiResponse<{ portrait: DramaCharacterPortraitData; threeView: DramaCharacterThreeViewItem[] }>>(
-    `/drama/projects/${id}/characters/${characterId}/image-status`,
-  );
+  const { data } = await apiClient.get<
+    ApiResponse<{ portrait: DramaCharacterPortraitData; threeView: DramaCharacterThreeViewItem[] }>
+  >(`/drama/projects/${id}/characters/${characterId}/image-status`);
   return data;
 }
 
@@ -634,7 +747,11 @@ export async function generateDramaCharacterPortrait(
   return generateDramaCharacterSheet(id, characterId, provider, overrides);
 }
 
-export async function generateDramaCharacterThreeView(id: string, characterId: string, provider?: string) {
+export async function generateDramaCharacterThreeView(
+  id: string,
+  characterId: string,
+  provider?: string,
+) {
   const { data } = await apiClient.post<ApiResponse<DramaCharacterThreeViewItem[]>>(
     `/drama/projects/${id}/characters/${characterId}/generate-three-view`,
     provider ? { provider } : {},
@@ -686,14 +803,16 @@ export async function listDramaEpisodeRenders(projectId: string, order: number) 
 
 export async function createDramaEpisodeRender(projectId: string, order: number) {
   const { data } = await apiClient.post<ApiResponse<DramaRenderJob>>(
-    `/drama/projects/${projectId}/episodes/${order}/renders`, {},
+    `/drama/projects/${projectId}/episodes/${order}/renders`,
+    {},
   );
   return data;
 }
 
 export async function cancelDramaEpisodeRender(projectId: string, jobId: string) {
   const { data } = await apiClient.post<ApiResponse<DramaRenderJob>>(
-    `/drama/projects/${projectId}/renders/${jobId}/cancel`, {},
+    `/drama/projects/${projectId}/renders/${jobId}/cancel`,
+    {},
   );
   return data;
 }

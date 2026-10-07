@@ -22,11 +22,7 @@ import {
   mergeSeedPayload,
 } from "./novelWorkflow.shared";
 import { getNovelWorkflowLaneDescriptor } from "@ai-novel/shared/types/novelWorkflow";
-import {
-  defaultProgressForStage,
-  mapStageToTab,
-  stageLabel,
-} from "./novelWorkflow.helpers";
+import { defaultProgressForStage, mapStageToTab, stageLabel } from "./novelWorkflow.helpers";
 import { isStaleAutoDirectorRunningTask } from "./autoDirectorStaleTaskRecovery";
 
 export interface NovelWorkflowHealingPort {
@@ -41,7 +37,8 @@ const ACTIVE_STATUSES = ["queued", "running", "waiting_approval"] as const;
 export class NovelWorkflowStoreService {
   public readonly volumeService = new NovelVolumeService();
 
-  public readonly autoDirectorFollowUpNotificationService = new AutoDirectorFollowUpNotificationService();
+  public readonly autoDirectorFollowUpNotificationService =
+    new AutoDirectorFollowUpNotificationService();
 
   private healingPort: NovelWorkflowHealingPort | null = null;
 
@@ -50,36 +47,36 @@ export class NovelWorkflowStoreService {
   }
 
   public updateTaskWithRetry(args: NovelWorkflowTaskUpdateArgs) {
-    return withSqliteRetry(
-      () => prisma.novelWorkflowTask.update(args),
-      { label: "novelWorkflowTask.update" },
-    );
+    return withSqliteRetry(() => prisma.novelWorkflowTask.update(args), {
+      label: "novelWorkflowTask.update",
+    });
   }
 
   public updateTaskManyWithRetry(args: NovelWorkflowTaskUpdateManyArgs) {
-    return withSqliteRetry(
-      () => prisma.novelWorkflowTask.updateMany(args),
-      { label: "novelWorkflowTask.updateMany" },
-    );
+    return withSqliteRetry(() => prisma.novelWorkflowTask.updateMany(args), {
+      label: "novelWorkflowTask.updateMany",
+    });
   }
 
-  private toAutoDirectorEventSnapshot(row: {
-    id: string;
-    novelId: string | null;
-    lane: string;
-    status: string;
-    progress?: number | null;
-    currentStage: string | null;
-    checkpointType: string | null;
-    checkpointSummary?: string | null;
-    currentItemLabel?: string | null;
-    pendingManualRecovery: boolean;
-    updatedAt: Date;
-    seedPayloadJson?: string | null;
-    novel?: {
-      title?: string | null;
-    } | null;
-  } | null): AutoDirectorEventWorkflowSnapshot | null {
+  private toAutoDirectorEventSnapshot(
+    row: {
+      id: string;
+      novelId: string | null;
+      lane: string;
+      status: string;
+      progress?: number | null;
+      currentStage: string | null;
+      checkpointType: string | null;
+      checkpointSummary?: string | null;
+      currentItemLabel?: string | null;
+      pendingManualRecovery: boolean;
+      updatedAt: Date;
+      seedPayloadJson?: string | null;
+      novel?: {
+        title?: string | null;
+      } | null;
+    } | null,
+  ): AutoDirectorEventWorkflowSnapshot | null {
     if (!row || row.lane !== "auto_director") {
       return null;
     }
@@ -141,36 +138,39 @@ export class NovelWorkflowStoreService {
     });
   }
 
-  public async updateWorkflowTaskWithNotifications<T extends {
-    id: string;
-    novelId: string | null;
-    lane: string;
-    status: string;
-    progress?: number | null;
-    currentStage: string | null;
-    checkpointType: string | null;
-    checkpointSummary?: string | null;
-    currentItemLabel?: string | null;
-    pendingManualRecovery: boolean;
-    updatedAt: Date;
-    seedPayloadJson?: string | null;
-  }>(input: {
+  public async updateWorkflowTaskWithNotifications<
+    T extends {
+      id: string;
+      novelId: string | null;
+      lane: string;
+      status: string;
+      progress?: number | null;
+      currentStage: string | null;
+      checkpointType: string | null;
+      checkpointSummary?: string | null;
+      currentItemLabel?: string | null;
+      pendingManualRecovery: boolean;
+      updatedAt: Date;
+      seedPayloadJson?: string | null;
+    },
+  >(input: {
     before: T;
     data: NovelWorkflowTaskUpdateArgs["data"];
     guard?: NovelWorkflowTaskUpdateArgs["where"];
   }): Promise<T> {
     const next = await withSqliteRetry(
-      () => prisma.novelWorkflowTask.update({
-        where: { ...input.guard, id: input.before.id },
-        data: input.data,
-        include: {
-          novel: {
-            select: {
-              title: true,
+      () =>
+        prisma.novelWorkflowTask.update({
+          where: { ...input.guard, id: input.before.id },
+          data: input.data,
+          include: {
+            novel: {
+              select: {
+                title: true,
+              },
             },
           },
-        },
-      }),
+        }),
       { label: "novelWorkflowTask.update" },
     ).catch(async (error: unknown) => {
       if (input.guard && (error as { code?: string })?.code === "P2025") {
@@ -198,14 +198,19 @@ export class NovelWorkflowStoreService {
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
       take: 10,
     });
-    const archived = await getArchivedTaskIdSet("novel_workflow", rows.map((row) => row.id));
+    const archived = await getArchivedTaskIdSet(
+      "novel_workflow",
+      rows.map((row) => row.id),
+    );
     return rows.filter((row) => !archived.has(row.id));
   }
 
   public async getVisibleRowsByNovelId(novelId: string, lane?: NovelWorkflowLane) {
     const rows = await this.getVisibleRowsByNovelIdRaw(novelId, lane);
     const healed = await Promise.all(
-      rows.map((row) => this.healingPort?.healAutoDirectorTaskState(row.id, row) ?? Promise.resolve(false)),
+      rows.map(
+        (row) => this.healingPort?.healAutoDirectorTaskState(row.id, row) ?? Promise.resolve(false),
+      ),
     );
     if (!healed.some(Boolean)) {
       return rows;
@@ -227,7 +232,8 @@ export class NovelWorkflowStoreService {
     if (!existing) {
       return null;
     }
-    const healed = await (this.healingPort?.healAutoDirectorTaskState(taskId, existing) ?? Promise.resolve(false));
+    const healed = await (this.healingPort?.healAutoDirectorTaskState(taskId, existing) ??
+      Promise.resolve(false));
     if (!healed) {
       return existing;
     }
@@ -245,17 +251,25 @@ export class NovelWorkflowStoreService {
 
   public async findActiveTaskByNovelAndLane(novelId: string, lane: NovelWorkflowLane) {
     const rows = await this.getVisibleRowsByNovelId(novelId, lane);
-    return rows.find((row) => ACTIVE_STATUSES.includes(row.status as (typeof ACTIVE_STATUSES)[number])) ?? null;
+    return (
+      rows.find((row) =>
+        ACTIVE_STATUSES.includes(row.status as (typeof ACTIVE_STATUSES)[number]),
+      ) ?? null
+    );
   }
 
   public async listActiveTasksByNovelAndLane(novelId: string, lane: NovelWorkflowLane) {
     const rows = await this.getVisibleRowsByNovelId(novelId, lane);
-    return rows.filter((row) => ACTIVE_STATUSES.includes(row.status as (typeof ACTIVE_STATUSES)[number]));
+    return rows.filter((row) =>
+      ACTIVE_STATUSES.includes(row.status as (typeof ACTIVE_STATUSES)[number]),
+    );
   }
 
-  public async listRecoverableAutoDirectorTasks(options: {
-    includeStaleRunningFlag?: boolean;
-  } = {}) {
+  public async listRecoverableAutoDirectorTasks(
+    options: {
+      includeStaleRunningFlag?: boolean;
+    } = {},
+  ) {
     const rows = await prisma.novelWorkflowTask.findMany({
       where: {
         lane: "auto_director",
@@ -276,15 +290,16 @@ export class NovelWorkflowStoreService {
         updatedAt: true,
       },
     });
-    const archived = await getArchivedTaskIdSet("novel_workflow", rows.map((row) => row.id));
+    const archived = await getArchivedTaskIdSet(
+      "novel_workflow",
+      rows.map((row) => row.id),
+    );
     return rows
       .filter((row) => !archived.has(row.id))
       .map((row) => ({
         id: row.id,
         status: row.status,
-        ...(options.includeStaleRunningFlag
-          ? { stale: isStaleAutoDirectorRunningTask(row) }
-          : {}),
+        ...(options.includeStaleRunningFlag ? { stale: isStaleAutoDirectorRunningTask(row) } : {}),
       }));
   }
 
@@ -322,7 +337,10 @@ export class NovelWorkflowStoreService {
         : buildCreationStudioResumeTarget(input.taskId);
     }
     if (!input.novelId) {
-      return buildNovelCreateResumeTarget(input.taskId, input.lane === "auto_director" ? "director" : null);
+      return buildNovelCreateResumeTarget(
+        input.taskId,
+        input.lane === "auto_director" ? "director" : null,
+      );
     }
     return buildNovelEditResumeTarget({
       novelId: input.novelId,
@@ -353,14 +371,11 @@ export class NovelWorkflowStoreService {
     const novelTitle = input.novelId ? await this.getNovelTitle(input.novelId) : null;
     const initialState = input.initialState;
     const laneDescriptor = getNovelWorkflowLaneDescriptor(input.lane);
-    const initialStage = initialState?.stage
-      ?? laneDescriptor.initialStage;
-    const initialItemKey = initialState?.itemKey
-      ?? laneDescriptor.initialItemKey;
-    const initialItemLabel = initialState?.itemLabel
-      ?? laneDescriptor.initialItemLabel;
-    const initialProgress = initialState?.progress
-      ?? (input.novelId ? defaultProgressForStage(initialStage) : 0);
+    const initialStage = initialState?.stage ?? laneDescriptor.initialStage;
+    const initialItemKey = initialState?.itemKey ?? laneDescriptor.initialItemKey;
+    const initialItemLabel = initialState?.itemLabel ?? laneDescriptor.initialItemLabel;
+    const initialProgress =
+      initialState?.progress ?? (input.novelId ? defaultProgressForStage(initialStage) : 0);
     const created = await prisma.novelWorkflowTask.create({
       data: {
         ...(input.workflowTaskId ? { id: input.workflowTaskId } : {}),

@@ -22,13 +22,15 @@ function createRuntimePackage(overallScore, options = {}) {
         voice: overallScore,
         overall: overallScore,
       },
-      openIssues: [{
-        auditType: "continuity",
-        severity: "medium",
-        evidence: "存在承接问题。",
-        fixSuggestion: "补足承接。",
-        code: "CONTINUITY_GAP",
-      }],
+      openIssues: [
+        {
+          auditType: "continuity",
+          severity: "medium",
+          evidence: "存在承接问题。",
+          fixSuggestion: "补足承接。",
+          code: "CONTINUITY_GAP",
+        },
+      ],
       reports: [],
     },
     context: {
@@ -53,13 +55,15 @@ function createAcceptanceGateUnavailableRuntimePackage(overallScore) {
         voice: overallScore,
         overall: overallScore,
       },
-      openIssues: [{
-        auditType: "continuity",
-        severity: "medium",
-        evidence: "章节接收闸门未返回可用结构化结果，系统保留复查风险。",
-        fixSuggestion: "重新审校章节接收判断，不直接修改正文。",
-        code: "acceptance_gate_unavailable",
-      }],
+      openIssues: [
+        {
+          auditType: "continuity",
+          severity: "medium",
+          evidence: "章节接收闸门未返回可用结构化结果，系统保留复查风险。",
+          fixSuggestion: "重新审校章节接收判断，不直接修改正文。",
+          code: "acceptance_gate_unavailable",
+        },
+      ],
       reports: [],
       hasBlockingIssues: false,
     },
@@ -85,10 +89,12 @@ function createProseRiskRuntimePackage(overallScore, options = {}) {
     audit: {
       ...base.audit,
       openIssues: [issue],
-      reports: [{
-        auditType: "mode_fit",
-        issues: [issue],
-      }],
+      reports: [
+        {
+          auditType: "mode_fit",
+          issues: [issue],
+        },
+      ],
       hasBlockingIssues: severity === "high" || severity === "critical",
     },
     meta: {
@@ -97,9 +103,13 @@ function createProseRiskRuntimePackage(overallScore, options = {}) {
     },
     replanRecommendation: {
       recommended: severity === "high" || severity === "critical",
-      action: severity === "high" || severity === "critical" ? "local_patch_plan" : "continue_with_warning",
+      action:
+        severity === "high" || severity === "critical"
+          ? "local_patch_plan"
+          : "continue_with_warning",
       reason: "Prose quality issue should stay local to the chapter.",
-      blockingIssueIds: severity === "high" || severity === "critical" ? ["prose-negative-flip"] : [],
+      blockingIssueIds:
+        severity === "high" || severity === "critical" ? ["prose-negative-flip"] : [],
       blockingLedgerKeys: [],
       affectedChapterOrders: [],
     },
@@ -155,11 +165,11 @@ test("runPipelineChapterWithRuntime skips review and repair when autoReview is d
       async finalizeChapterTimeline(input) {
         timelineFinalizationCalls.push(input);
       },
-        async markChapterGenerationState(_chapterId, generationState) {
-          generationStates.push(generationState);
-        },
-        async markChapterNeedsRepair() {},
+      async markChapterGenerationState(_chapterId, generationState) {
+        generationStates.push(generationState);
       },
+      async markChapterNeedsRepair() {},
+    },
     "novel-1",
     "chapter-1",
     {
@@ -176,16 +186,18 @@ test("runPipelineChapterWithRuntime skips review and repair when autoReview is d
   assert.equal(finalizeCalled, false);
   assert.equal(timelineFinalizationCalls.length, 0);
   assert.deepEqual(stages, ["generating_chapters"]);
-  assert.deepEqual(savedDrafts, [{
-    content: "生成后的正文",
-    generationState: "drafted",
-    options: {
-      expectedContent: null,
-      scheduleBackgroundSync: false,
-      artifactSyncMode: "adaptive",
-      syncArtifacts: false,
+  assert.deepEqual(savedDrafts, [
+    {
+      content: "生成后的正文",
+      generationState: "drafted",
+      options: {
+        expectedContent: null,
+        scheduleBackgroundSync: false,
+        artifactSyncMode: "adaptive",
+        syncArtifacts: false,
+      },
     },
-  }]);
+  ]);
   assert.equal(finalSyncs.length, 1);
   assert.deepEqual(generationStates, ["approved"]);
   assert.equal(result.reviewExecuted, false);
@@ -328,13 +340,15 @@ test("runPipelineChapterWithRuntime passes confirmed provenance for approved fin
   );
 
   assert.equal(result.pass, true);
-  assert.deepEqual(finalSyncs, [{
-    content: "已有正文",
-    options: {
-      artifactSyncMode: "adaptive",
-      contentProvenance: "confirmed",
+  assert.deepEqual(finalSyncs, [
+    {
+      content: "已有正文",
+      options: {
+        artifactSyncMode: "adaptive",
+        contentProvenance: "confirmed",
+      },
     },
-  }]);
+  ]);
 });
 
 test("runPipelineChapterWithRuntime passes debt provenance for retained failed content", async () => {
@@ -384,13 +398,15 @@ test("runPipelineChapterWithRuntime passes debt provenance for retained failed c
   );
 
   assert.equal(result.pass, false);
-  assert.deepEqual(finalSyncs, [{
-    content: "生成后的正文，保留但待复核。",
-    options: {
-      artifactSyncMode: "adaptive",
-      contentProvenance: "debt",
+  assert.deepEqual(finalSyncs, [
+    {
+      content: "生成后的正文，保留但待复核。",
+      options: {
+        artifactSyncMode: "adaptive",
+        contentProvenance: "debt",
+      },
     },
-  }]);
+  ]);
   assert.deepEqual(result.qualityDebtAttribution.degradedProposalRouting, {
     contentProvenance: "debt",
     routedToPendingReview: true,
@@ -411,13 +427,15 @@ test("runPipelineChapterWithRuntime escalates patch failures to heavy repair and
     output: {
       strategy: "patch_first",
       summary: "补足承接。",
-      patches: [{
-        id: "patch-missing",
-        targetExcerpt: "模型认为存在但正文里没有的片段。",
-        replacement: "替换后的片段。",
-        reason: "目标片段不存在。",
-        issueIds: [],
-      }],
+      patches: [
+        {
+          id: "patch-missing",
+          targetExcerpt: "模型认为存在但正文里没有的片段。",
+          replacement: "替换后的片段。",
+          reason: "目标片段不存在。",
+          issueIds: [],
+        },
+      ],
       requiresFullRewrite: false,
       escalationReason: null,
     },
@@ -489,25 +507,28 @@ test("runPipelineChapterWithRuntime escalates patch failures to heavy repair and
     assert.equal(result.recoverableRepairFailure, null);
     assert.equal(needsRepairMarked, false);
     assert.equal(finalSyncs.length, 1);
-    assert.deepEqual(savedDrafts, [{
-      content: "生成后的正文需要承接。",
-      generationState: "drafted",
-      options: {
-        expectedContent: null,
-        scheduleBackgroundSync: false,
-        artifactSyncMode: "adaptive",
-        syncArtifacts: false,
+    assert.deepEqual(savedDrafts, [
+      {
+        content: "生成后的正文需要承接。",
+        generationState: "drafted",
+        options: {
+          expectedContent: null,
+          scheduleBackgroundSync: false,
+          artifactSyncMode: "adaptive",
+          syncArtifacts: false,
+        },
       },
-    }, {
-      content: "rewritten chapter after safe full repair",
-      generationState: "repaired",
-      options: {
-        expectedContent: "生成后的正文需要承接。",
-        scheduleBackgroundSync: false,
-        artifactSyncMode: "adaptive",
-        syncArtifacts: false,
+      {
+        content: "rewritten chapter after safe full repair",
+        generationState: "repaired",
+        options: {
+          expectedContent: "生成后的正文需要承接。",
+          scheduleBackgroundSync: false,
+          artifactSyncMode: "adaptive",
+          syncArtifacts: false,
+        },
       },
-    }]);
+    ]);
   } finally {
     promptRunner.runStructuredPrompt = originalRunStructuredPrompt;
     promptRunner.setPromptRunnerLLMFactoryForTests();
@@ -529,13 +550,15 @@ test("runPipelineChapterWithRuntime sends critical prose findings to repair and 
       output: {
         strategy: "patch_first",
         summary: "去掉模板化否定翻转。",
-        patches: [{
-          id: "patch-prose-negative-flip",
-          targetExcerpt: "他不是害怕，而是终于明白自己不能回头。",
-          replacement: "他握紧刀柄，指节发白，仍一步踏进雨里。",
-          reason: "把抽象解释改成动作。",
-          issueIds: [],
-        }],
+        patches: [
+          {
+            id: "patch-prose-negative-flip",
+            targetExcerpt: "他不是害怕，而是终于明白自己不能回头。",
+            replacement: "他握紧刀柄，指节发白，仍一步踏进雨里。",
+            reason: "把抽象解释改成动作。",
+            issueIds: [],
+          },
+        ],
         requiresFullRewrite: false,
         escalationReason: null,
       },
@@ -604,11 +627,16 @@ test("runPipelineChapterWithRuntime sends critical prose findings to repair and 
     assert.equal(result.runtimePackage.audit.openIssues[0].code, "prose_negative_flip");
     assert.match(patchIssues[0], /第 1 行/);
     assert.match(patchIssues[0], /模板化否定翻转/);
-    assert.deepEqual(savedDrafts.map((item) => item.generationState), ["drafted", "repaired"]);
+    assert.deepEqual(
+      savedDrafts.map((item) => item.generationState),
+      ["drafted", "repaired"],
+    );
     assert.equal(finalSyncs[0].options.contentProvenance, "debt");
     assert.equal(finalizationCalls.length, 0);
     assert.deepEqual(result.qualityDebtAttribution.firstFailureIssueCodes, ["prose_negative_flip"]);
-    assert.deepEqual(result.qualityDebtAttribution.secondFailureIssueCodes, ["prose_negative_flip"]);
+    assert.deepEqual(result.qualityDebtAttribution.secondFailureIssueCodes, [
+      "prose_negative_flip",
+    ]);
   } finally {
     promptRunner.runStructuredPrompt = originalRunStructuredPrompt;
   }
@@ -623,13 +651,15 @@ test("runPipelineChapterWithRuntime escalates short patch targets to heavy repai
     output: {
       strategy: "patch_first",
       summary: "尝试局部修文。",
-      patches: [{
-        id: "patch-short-target",
-        targetExcerpt: "短",
-        replacement: "替换后的安全句段。",
-        reason: "模型给出了过短定位片段。",
-        issueIds: [],
-      }],
+      patches: [
+        {
+          id: "patch-short-target",
+          targetExcerpt: "短",
+          replacement: "替换后的安全句段。",
+          reason: "模型给出了过短定位片段。",
+          issueIds: [],
+        },
+      ],
       requiresFullRewrite: false,
       escalationReason: null,
     },
@@ -689,13 +719,16 @@ test("runPipelineChapterWithRuntime escalates short patch targets to heavy repai
     assert.equal(result.pass, true);
     assert.equal(result.retryCountUsed, 1);
     assert.equal(result.recoverableRepairFailure, null);
-    assert.deepEqual(savedDrafts, [{
-      content: "生成后的正文需要承接。",
-      generationState: "drafted",
-    }, {
-      content: "rewritten chapter after short patch target",
-      generationState: "repaired",
-    }]);
+    assert.deepEqual(savedDrafts, [
+      {
+        content: "生成后的正文需要承接。",
+        generationState: "drafted",
+      },
+      {
+        content: "rewritten chapter after short patch target",
+        generationState: "repaired",
+      },
+    ]);
   } finally {
     promptRunner.runStructuredPrompt = originalRunStructuredPrompt;
     promptRunner.setPromptRunnerLLMFactoryForTests();
@@ -774,13 +807,18 @@ test("runPipelineChapterWithRuntime defers acceptance gate unavailable risk with
     assert.equal(reviewCount, 1);
     assert.equal(result.pass, false);
     assert.equal(result.retryCountUsed, 0);
-    assert.equal(result.recoverableRepairFailure.message, "章节接收判断暂时不可用，正文已保留，后续需要重新审校或人工复查。");
+    assert.equal(
+      result.recoverableRepairFailure.message,
+      "章节接收判断暂时不可用，正文已保留，后续需要重新审校或人工复查。",
+    );
     assert.deepEqual(result.recoverableRepairFailure.failureTypes, ["review_gate_unavailable"]);
     assert.deepEqual(needsRepairMarked, ["chapter-1"]);
-    assert.deepEqual(savedDrafts, [{
-      content: "生成后的正文可保留。",
-      generationState: "drafted",
-    }]);
+    assert.deepEqual(savedDrafts, [
+      {
+        content: "生成后的正文可保留。",
+        generationState: "drafted",
+      },
+    ]);
   } finally {
     promptRunner.runStructuredPrompt = originalRunStructuredPrompt;
     promptRunner.setPromptRunnerLLMFactoryForTests();
@@ -869,13 +907,16 @@ test("runPipelineChapterWithRuntime forces full rewrite when style source entiti
     assert.equal(reviewCount, 2);
     assert.equal(result.pass, true);
     assert.equal(result.retryCountUsed, 1);
-    assert.deepEqual(savedDrafts, [{
-      content: "北凉王世子踏进城门，所有人都屏住呼吸。",
-      generationState: "drafted",
-    }, {
-      content: "clean rewritten chapter with transferable pacing only",
-      generationState: "repaired",
-    }]);
+    assert.deepEqual(savedDrafts, [
+      {
+        content: "北凉王世子踏进城门，所有人都屏住呼吸。",
+        generationState: "drafted",
+      },
+      {
+        content: "clean rewritten chapter with transferable pacing only",
+        generationState: "repaired",
+      },
+    ]);
   } finally {
     promptRunner.runStructuredPrompt = originalRunStructuredPrompt;
     promptRunner.setPromptRunnerLLMFactoryForTests();
@@ -1067,10 +1108,12 @@ test("runPipelineChapterWithRuntime retries once when writer returns empty conte
   assert.equal(generationCount, 2);
   assert.deepEqual(stages, ["generating_chapters", "generating_chapters", "reviewing"]);
   assert.deepEqual(emptyEvents, [{ attempt: 1, willRetry: true, contentLength: 0 }]);
-  assert.deepEqual(savedDrafts, [{
-    content: "重试后的正文",
-    generationState: "drafted",
-  }]);
+  assert.deepEqual(savedDrafts, [
+    {
+      content: "重试后的正文",
+      generationState: "drafted",
+    },
+  ]);
   assert.equal(result.pass, true);
 });
 
@@ -1081,57 +1124,58 @@ test("runPipelineChapterWithRuntime fails empty writer output without saving or 
   let generationCount = 0;
 
   await assert.rejects(
-    () => runPipelineChapterWithRuntime(
-      {
-        validateRequest(input) {
-          return input;
+    () =>
+      runPipelineChapterWithRuntime(
+        {
+          validateRequest(input) {
+            return input;
+          },
+          async ensureNovelCharacters() {},
+          async assemble() {
+            return {
+              novel: { id: "novel-1", title: "测试小说" },
+              chapter: {
+                id: "chapter-1",
+                title: "第一章",
+                order: 1,
+                content: null,
+                expectation: null,
+              },
+              contextPackage: {},
+            };
+          },
+          async generateDraftFromWriter() {
+            generationCount += 1;
+            return { content: generationCount === 1 ? "" : "\n\n" };
+          },
+          async saveDraftAndArtifacts(_novelId, _chapterId, content, generationState) {
+            savedDrafts.push({ content, generationState });
+          },
+          async syncFinalChapterArtifacts() {},
+          async finalizeChapterContent() {
+            throw new Error("empty drafts should not be reviewed");
+          },
+          async markChapterGenerationState(_chapterId, generationState) {
+            generationStates.push(generationState);
+          },
+          async markChapterNeedsRepair() {},
         },
-        async ensureNovelCharacters() {},
-        async assemble() {
-          return {
-            novel: { id: "novel-1", title: "测试小说" },
-            chapter: {
-              id: "chapter-1",
-              title: "第一章",
-              order: 1,
-              content: null,
-              expectation: null,
-            },
-            contextPackage: {},
-          };
+        "novel-1",
+        "chapter-1",
+        {
+          autoReview: true,
+          autoRepair: true,
         },
-        async generateDraftFromWriter() {
-          generationCount += 1;
-          return { content: generationCount === 1 ? "" : "\n\n" };
+        {
+          async onEmptyContent(event) {
+            emptyEvents.push({
+              attempt: event.attempt,
+              willRetry: event.willRetry,
+              contentLength: event.contentLength,
+            });
+          },
         },
-        async saveDraftAndArtifacts(_novelId, _chapterId, content, generationState) {
-          savedDrafts.push({ content, generationState });
-        },
-        async syncFinalChapterArtifacts() {},
-        async finalizeChapterContent() {
-          throw new Error("empty drafts should not be reviewed");
-        },
-        async markChapterGenerationState(_chapterId, generationState) {
-          generationStates.push(generationState);
-        },
-        async markChapterNeedsRepair() {},
-      },
-      "novel-1",
-      "chapter-1",
-      {
-        autoReview: true,
-        autoRepair: true,
-      },
-      {
-        async onEmptyContent(event) {
-          emptyEvents.push({
-            attempt: event.attempt,
-            willRetry: event.willRetry,
-            contentLength: event.contentLength,
-          });
-        },
-      },
-    ),
+      ),
     ChapterEmptyContentError,
   );
 
@@ -1158,13 +1202,15 @@ test("runPipelineChapterWithRuntime defaults to a single repair pass before stop
     output: {
       strategy: "patch_first",
       summary: "补足承接。",
-      patches: [{
-        id: "patch-1",
-        targetExcerpt: "初审正文需要承接。",
-        replacement: "修后正文补足承接。",
-        reason: "补足承接。",
-        issueIds: [],
-      }],
+      patches: [
+        {
+          id: "patch-1",
+          targetExcerpt: "初审正文需要承接。",
+          replacement: "修后正文补足承接。",
+          reason: "补足承接。",
+          issueIds: [],
+        },
+      ],
       requiresFullRewrite: false,
       escalationReason: null,
     },
@@ -1264,13 +1310,15 @@ test("runPipelineChapterWithRuntime clamps maxRetries to a single repair pass", 
     output: {
       strategy: "patch_first",
       summary: "补足承接。",
-      patches: [{
-        id: "patch-1",
-        targetExcerpt: "初审正文需要承接。",
-        replacement: "修后正文补足承接。",
-        reason: "补足承接。",
-        issueIds: [],
-      }],
+      patches: [
+        {
+          id: "patch-1",
+          targetExcerpt: "初审正文需要承接。",
+          replacement: "修后正文补足承接。",
+          reason: "补足承接。",
+          issueIds: [],
+        },
+      ],
       requiresFullRewrite: false,
       escalationReason: null,
     },

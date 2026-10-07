@@ -6,15 +6,28 @@ import { safeJsonParse } from "./utils/json";
 import type { DramaLLMOptions } from "./DramaStrategyService";
 
 export class DramaRepairService {
-  async repairEpisode(projectId: string, episodeOrder: number, instruction?: string, options: DramaLLMOptions = {}) {
-    const context = await dramaContextAssembler.buildEpisodeContext(projectId, episodeOrder, options);
+  async repairEpisode(
+    projectId: string,
+    episodeOrder: number,
+    instruction?: string,
+    options: DramaLLMOptions = {},
+  ) {
+    const context = await dramaContextAssembler.buildEpisodeContext(
+      projectId,
+      episodeOrder,
+      options,
+    );
     if (!context.episode.content?.trim()) {
       throw new Error(`第 ${episodeOrder} 集尚未生成台本，不能修复。`);
     }
-    const quality = safeJsonParse<{ repairPlan?: { instruction?: string } }>(context.episode.qualityFlags, {});
-    const repairInstruction = instruction?.trim()
-      || quality.repairPlan?.instruction
-      || "修复台本中的钩子、卡点、时长、事实一致或角色一致问题，保留本集剧情目标。";
+    const quality = safeJsonParse<{ repairPlan?: { instruction?: string } }>(
+      context.episode.qualityFlags,
+      {},
+    );
+    const repairInstruction =
+      instruction?.trim() ||
+      quality.repairPlan?.instruction ||
+      "修复台本中的钩子、卡点、时长、事实一致或角色一致问题，保留本集剧情目标。";
     const result = await runStructuredPrompt({
       asset: dramaRepairPrompt,
       promptInput: {
@@ -30,7 +43,8 @@ export class DramaRepairService {
     });
     const output = result.output;
     await commitEpisodeEdit({
-      episodeId: context.episode.id, expectedRevision: context.episode.revision,
+      episodeId: context.episode.id,
+      expectedRevision: context.episode.revision,
       changes: { content: output.content, durationSec: output.durationSec },
       source: "repair",
       facts: output.newlyIntroducedFacts,

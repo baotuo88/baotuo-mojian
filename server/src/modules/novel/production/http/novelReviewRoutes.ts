@@ -12,7 +12,8 @@ type RepairStreamResult = Awaited<ReturnType<ChapterRuntimeCoordinator["createRe
 
 interface RegisterNovelReviewRoutesInput {
   router: Router;
-  novelService: Pick<NovelApplicationServices,
+  novelService: Pick<
+    NovelApplicationServices,
     | "reviewChapter"
     | "auditChapter"
     | "listChapterAuditReports"
@@ -169,33 +170,36 @@ export function registerNovelReviewRoutes(input: RegisterNovelReviewRoutesInput)
     async (req, res, next) => {
       try {
         const { id, chapterId } = req.params as z.infer<typeof chapterParamsSchema>;
-        await runClientSSE(req, res, () => stepModuleRunner.runStep<RepairStreamResult>(
-          DIRECTOR_EXECUTION_STEP_IDS.chapter_repair,
-          {
+        await runClientSSE(req, res, () =>
+          stepModuleRunner.runStep<RepairStreamResult>(DIRECTOR_EXECUTION_STEP_IDS.chapter_repair, {
             novelId: id,
             mode: "manual",
             targetType: "chapter",
             targetChapterId: chapterId,
             stepInput: req.body,
-          },
-        ));
+          }),
+        );
       } catch (error) {
         next(error);
       }
     },
   );
 
-  router.get("/:id/quality-report", validate({ params: idParamsSchema }), async (req, res, next) => {
-    try {
-      const { id } = req.params as z.infer<typeof idParamsSchema>;
-      const data = await novelService.getQualityReport(id);
-      res.status(200).json({
-        success: true,
-        data,
-        message: "Quality report loaded.",
-      } satisfies ApiResponse<typeof data>);
-    } catch (error) {
-      next(error);
-    }
-  });
+  router.get(
+    "/:id/quality-report",
+    validate({ params: idParamsSchema }),
+    async (req, res, next) => {
+      try {
+        const { id } = req.params as z.infer<typeof idParamsSchema>;
+        const data = await novelService.getQualityReport(id);
+        res.status(200).json({
+          success: true,
+          data,
+          message: "Quality report loaded.",
+        } satisfies ApiResponse<typeof data>);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 }

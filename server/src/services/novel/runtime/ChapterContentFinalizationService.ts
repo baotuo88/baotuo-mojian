@@ -1,7 +1,14 @@
 import { createHash } from "node:crypto";
-import type { ChapterRuntimePackage, GenerationContextPackage } from "@ai-novel/shared/types/chapterRuntime";
+import type {
+  ChapterRuntimePackage,
+  GenerationContextPackage,
+} from "@ai-novel/shared/types/chapterRuntime";
 import { prisma } from "../../../db/prisma";
-import { ExecutionStoppedError, isExecutionStoppedError, runWithExecutionScope } from "../../../platform/execution";
+import {
+  ExecutionStoppedError,
+  isExecutionStoppedError,
+  runWithExecutionScope,
+} from "../../../platform/execution";
 import { novelEventBus } from "../../../events";
 import { openConflictService } from "../../state/OpenConflictService";
 import { directorAutomationLedgerEventService } from "../director/runtime/DirectorAutomationLedgerEventService";
@@ -63,13 +70,25 @@ export class ChapterContentFinalizationService {
     this.agentRuntime = deps.agentRuntime;
   }
 
-  async finalizeChapterContent(input: FinalizeChapterContentInput): Promise<FinalizeChapterContentResult> {
-    return runWithExecutionScope({
-      fence: { kind: "chapter_content", novelId: input.novelId, chapterId: input.chapterId, content: input.content },
-    }, () => this.finalizeCurrentChapterContent(input));
+  async finalizeChapterContent(
+    input: FinalizeChapterContentInput,
+  ): Promise<FinalizeChapterContentResult> {
+    return runWithExecutionScope(
+      {
+        fence: {
+          kind: "chapter_content",
+          novelId: input.novelId,
+          chapterId: input.chapterId,
+          content: input.content,
+        },
+      },
+      () => this.finalizeCurrentChapterContent(input),
+    );
   }
 
-  private async finalizeCurrentChapterContent(input: FinalizeChapterContentInput): Promise<FinalizeChapterContentResult> {
+  private async finalizeCurrentChapterContent(
+    input: FinalizeChapterContentInput,
+  ): Promise<FinalizeChapterContentResult> {
     const finalContent = input.content;
     const { acceptance, timelineGate } = await this.qualityGateService.runAcceptanceGateOnly({
       novelId: input.novelId,
@@ -118,12 +137,14 @@ export class ChapterContentFinalizationService {
       runId: input.runId,
       plannerService: this.plannerService,
     });
-    const needsRepair = acceptance.assessment.status === "repairable"
-      || acceptance.assessment.status === "needs_manual_review"
-      || timelineCheck.status === "failed"
-      || runtimePackage.audit.hasBlockingIssues;
+    const needsRepair =
+      acceptance.assessment.status === "repairable" ||
+      acceptance.assessment.status === "needs_manual_review" ||
+      timelineCheck.status === "failed" ||
+      runtimePackage.audit.hasBlockingIssues;
     await this.markChapterStatus(input.chapterId, needsRepair ? "needs_repair" : "pending_review", {
-      novelId: input.novelId, content: finalContent,
+      novelId: input.novelId,
+      content: finalContent,
     });
     if (!needsRepair) {
       // 保证义务账本在下一章 JIT 上下文组装前完成；失败只告警，不阻断定稿返回。
@@ -143,10 +164,13 @@ export class ChapterContentFinalizationService {
           error: error instanceof Error ? error.message : String(error),
         });
       }
-
     }
 
-    if (!needsRepair && input.deferArtifactBackgroundSync && input.scheduleDeferredArtifactBackgroundSync !== false) {
+    if (
+      !needsRepair &&
+      input.deferArtifactBackgroundSync &&
+      input.scheduleDeferredArtifactBackgroundSync !== false
+    ) {
       await this.artifactSyncService.syncChapterArtifacts(
         input.novelId,
         input.chapterId,
@@ -182,7 +206,11 @@ export class ChapterContentFinalizationService {
     };
   }
 
-  async finishTraceRun(runId: string | null, contentLength: number, startMs: number | null): Promise<void> {
+  async finishTraceRun(
+    runId: string | null,
+    contentLength: number,
+    startMs: number | null,
+  ): Promise<void> {
     if (!runId || startMs == null) {
       return;
     }
@@ -205,13 +233,17 @@ export class ChapterContentFinalizationService {
     source?: { novelId: string; content: string | null },
   ): Promise<void> {
     if (source) {
-      await runWithExecutionScope({ fence: { kind: "chapter_content", chapterId, ...source } }, async () => {
-        const result = await prisma.chapter.updateMany({
-          where: { id: chapterId, novelId: source.novelId, content: source.content },
-          data: { chapterStatus },
-        });
-        if (result.count !== 1) throw new ExecutionStoppedError("章节正文发生了变化，旧稿处理结果未应用。");
-      });
+      await runWithExecutionScope(
+        { fence: { kind: "chapter_content", chapterId, ...source } },
+        async () => {
+          const result = await prisma.chapter.updateMany({
+            where: { id: chapterId, novelId: source.novelId, content: source.content },
+            data: { chapterStatus },
+          });
+          if (result.count !== 1)
+            throw new ExecutionStoppedError("章节正文发生了变化，旧稿处理结果未应用。");
+        },
+      );
       return;
     }
     await prisma.chapter.update({
@@ -288,42 +320,48 @@ export class ChapterContentFinalizationService {
     }
 
     const fingerprint = createHash("sha1")
-      .update(JSON.stringify(input.excluded.map((item) => ({
-        text: item.text,
-        reason: item.reason,
-        matchedMissingKind: item.matchedMissingKind ?? null,
-        matchedMissingSummary: item.matchedMissingSummary ?? null,
-      }))))
+      .update(
+        JSON.stringify(
+          input.excluded.map((item) => ({
+            text: item.text,
+            reason: item.reason,
+            matchedMissingKind: item.matchedMissingKind ?? null,
+            matchedMissingSummary: item.matchedMissingSummary ?? null,
+          })),
+        ),
+      )
       .digest("hex")
       .slice(0, 16);
-    await directorAutomationLedgerEventService.recordEvent({
-      type: "continue_with_risk",
-      idempotencyKey: [
-        input.novelId,
-        input.chapterId,
-        input.chapterOrder,
-        "fact-ledger-obligation-filter",
-        fingerprint,
-      ].join(":"),
-      runId: input.runId,
-      novelId: input.novelId,
-      nodeKey: "chapter_execution_node",
-      summary: `本章 ${input.excluded.length} 条义务未由验收确认，未写入事实账本。`,
-      affectedScope: `chapter:${input.chapterId}`,
-      severity: "medium",
-      metadata: {
-        decision: "exclude_unverified_fact_items",
-        chapterOrder: input.chapterOrder,
-        obligationCoverageStatus: input.obligationCoverageStatus,
-        excludedObligations: input.excluded,
-      },
-    }).catch((error) => {
-      if (isExecutionStoppedError(error)) throw error;
-      console.warn("[fact-ledger] skipped obligation exclusion event failed", {
+    await directorAutomationLedgerEventService
+      .recordEvent({
+        type: "continue_with_risk",
+        idempotencyKey: [
+          input.novelId,
+          input.chapterId,
+          input.chapterOrder,
+          "fact-ledger-obligation-filter",
+          fingerprint,
+        ].join(":"),
+        runId: input.runId,
         novelId: input.novelId,
-        chapterId: input.chapterId,
-        error: error instanceof Error ? error.message : String(error),
+        nodeKey: "chapter_execution_node",
+        summary: `本章 ${input.excluded.length} 条义务未由验收确认，未写入事实账本。`,
+        affectedScope: `chapter:${input.chapterId}`,
+        severity: "medium",
+        metadata: {
+          decision: "exclude_unverified_fact_items",
+          chapterOrder: input.chapterOrder,
+          obligationCoverageStatus: input.obligationCoverageStatus,
+          excludedObligations: input.excluded,
+        },
+      })
+      .catch((error) => {
+        if (isExecutionStoppedError(error)) throw error;
+        console.warn("[fact-ledger] skipped obligation exclusion event failed", {
+          novelId: input.novelId,
+          chapterId: input.chapterId,
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
-    });
   }
 }

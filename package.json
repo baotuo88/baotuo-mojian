@@ -37,7 +37,7 @@
     "audit": "pnpm audit --audit-level=moderate",
     "audit:fix": "pnpm audit --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\""
+    "format:check": "node scripts/format-check.cjs"
   },
   "pnpm": {
     "overrides": {
@@ -78,7 +78,6 @@
       "hono@<4.12.21": ">=4.12.21",
       "langsmith@<0.6.0": ">=0.6.0",
       "lodash@>=4.0.0 <=4.17.22": ">=4.17.23",
-      "shell-quote@>=1.1.0 <=1.8.3": ">=1.8.4",
       "axios@>=1.0.0 <1.16.0": ">=1.16.0",
       "axios@>=1.7.0 <1.16.0": ">=1.16.0",
       "esbuild@>=0.27.3 <0.28.1": ">=0.28.1",
@@ -88,7 +87,6 @@
       "morgan@>=1.2.0 <=1.10.1": ">=1.11.0",
       "ws@>=8.0.0 <8.21.0": ">=8.21.0",
       "@babel/core@<=7.29.0": ">=7.29.6",
-      "shell-quote@<=1.8.4": ">=1.9.0",
       "body-parser@>=2.0.0 <2.3.0": ">=2.3.0",
       "hono@<4.12.25": ">=4.12.25",
       "hono@>=4.3.3 <4.12.27": ">=4.12.27",
@@ -117,10 +115,15 @@
       "qs@>=2.2.5 <6.16.0": ">=6.16.0",
       "mysql2@<=3.23.0": ">=3.23.1",
       "baseline-browser-mapping@>=2.0.0 <2.11.0": ">=2.11.0",
-      "sharp@<0.35.4": ">=0.35.4",
+      "sharp@<0.35.5": "~0.35.5",
       "hono@<4.13.5": ">=4.13.5",
       "morgan@<1.12.0": ">=1.12.0",
-      "react-router": ">=7.18.2 <8"
+      "react-router": ">=7.18.2 <8",
+      "proxy-addr@>=2.0.0 <2.0.8": "^2.0.8",
+      "shell-quote@<1.11.0": "^1.11.0",
+      "brace-expansion@>=1.0.0 <1.1.21": "^1.1.21",
+      "brace-expansion@>=5.0.0 <5.0.12": "^5.0.12",
+      "source-map-js@>=1.0.0 <1.2.2": "^1.2.2"
     }
   },
   "devDependencies": {

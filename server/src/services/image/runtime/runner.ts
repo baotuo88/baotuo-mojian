@@ -14,11 +14,7 @@
 import path from "path";
 
 import { AppError } from "../../../middleware/errorHandler";
-import {
-  generateImagesByProvider,
-  isImageProviderSupported,
-  resolveImageModel,
-} from "../provider";
+import { generateImagesByProvider, isImageProviderSupported, resolveImageModel } from "../provider";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 
 import {
@@ -34,7 +30,9 @@ import { describeError, inferExtension, saveImageToDisk } from "./utils";
 const DEFAULT_HISTORY_MAX = 5;
 
 /** 默认归档当前 done 状态为历史条目 */
-function defaultArchive<TState extends GeneratedImageState>(current: TState): GeneratedImageHistoryItem | null {
+function defaultArchive<TState extends GeneratedImageState>(
+  current: TState,
+): GeneratedImageHistoryItem | null {
   if (current.status !== "done") return null;
   return {
     version: current.version ?? 1,
@@ -73,11 +71,16 @@ export async function runImageGeneration<TState extends GeneratedImageState>(
   const versioning = adapter.versioning ?? { enabled: false };
   const archiver = versioning.archiveCurrent ?? defaultArchive;
   const archived = versioning.enabled ? await archiver(existing) : null;
-  const prevHistory: GeneratedImageHistoryItem[] = Array.isArray(existing.history) ? existing.history : [];
-  const nextHistory = (archived ? [...prevHistory, archived] : prevHistory).slice(-(versioning.maxHistory ?? DEFAULT_HISTORY_MAX));
-  const nextVersion = existing.status === "done"
-    ? readVersion(existing) + 1
-    : Math.max(1, readVersion(existing) || 1);
+  const prevHistory: GeneratedImageHistoryItem[] = Array.isArray(existing.history)
+    ? existing.history
+    : [];
+  const nextHistory = (archived ? [...prevHistory, archived] : prevHistory).slice(
+    -(versioning.maxHistory ?? DEFAULT_HISTORY_MAX),
+  );
+  const nextVersion =
+    existing.status === "done"
+      ? readVersion(existing) + 1
+      : Math.max(1, readVersion(existing) || 1);
 
   // 4. 标 generating
   const generatingState = {
@@ -101,7 +104,9 @@ export async function runImageGeneration<TState extends GeneratedImageState>(
       ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
       size: opts.size ?? DEFAULT_RUNTIME_SIZE,
       count: opts.count ?? 1,
-      ...(opts.refImagePaths && opts.refImagePaths.length > 0 ? { refImagePaths: opts.refImagePaths } : {}),
+      ...(opts.refImagePaths && opts.refImagePaths.length > 0
+        ? { refImagePaths: opts.refImagePaths }
+        : {}),
       ...(opts.refImages && opts.refImages.length > 0 ? { refImages: opts.refImages } : {}),
     });
 
@@ -113,7 +118,9 @@ export async function runImageGeneration<TState extends GeneratedImageState>(
     await saveImageToDisk(imageUrl, destPath);
     if (adapter.cleanupOtherExts) await adapter.cleanupOtherExts(ext);
 
-    console.log(`[image.runtime] done kind=${adapter.kind} provider=${provider} model=${model} -> ${path.basename(destPath)}`);
+    console.log(
+      `[image.runtime] done kind=${adapter.kind} provider=${provider} model=${model} -> ${path.basename(destPath)}`,
+    );
 
     // 6. 写 done
     const doneBase: GeneratedImageState = {
@@ -124,9 +131,13 @@ export async function runImageGeneration<TState extends GeneratedImageState>(
       provider,
       generatedAt: new Date().toISOString(),
       history: nextHistory,
-      ...(opts.referenceImages && opts.referenceImages.length > 0 ? { referenceImages: opts.referenceImages } : {}),
+      ...(opts.referenceImages && opts.referenceImages.length > 0
+        ? { referenceImages: opts.referenceImages }
+        : {}),
     };
-    const extraDone = adapter.buildExtraDoneState ? adapter.buildExtraDoneState(doneBase) : ({} as Partial<TState>);
+    const extraDone = adapter.buildExtraDoneState
+      ? adapter.buildExtraDoneState(doneBase)
+      : ({} as Partial<TState>);
     const doneState = { ...existing, ...doneBase, ...extraDone } as TState;
     await adapter.saveState(doneState);
     return doneState;

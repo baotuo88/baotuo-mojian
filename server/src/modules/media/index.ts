@@ -41,8 +41,21 @@ export {
   ttsProviderRegistry,
   videoProviderRegistry,
 } from "./infrastructure/mediaProviderRegistry";
-export { HttpMusicProvider, HttpTTSProvider, HttpVideoProvider } from "./infrastructure/httpJsonProviders";
-export { MockMusicProvider, MockTTSProvider, MockVideoProvider } from "./infrastructure/mockMediaProviders";
+export {
+  HttpMusicProvider,
+  HttpTTSProvider,
+  HttpVideoProvider,
+} from "./infrastructure/httpJsonProviders";
+export {
+  MockMusicProvider,
+  MockTTSProvider,
+  MockVideoProvider,
+} from "./infrastructure/mockMediaProviders";
 export { OpenAiSpeechProvider, OpenAiVideoProvider } from "./infrastructure/openAiProviders";
 export { registerEnvMediaProviders } from "./infrastructure/envMediaProviders";
-export { saveMediaAsset, publishMediaAssetFile, resolveMediaAssetPath, contentTypeForFileName } from "./infrastructure/mediaAssetStore";
+export {
+  saveMediaAsset,
+  publishMediaAssetFile,
+  resolveMediaAssetPath,
+  contentTypeForFileName,
+} from "./infrastructure/mediaAssetStore";

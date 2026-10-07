@@ -1,12 +1,7 @@
 import { prisma } from "../../db/prisma";
 import type { AgentToolName } from "../types";
 import type { AgentToolDefinition } from "./toolTypes";
-import {
-  buildPatchedContent,
-  getChapter,
-  makeDiffSummary,
-  novelService,
-} from "./shared";
+import { buildPatchedContent, getChapter, makeDiffSummary, novelService } from "./shared";
 import {
   applyChapterPatchInputSchema,
   applyChapterPatchOutputSchema,
@@ -116,7 +111,8 @@ export const writeToolDefinitions: Partial<
       }
       const updated = await novelService.updateChapter(input.novelId, input.chapterId, {
         content: after,
-        expectedContent: input.expectedContent === undefined ? chapter.content : input.expectedContent,
+        expectedContent:
+          input.expectedContent === undefined ? chapter.content : input.expectedContent,
       });
       return applyChapterPatchOutputSchema.parse({
         novelId: input.novelId,
